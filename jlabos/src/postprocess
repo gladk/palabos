@@ -1,0 +1,86 @@
+#!/bin/bash
+JLABOS_ROOT=$1
+COMPILER=$2                                                                                          
+FLAGS=$3                                                                                             
+GCC="$COMPILER $FLAGS"                                                                               
+#GCC='gcc -Wl,--no-as-needed -Wl,-Bsymbolic'
+$GCC -o $JLABOS_ROOT/lib/libjlabos_mpi.so -shared \
+       $JLABOS_ROOT/lib/libplbwrapBlock_int_mpi.so \
+       $JLABOS_ROOT/lib/libprecompIntOrFloat_int_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapBlock_float_mpi.so \
+       $JLABOS_ROOT/lib/libprecompIntOrFloat_float_mpi.so \
+       $JLABOS_ROOT/lib/libprecompFloatOnly_float_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapBlock_double_mpi.so \
+       $JLABOS_ROOT/lib/libprecompIntOrFloat_double_mpi.so \
+       $JLABOS_ROOT/lib/libprecompFloatOnly_double_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapLattice_d2q9_float_mpi.so \
+       $JLABOS_ROOT/lib/libprecompLattice_d2q9_float_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapLattice_d2q9_double_mpi.so \
+       $JLABOS_ROOT/lib/libprecompLattice_d2q9_double_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapLattice_d3q19_float_mpi.so \
+       $JLABOS_ROOT/lib/libprecompLattice_d3q19_float_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapLattice_d3q19_double_mpi.so \
+       $JLABOS_ROOT/lib/libprecompLattice_d3q19_double_mpi.so 
+
+$GCC -o jlabos/plb/lib_core.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_core.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so \
+       $JLABOS_ROOT/lib/libplbwrapUtils.so
+
+$GCC -o jlabos/plb/lib_int_block.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_int_block.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_float_block.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_float_block.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_double_block.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_double_block.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_float_d2q9.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_float_d2q9.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_double_d2q9.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_double_d2q9.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_float_d3q19.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_float_d3q19.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+$GCC -o jlabos/plb/lib_double_d3q19.so -shared \
+       $PALABOS_ROOT/lib/libplb_mpi.so \
+       $JLABOS_ROOT/lib/libswig_double_d3q19.so \
+       $JLABOS_ROOT/lib/libjlabos_mpi.so
+
+rm -rf ./jlabos/plb/jlabos
+mkdir -p ./jlabos/plb/jlabos
+#mkdir -p ./jlabos/plb/core
+#mkdir -p ./jlabos/plb/block/myint
+#mkdir -p ./jlabos/plb/block/myfloat
+#mkdir -p ./jlabos/plb/block/mydouble
+#mkdir -p ./jlabos/plb/blockLattice2d/float_d2q9
+#mkdir -p ./jlabos/plb/blockLattice2d/double_d2q9
+#mkdir -p ./jlabos/plb/blockLattice3d/float_d3q19
+#mkdir -p ./jlabos/plb/blockLattice3d/double_d3q19
+
+
+cp ./swig/pre_processed/*.java ./jlabos/plb/jlabos
+#cp ./swig/core/pre_processed/*.java ./jlabos/plb/core/
+#cp ./swig/block/myint/*.java ./jlabos/plb/block/myint/
+#cp ./swig/block/myfloat/*.java ./jlabos/plb/block/myfloat/
+#cp ./swig/block/mydouble/*.java ./jlabos/plb/block/mydouble/
+#cp ./swig/blockLattice2d/float_d2q9/*.java ./jlabos/plb/blockLattice2d/float_d2q9/
+#cp ./swig/blockLattice2d/double_d2q9/*.java ./jlabos/plb/blockLattice2d/double_d2q9/
+#cp ./swig/blockLattice3d/float_d3q19/*.java ./jlabos/plb/blockLattice3d/float_d3q19/
+#cp ./swig/blockLattice3d/double_d3q19/*.java ./jlabos/plb/blockLattice3d/double_d3q19/

@@ -1,0 +1,17 @@
+iteration:
+   maxIter: 4000
+   statIter: 1000 
+   imageBySec: 20
+   vtkBySec:   20
+   checkPointIter: 100
+   tIni: 100
+geometry:
+   lx: 300
+   ly: 300
+simulation:
+   uMax: 0.02
+   Re: 100.0
+   resolution: 30 
+general:
+   files:
+      out: "res"

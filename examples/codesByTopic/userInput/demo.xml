@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<MyApp>
+    <!-- Settings for MyApp -->
+    <Messages>
+        Text of the message
+        <Welcome>Welcome to MyApp</Welcome>
+        <Farewell id="2">Thank you for using MyApp</Farewell>
+    </Messages>
+    <Windows>
+        <Window name="MainFrame" x="5" y="15" w="400" h="250" />
+    </Windows>
+    <Connection ip="192.168.0.1" timeout="123.456000" />
+    <Value>
+        <OneNumber> 12 </OneNumber>
+    </Value>
+    <Nested id="4">
+        <NestedData id="-1">
+            2
+        </NestedData>
+    </Nested>
+
+    <TwoNumbers> 12 24 </TwoNumbers>
+    <OneBool id="3"> true </OneBool>
+
+    <OneFloat> 12.34 </OneFloat>
+
+    <Nested id="2">
+        <NestedData id="-1">
+            3.142
+        </NestedData>
+    </Nested>
+    <Nested id="-1">
+        <NestedData id="-1">
+            -1
+        </NestedData>
+    </Nested>
+    <Nested id="300">
+        <NestedData id="-1">
+            300
+        </NestedData>
+    </Nested>
+</MyApp>

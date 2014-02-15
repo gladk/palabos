@@ -1,0 +1,61 @@
+<?xml version="1.0" ?>
+
+<geometry>
+    <mesh> ./aneurysm.stl </mesh>
+    <!-- Inlet diameter (m). This parameter has no impact on the simulation,
+         and is only used to display the Reynolds number. -->
+    <inletDiameter> 0.012 </inletDiameter>
+    <!-- Average inlet velocity in physical units (m/s). -->
+    <!-- averageInletVelocity> 0.071176 </averageInletVelocity --> 
+    <averageInletVelocity> 0.02 </averageInletVelocity>
+
+    <!-- The STL geometry provided by the user has openings (inlets and outlets).
+         It must not be provided by the user closed. -->
+    <openings>
+        <!-- 0 means x-direction, 1 means y-direction and 2 means z-direction. -->
+        <sortDirection> 2 </sortDirection>
+        <!-- According to the sortDirection, the user provides which openings are
+             inlets and which are outlets. -->
+        <type> Inlet Outlet Outlet </type>
+    </openings>
+</geometry>
+
+<!-- All fluid properties are given in physical units. -->
+<fluid>
+    <kinematicViscosity> 3.7037e-06 </kinematicViscosity>
+    <density> 1080 </density>
+    <volume> 4.82503e-5 </volume>
+</fluid>
+
+<numerics>
+    <!-- The referenceDirection is used for the resolution.
+         0 means x-direction, 1 means y-direction and 2 means z-direction. -->
+    <referenceDirection> 2 </referenceDirection>
+    <!-- The reference resolution is the resolution at the grid refinement level 0. -->
+    <referenceResolution> 100 </referenceResolution>
+    <nuLB> 0.0062 </nuLB>
+</numerics>
+
+<simulation>
+    <!-- Upper limit for time of simulation (s). The simulation may abort
+         earlier if convergence is reached. -->
+    <simTime>  1000 </simTime>
+    <!-- Maximum level for smooth grid refinement. -->
+    <maxLevel> 0      </maxLevel>
+    <epsilon>  1.e-1  </epsilon>
+
+    <performOutput>      True   </performOutput>
+    <doImages>           True   </doImages>
+    <!-- Extrapolation scheme for the off lattice boundary condition. -->
+    <useAllDirections>   True   </useAllDirections>
+    <!-- Use an off lattice boundary condition which is closer in spirit to
+         regularized boundary conditions. -->
+    <useRegularizedWall> True   </useRegularizedWall>
+    <!-- Use an incompressible BGK model or the standard BGK model. -->
+    <useIncompressible>  True   </useIncompressible>
+    <!-- Use Poiseuille profile as an inflow boundary condition, or use
+         a simple plug profile instead. -->
+    <poiseuilleInlet>    True   </poiseuilleInlet>
+    <convectiveScaling>  False  </convectiveScaling>
+</simulation>
+

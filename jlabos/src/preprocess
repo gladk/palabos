@@ -1,0 +1,129 @@
+#!/usr/bin/bash
+JLABOS_ROOT=$1
+RMDIR="/bin/rm -rf"
+MKDIR=/bin/mkdir
+pushd $JLABOS_ROOT/swig
+
+
+echo "Swig-file preparation for module core"
+$RMDIR pre_processed
+$MKDIR pre_processed
+for swigFile in blockStatistics.i  core.i  geometry2D.i  geometry3D.i  globalDefs.i  plbInit.i  plbTimer.i runTimeDiagnostics.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' > "pre_processed/core_"$swigFile
+done
+
+#block int
+echo "Swig-file specialization for module int_block"
+for swigFile in array.i  block.i  dataAnalysisWrapper.i  dataInitializerWrapper.i  global.i  multiBlockGenerator.i  multiDataField.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's/MODULE_NAME/int_block/g' | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's#ARRAY_ELEMENTS#GetIntArrayElements#g' | \
+    sed 's/PRECOMP_T/int/g' > "pre_processed/int_block_"$swigFile
+done
+
+#block double
+echo "Swig-file specialization for module double_block"
+for swigFile in array.i  block.i  dataAnalysisWrapper.i  dataInitializerWrapper.i  global.i  multiBlockGenerator.i  multiDataField.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's/MODULE_NAME/double_block/g' | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's#ARRAY_ELEMENTS#GetDoubleArrayElements#g' | \
+    sed 's/PRECOMP_T/double/g' > "pre_processed/double_block_"$swigFile
+done
+
+#block float
+echo "Swig-file specialization for module float_block"
+for swigFile in array.i  block.i  dataAnalysisWrapper.i  dataInitializerWrapper.i  global.i  multiBlockGenerator.i  multiDataField.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's/MODULE_NAME/float_block/g' | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's#ARRAY_ELEMENTS#GetFloatArrayElements#g' | \
+    sed 's/PRECOMP_T/float/g' > "pre_processed/float_block_"$swigFile
+done
+
+
+#double_d2q9
+echo "Swig-file specialization for module double_d2q9"
+for swigFile in boundaryCondition2D.i  isoThermalDynamics2D.i  javaMultiTensorFieldInterface2D.i  latticeInitializerWrapper2D.i  multiBlockLattice2D.i \
+    blockLattice2d.i  dynamics2D.i             javaInterface2D.i     latticeAnalysisWrapper2D.i         multiBlockGenerator2D.i        numPyInterface2D.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's/MODULE_NAME/double_d2q9/g' | \
+    sed 's/DESCRIPTOR_2D/D2Q9Descriptor/g' | \
+    sed 's#ARRAY_ELEMENTS#GetDoubleArrayElements#g' | \
+    sed 's#PRECOMP_T#double#g' | \
+    sed 's/FLOAT_T/double/g' > "pre_processed/double_d2q9_"$swigFile
+done
+
+#float_d2q9
+echo "Swig-file specialization for module float_d2q9"
+for swigFile in boundaryCondition2D.i  isoThermalDynamics2D.i  javaMultiTensorFieldInterface2D.i  latticeInitializerWrapper2D.i  multiBlockLattice2D.i \
+        blockLattice2d.i  dynamics2D.i             javaInterface2D.i     latticeAnalysisWrapper2D.i         multiBlockGenerator2D.i        numPyInterface2D.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's/MODULE_NAME/float_d2q9/g' | \
+    sed 's/DESCRIPTOR_2D/D2Q9Descriptor/g' | \
+    sed 's#ARRAY_ELEMENTS#GetFloatArrayElements#g' | \
+    sed 's#PRECOMP_T#float#g' | \
+    sed 's/FLOAT_T/float/g' > "pre_processed/float_d2q9_"$swigFile
+done
+
+
+#double_d3q19
+echo "Swig-file specialization for module double_d3q19"
+for swigFile in boundaryCondition3D.i  isoThermalDynamics3D.i  javaMultiTensorFieldInterface3D.i  latticeInitializerWrapper3D.i  multiBlockLattice3D.i \
+    blockLattice3d.i  dynamics3D.i             javaInterface3D.i     latticeAnalysisWrapper3D.i         multiBlockGenerator3D.i        numPyInterface3D.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's/MODULE_NAME/double_d3q19/g' | \
+    sed 's/DESCRIPTOR_3D/D3Q19Descriptor/g' | \
+    sed 's#ARRAY_ELEMENTS#GetDoubleArrayElements#g' | \
+    sed 's#PRECOMP_T#double#g' | \
+    sed 's/FLOAT_T/double/g' > "pre_processed/double_d3q19_"$swigFile
+done
+
+#float_d3q19
+echo "Swig-file specialization for module float_d3q19"
+for swigFile in boundaryCondition3D.i  isoThermalDynamics3D.i  javaMultiTensorFieldInterface3D.i  latticeInitializerWrapper3D.i  multiBlockLattice3D.i \
+    blockLattice3d.i  dynamics3D.i             javaInterface3D.i     latticeAnalysisWrapper3D.i         multiBlockGenerator3D.i        numPyInterface3D.i; do
+    sed 's#PALABOS_ROOT#'$PALABOS_ROOT'#g' <$swigFile | \
+    sed 's#JLABOS_ROOT#'$JLABOS_ROOT'#g' | \
+    sed 's/MODULE_NAME/float_d3q19/g' | \
+    sed 's/DESCRIPTOR_3D/D3Q19Descriptor/g' | \
+    sed 's#ARRAY_ELEMENTS#GetFloatArrayElements#g' | \
+    sed 's#PRECOMP_T#float#g' | \
+    sed 's/FLOAT_T/float/g' > "pre_processed/float_d3q19_"$swigFile
+done
+
+cd ../
+popd # from swig
+
+PRECOMPILED=$JLABOS_ROOT/precompiled
+CP=/bin/cp
+$CP $PRECOMPILED/floatOnly/*.cpp $PRECOMPILED/floatOnly/float/
+$CP $PRECOMPILED/floatOnly/*.cpp $PRECOMPILED/floatOnly/double/
+
+$CP $PRECOMPILED/intOrFloat/*.cpp $PRECOMPILED/intOrFloat/int/
+$CP $PRECOMPILED/intOrFloat/*.cpp $PRECOMPILED/intOrFloat/float/
+$CP $PRECOMPILED/intOrFloat/*.cpp $PRECOMPILED/intOrFloat/double/
+
+$CP $PRECOMPILED/lattice/*.cpp $PRECOMPILED/lattice/d2q9_float/
+$CP $PRECOMPILED/lattice/*.cpp $PRECOMPILED/lattice/d2q9_double/
+
+$CP $PRECOMPILED/lattice/*.cpp $PRECOMPILED/lattice/d3q19_float/
+$CP $PRECOMPILED/lattice/*.cpp $PRECOMPILED/lattice/d3q19_double/
+
+PLB_WRAPPER=$JLABOS_ROOT/plbWrapper
+
+$CP $PLB_WRAPPER/block/*.cpp $PLB_WRAPPER/block/int/
+$CP $PLB_WRAPPER/block/*.cpp $PLB_WRAPPER/block/float/
+$CP $PLB_WRAPPER/block/*.cpp $PLB_WRAPPER/block/double/
+
+$CP $PLB_WRAPPER/lattice/*.cpp $PLB_WRAPPER/lattice/d2q9_float/
+$CP $PLB_WRAPPER/lattice/*.cpp $PLB_WRAPPER/lattice/d2q9_double/
+
+$CP $PLB_WRAPPER/lattice/*.cpp $PLB_WRAPPER/lattice/d3q19_float/
+$CP $PLB_WRAPPER/lattice/*.cpp $PLB_WRAPPER/lattice/d3q19_double/
+

@@ -1,0 +1,14 @@
+For the Palabos-Java interface to work, you must install a list of libraries, and compile Palabos to create the interface. The required libraries are part of all major Linux distributions and are easily installed through the distribution's package system. When your package manager offers plain and a ``-dev`` version of the libraries, you must install both of them.
+The required programs/libraries are:
+
+- Swig
+
+And, of course, you need Java. Optionally, you can install Mayavi2 for better graphics.
+
+To compile the Palabos-Java interface, you need a working MPI installation and a C++ wrapper for MPI (this is usually done by installing either mpich or openmpi through the package manager). Then, follow these steps:
+
+- Find out in which directory the source code of Palabos is located. Define an environment variable ``PALABOS_ROOT`` that holds this directory name. In a bash shell, you would for example type a command like ``export PALABOS_ROOT=/home/joe/palabos-1.0r0/``.
+- Change into the sub-directory ``jlabos/src`` of Palabos. Type ``make``
+- If the compilation is sucessful, change into the sub-directory ``jlabos/examples`` and compile one of the example prior to launch them with the ``launch`` script.
+
+Note that the compilation is slow, and can take as much as half an hour. If the compilation fails with a "file-not-found" error message, this might be due to an improperly installed library. You can circumvent the problem by finding the directory in which the file in question is located, and add the directory to the include paths. For this, add the Makefile, and edit the line ``includePaths=...`` correspondingly.

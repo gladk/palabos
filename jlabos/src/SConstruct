@@ -1,0 +1,293 @@
+###########################################################
+# Configuration file for the compilation of PyPal code,
+# using the SConstruct library.
+# IT IS NOT RECOMMENDED TO MODIFY THIS FILE.
+# Compilation should be personalized by adjusting the 
+# Makefile in the directory of the main source files.
+# See Palabos examples for sample Makefiles.
+###########################################################
+
+import os
+import sys
+import glob
+import distutils.sysconfig
+
+
+argdict = dict(ARGLIST)
+
+# Read input parameters
+palabosRoot   = argdict['palabosRoot']
+jlabosRoot    = argdict['jlabosRoot']
+optimize      = argdict['optimize'].lower() == 'true'
+debug         = argdict['debug'].lower() == 'true'
+profile       = argdict['profile'].lower() == 'true'
+MPIparallel   = argdict['MPIparallel'].lower() == 'true'
+swigCompiler  = argdict['swigCompiler']
+serialCXX     = argdict['serialCXX']
+parallelCXX   = argdict['parallelCXX']
+compileFlags  = Split(argdict['compileFlags'])
+optimFlags    = Split(argdict['optimFlags'])
+debugFlags    = Split(argdict['debugFlags'])
+profileFlags  = Split(argdict['profileFlags'])
+includePaths  = Split(argdict['includePaths'])
+linkFlags     = Split(argdict['linkFlags'])
+
+flags = compileFlags
+
+
+
+plbPaths = [palabosRoot+'/src'] + [palabosRoot+'/externalLibraries'] + [jlabosRoot] + includePaths
+swigPaths = [distutils.sysconfig.get_python_inc()] + plbPaths
+
+if optimize:
+    flags.append(optimFlags)
+
+if debug:
+    flags.append(debugFlags)
+    flags.append('-DPLB_DEBUG')
+
+if profile:
+    flags.append(profileFlags)
+    linkFlags.append(profileFlags)
+
+if MPIparallel:
+    compiler = parallelCXX
+    flags.append('-DPLB_MPI_PARALLEL')
+else:
+    compiler = serialCXX
+
+
+###########################
+# PRECOMPILED PALABOS STUFF
+###########################
+
+
+plbPrecompEnv = Environment ( ENV       = os.environ,
+                              CXX       = compiler,
+                              CXXFLAGS  = flags,
+                              LINKFLAGS = linkFlags,
+                              CPPPATH   = plbPaths
+                            )
+
+plbFloatOnlySrc_float     = glob.glob(jlabosRoot+'/precompiled/floatOnly/float/*.cpp')
+plbFloatOnlySrc_double    = glob.glob(jlabosRoot+'/precompiled/floatOnly/double/*.cpp')
+plbIntOrFloatSrc_int      = glob.glob(jlabosRoot+'/precompiled/intOrFloat/int/*.cpp')
+plbIntOrFloatSrc_float    = glob.glob(jlabosRoot+'/precompiled/intOrFloat/float/*.cpp')
+plbIntOrFloatSrc_double   = glob.glob(jlabosRoot+'/precompiled/intOrFloat/double/*.cpp')
+plbLatticeSrc_d2q9_float  = glob.glob(jlabosRoot+'/precompiled/lattice/d2q9_float/*.cpp')
+plbLatticeSrc_d2q9_double = glob.glob(jlabosRoot+'/precompiled/lattice/d2q9_double/*.cpp')
+plbLatticeSrc_d3q19_float = glob.glob(jlabosRoot+'/precompiled/lattice/d3q19_float/*.cpp')
+plbLatticeSrc_d3q19_double= glob.glob(jlabosRoot+'/precompiled/lattice/d3q19_double/*.cpp')
+
+if MPIparallel:
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompFloatOnly_float_mpi',
+                                 source = plbFloatOnlySrc_float,
+                                 CXXFLAGS = flags + ['-DFLOAT_T=float'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompFloatOnly_double_mpi',
+                                 source = plbFloatOnlySrc_double,
+                                 CXXFLAGS = flags + ['-DFLOAT_T=double'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_int_mpi',
+                                 source = plbIntOrFloatSrc_int,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=int'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_float_mpi',
+                                 source = plbIntOrFloatSrc_float,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=float'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_double_mpi',
+                                 source = plbIntOrFloatSrc_double,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=double'] )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d2q9_float_mpi',
+        source = plbLatticeSrc_d2q9_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=float -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d2q9_double_mpi',
+        source = plbLatticeSrc_d2q9_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=double -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d3q19_float_mpi',
+        source = plbLatticeSrc_d3q19_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=float -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d3q19_double_mpi',
+        source = plbLatticeSrc_d3q19_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=double -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+else:
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompFloatOnly_float',
+                                 source = plbFloatOnlySrc_float,
+                                 CXXFLAGS = flags + ['-DFLOAT_T=float'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompFloatOnly_double',
+                                 source = plbFloatOnlySrc_double,
+                                 CXXFLAGS = flags + ['-DFLOAT_T=double'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_int',
+                                 source = plbIntOrFloatSrc_int,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=int'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_float',
+                                 source = plbIntOrFloatSrc_float,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=float'] )
+    plbPrecompEnv.SharedLibrary( target = jlabosRoot+'/lib/precompIntOrFloat_double',
+                                 source = plbIntOrFloatSrc_double,
+                                 CXXFLAGS = flags + ['-DPRECOMP_T=double'] )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d2q9_float',
+        source = plbLatticeSrc_d2q9_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=float -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d2q9_double',
+        source = plbLatticeSrc_d2q9_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=double -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d3q19_float',
+        source = plbLatticeSrc_d3q19_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=float -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+    plbPrecompEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/precompLattice_d3q19_double',
+        source = plbLatticeSrc_d3q19_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=double -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+
+
+###########################
+# PYPAL WRAPPER CODE
+###########################
+
+plbWrapEnv = Environment ( ENV       = os.environ,
+                           CXX       = compiler,
+                           CXXFLAGS  = flags,
+                           CPPPATH   = plbPaths
+                         )
+
+plbWrapBlockSrc_int    = glob.glob(jlabosRoot+'/plbWrapper/block/int/*.cpp')
+plbWrapBlockSrc_float  = glob.glob(jlabosRoot+'/plbWrapper/block/float/*.cpp')
+plbWrapBlockSrc_double = glob.glob(jlabosRoot+'/plbWrapper/block/double/*.cpp')
+
+plbWrapLatticeSrc_d2q9_float  = glob.glob(jlabosRoot+'/plbWrapper/lattice/d2q9_float/*.cpp')
+plbWrapLatticeSrc_d2q9_double = glob.glob(jlabosRoot+'/plbWrapper/lattice/d2q9_double/*.cpp')
+
+plbWrapLatticeSrc_d3q19_float  = glob.glob(jlabosRoot+'/plbWrapper/lattice/d3q19_float/*.cpp')
+plbWrapLatticeSrc_d3q19_double = glob.glob(jlabosRoot+'/plbWrapper/lattice/d3q19_double/*.cpp')
+
+plbWrapUtils = glob.glob(jlabosRoot+'/plbWrapper/utils/*.cpp')
+
+if MPIparallel:
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapUtils',
+                              source = plbWrapUtils)
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_int_mpi',
+                              source = plbWrapBlockSrc_int,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=int'] )
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_float_mpi',
+                              source = plbWrapBlockSrc_float,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=float'] )
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_double_mpi',
+                              source = plbWrapBlockSrc_double,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=double'] )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d2q9_float_mpi',
+        source = plbWrapLatticeSrc_d2q9_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=float -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d2q9_double_mpi',
+        source = plbWrapLatticeSrc_d2q9_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=double -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d3q19_float_mpi',
+        source = plbWrapLatticeSrc_d3q19_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=float -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d3q19_double_mpi',
+        source = plbWrapLatticeSrc_d3q19_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=double -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+else:
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_int',
+                              source = plbWrapBlockSrc_int,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=int'] )
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_float',
+                              source = plbWrapBlockSrc_float,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=float'] )
+    plbWrapEnv.SharedLibrary( target = jlabosRoot+'/lib/plbwrapBlock_double',
+                              source = plbWrapBlockSrc_double,
+                              CXXFLAGS = flags + ['-DPRECOMP_T=double'] )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d2q9_float',
+        source = plbWrapLatticeSrc_d2q9_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=float -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d2q9_double',
+        source = plbWrapLatticeSrc_d2q9_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_2D -DFLOAT_T=double -DDESCRIPTOR_2D=D2Q9Descriptor '\
+                                 '-DNUMBIT_2D=9') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d3q19_float',
+        source = plbWrapLatticeSrc_d3q19_float,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=float -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+    plbWrapEnv.SharedLibrary( \
+        target = jlabosRoot+'/lib/plbwrapLattice_d3q19_double',
+        source = plbWrapLatticeSrc_d3q19_double,
+        CXXFLAGS = flags + Split('-DCOMPILE_3D -DFLOAT_T=double -DDESCRIPTOR_3D=D3Q19Descriptor '\
+                                 '-DNUMBIT_3D=19') )
+    
+
+###########################
+# SWIG CODE
+###########################
+
+swigEnv = Environment ( ENV       = os.environ,
+                        CXX       = compiler,
+                        SWIG      = swigCompiler,
+                        CXXFLAGS  = flags,
+                        CPPPATH   = swigPaths,
+                        SWIGFLAGS =['-java', '-package', 'jlabos', '-c++', '-Wall' ]
+                      )
+
+conf = Configure(swigEnv)
+if not conf.CheckHeader('jni.h'):
+        print "You need 'jni.h' to compile this program. Please check the Makefile"
+        Exit(1)
+if not conf.CheckHeader('jni_md.h'):
+        print "You need 'jni_md.h to compile this program. Please check the Makefile"
+        Exit(1)
+swigEnv = conf.Finish()
+
+# flags for swig with java
+#     -nopgcpp        - Suppress premature garbage collection prevention parameter
+#     -noproxy        - Generate the low-level functional interface instead
+#                       of proxy classes
+#     -oldvarnames    - old intermediary method names for variable wrappers
+#     -package <name> - set name of the Java package to <name>
+
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_core',
+                       source = jlabosRoot+'/swig/pre_processed/core_core.i' )
+
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_int_block',
+                       source = jlabosRoot+'/swig/pre_processed/int_block_block.i' )
+ 
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_float_block',
+                       source = jlabosRoot+'/swig/pre_processed/float_block_block.i' )
+
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_double_block',
+                       source = jlabosRoot+'/swig/pre_processed/double_block_block.i' )
+
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_float_d2q9',
+                       source = jlabosRoot+'/swig/pre_processed/float_d2q9_blockLattice2d.i' )
+ 
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_double_d2q9',
+                       source = jlabosRoot+'/swig/pre_processed/double_d2q9_blockLattice2d.i' )
+ 
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_float_d3q19',
+                       source = jlabosRoot+'/swig/pre_processed/float_d3q19_blockLattice3d.i' )
+ 
+swigEnv.SharedLibrary( target = jlabosRoot+'/lib/swig_double_d3q19',
+                       source = jlabosRoot+'/swig/pre_processed/double_d3q19_blockLattice3d.i' )
+ 
