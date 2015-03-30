@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -446,6 +446,125 @@ void LatticeInterpolateCoarseToFine2D<T,Descriptor>::process (
     static const int velDimDt =  -1;
     static const int presDimDx =  2;
     static const int presDimDt = -2;
+    //static const int viscDimDx =  2;
+    //static const int viscDimDt = -1;
+    static const int fNeqDimDx =  0;
+    static const int fNeqDimDt = -1;
+    T velScale = scaleFromReference(dxScale, velDimDx, dtScale, velDimDt);
+    T presScale = scaleFromReference(dxScale, presDimDx, dtScale, presDimDt);
+    //T viscScale = scaleFromReference(dxScale, viscDimDx, dtScale, viscDimDt);
+    T fNeqScale = scaleFromReference(dxScale, fNeqDimDx, dtScale, fNeqDimDt);
+
+    Dot2D posFine = fineLattice.getLocation();
+    Dot2D posCoarse = coarseLattice.getLocation();
+    
+    plint stretch = util::intTwoToThePower(-dxScale);
+
+    std::vector<Dot2D> cellPos;
+    std::vector<T> weights;
+    for (plint coarseX=coarseDomain.x0; coarseX<=coarseDomain.x1; ++coarseX) {
+        plint fineX = (coarseX+posCoarse.x)*stretch - posFine.x;
+        for (plint coarseY=coarseDomain.y0; coarseY<=coarseDomain.y1; ++coarseY) {
+            plint fineY = (coarseY+posCoarse.y)*stretch - posFine.y;
+            for (plint iX=fineX-stretch/2+1; iX<=fineX+stretch/2; ++iX) {
+            for (plint iY=fineY-stretch/2+1; iY<=fineY+stretch/2; ++iY) {
+                if (contained(iX,iY, fineLattice.getBoundingBox())) {
+                    T coarseIx = (T)(iX + posFine.x)/(T)stretch;
+                    T coarseIy = (T)(iY + posFine.y)/(T)stretch;
+                    linearInterpolationCoefficients(coarseLattice, Array<T,2> (
+                                coarseIx, coarseIy), cellPos, weights );
+                    plint order = 0;
+                    plint numComponents = 1+Descriptor<T>::d+Descriptor<T>::q+Descriptor<T>::ExternalField::numScalars;
+                    // TODO: For now external scalars are set to zero during conversion. They should be
+                    //   rescaled properly.
+                    std::vector<T> components(numComponents), oldComponents(numComponents);
+                    std::fill(components.begin(), components.end(), 0.);
+                    //T coarse_nu_cs2 = 0.;
+                    components[0] = 1-Descriptor<T>::SkordosFactor(); // Density offset.
+                    for (plint i=0; i<4; ++i) {
+                        Cell<T,Descriptor> const& coarseCell =
+                                coarseLattice.get(cellPos[i].x, cellPos[i].y);
+                        //T coarseOmega = coarseCell.getDynamics().getOmega();
+                        //T tmp_coarse_nu_cs2 = 1./coarseOmega - 0.5;
+                        //coarse_nu_cs2 += weights[i]*tmp_coarse_nu_cs2;
+                        coarseCell.getDynamics().decompose(coarseCell, oldComponents, order);
+                        // 1. rhoBar. Keep the constant term (1), and rescale the remaining term like a pressure.
+                        T pres_cs2 = oldComponents[0]-(1-Descriptor<T>::SkordosFactor());
+                        components[0] += weights[i]*pres_cs2*presScale;
+                        // 2. j.
+                        T velMultFactor = weights[i]*velScale;
+                        for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
+                            components[1+iDim] += velMultFactor*oldComponents[1+iDim];
+                        }
+                        // 3. Off-equilibrium populations.
+                        for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                            components[1+Descriptor<T>::d+iPop] += weights[i]*fNeqScale*
+                                                                    oldComponents[1+Descriptor<T>::d+iPop];
+                        }
+                    }
+                    Cell<T,Descriptor>& fineCell = fineLattice.get(iX,iY);
+                    // Rescaling of the relaxation time has been deactivated for now, because
+                    // it produces numerical instability when a checkpoint file is read and
+                    // scaled. Needs to be fixed at some point.
+                    //
+                    //T fine_nu_cs2 = coarse_nu_cs2*viscScale;
+                    //T coarseOmega = 1. / (coarse_nu_cs2+0.5);
+                    //T fineOmega = 1. / (fine_nu_cs2+0.5);
+                    //T omegaRatio = coarseOmega / fineOmega;
+                    //for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                    //    components[1+Descriptor<T>::d+iPop] *= omegaRatio;
+                    //}
+                    //fineCell.getDynamics().setOmega(fineOmega);
+
+                    fineCell.getDynamics().recompose(fineCell, components, order);
+                }
+            } } 
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+LatticeInterpolateCoarseToFine2D<T,Descriptor>* LatticeInterpolateCoarseToFine2D<T,Descriptor>::clone() const{
+    return new LatticeInterpolateCoarseToFine2D<T,Descriptor>(*this);
+}
+
+
+/* ******************* LatticeLinearInterpolateCoarseToFine2D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>::LatticeLinearInterpolateCoarseToFine2D
+    (plint dxScale_, plint dtScale_)
+        : dxScale(dxScale_), dtScale(dtScale_)
+{
+    // X scale must be negative because the conversion goes from coarse to fine.
+    PLB_ASSERT( dxScale <= -1 );
+}
+
+template<typename T, template<typename U> class Descriptor>
+LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>::LatticeLinearInterpolateCoarseToFine2D(
+            LatticeLinearInterpolateCoarseToFine2D<T,Descriptor> const& rhs)
+        : dxScale(rhs.dxScale), dtScale(rhs.dtScale)
+{ }
+        
+template<typename T, template<typename U> class Descriptor>
+LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>& 
+    LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>::operator= (
+            LatticeLinearInterpolateCoarseToFine2D<T,Descriptor> const& rhs )
+{
+    dxScale = rhs.dxScale;
+    dtScale = rhs.dtScale;
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>::process (
+        Box2D coarseDomain,
+        BlockLattice2D<T,Descriptor>& coarseLattice, BlockLattice2D<T,Descriptor>& fineLattice )
+{
+    static const int velDimDx =   1;
+    static const int velDimDt =  -1;
+    static const int presDimDx =  2;
+    static const int presDimDt = -2;
     static const int viscDimDx =  2;
     static const int viscDimDt = -1;
     static const int fNeqDimDx =  0;
@@ -458,7 +577,7 @@ void LatticeInterpolateCoarseToFine2D<T,Descriptor>::process (
     Dot2D posFine = fineLattice.getLocation();
     Dot2D posCoarse = coarseLattice.getLocation();
     
-    plint stretch = util::twoToThePower(-dxScale);
+    plint stretch = util::intTwoToThePower(-dxScale);
 
     std::vector<Dot2D> cellPos;
     std::vector<T> weights;
@@ -466,16 +585,17 @@ void LatticeInterpolateCoarseToFine2D<T,Descriptor>::process (
         plint fineX = (coarseX+posCoarse.x)*stretch - posFine.x;
         for (plint coarseY=coarseDomain.y0; coarseY<=coarseDomain.y1; ++coarseY) {
             plint fineY = (coarseY+posCoarse.y)*stretch - posFine.y;
-            
-                for (plint iX=fineX-stretch/2+1; iX<=fineX+stretch/2; ++iX) {
-                for (plint iY=fineY-stretch/2+1; iY<=fineY+stretch/2; ++iY) {
-                 if (contained(iX,iY, fineLattice.getBoundingBox())) {
+            for (plint iX=fineX-stretch/2+1; iX<=fineX+stretch/2; ++iX) {
+            for (plint iY=fineY-stretch/2+1; iY<=fineY+stretch/2; ++iY) {
+                if (contained(iX,iY, fineLattice.getBoundingBox())) {
                     T coarseIx = (T)(iX + posFine.x)/(T)stretch;
                     T coarseIy = (T)(iY + posFine.y)/(T)stretch;
-                    linearInterpolationCoefficients( coarseLattice, Array<T,2> (
-                                                     coarseIx, coarseIy), cellPos, weights );
+                    linearInterpolationCoefficients(coarseLattice, Array<T,2> (
+                                coarseIx, coarseIy), cellPos, weights );
                     plint order = 0;
-                    plint numComponents = 1+Descriptor<T>::d+Descriptor<T>::q;
+                    plint numComponents = 1+Descriptor<T>::d+Descriptor<T>::q+Descriptor<T>::ExternalField::numScalars;
+                    // TODO: For now external scalars are set to zero during conversion. They should be
+                    //   rescaled properly.
                     std::vector<T> components(numComponents), oldComponents(numComponents);
                     std::fill(components.begin(), components.end(), 0.);
                     T coarse_nu_cs2 = 0.;
@@ -487,19 +607,13 @@ void LatticeInterpolateCoarseToFine2D<T,Descriptor>::process (
                         T tmp_coarse_nu_cs2 = 1./coarseOmega - 0.5;
                         coarse_nu_cs2 += weights[i]*tmp_coarse_nu_cs2;
                         coarseCell.getDynamics().decompose(coarseCell, oldComponents, order);
-                        T coarseRho = Descriptor<T>::fullRho(oldComponents[0]);
-                        // 1. Density
+                        // 1. rhoBar. Keep the constant term (1), and rescale the remaining term like a pressure.
                         T pres_cs2 = oldComponents[0]-(1-Descriptor<T>::SkordosFactor());
                         components[0] += weights[i]*pres_cs2*presScale;
-                        // 2. Velocity.
-                        Array<T,2> vel;
-                        coarseCell.computeVelocity(vel);
-                        T multFactor = weights[i]*velScale;
-                        if (!coarseCell.getDynamics().velIsJ()) {
-                            multFactor /= coarseRho;
-                        }
+                        // 2. j.
+                        T velMultFactor = weights[i]*velScale;
                         for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
-                            components[1+iDim] += multFactor*oldComponents[1+iDim];
+                            components[1+iDim] += velMultFactor*oldComponents[1+iDim];
                         }
                         // 3. Off-equilibrium populations.
                         for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
@@ -508,31 +622,26 @@ void LatticeInterpolateCoarseToFine2D<T,Descriptor>::process (
                         }
                     }
                     Cell<T,Descriptor>& fineCell = fineLattice.get(iX,iY);
-                    T fineRho = Descriptor<T>::fullRho(components[0]);
-                    if (!fineCell.getDynamics().velIsJ()) {
-                        for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
-                            components[1+iDim] *= fineRho;
-                        }
-                    }
+                    
                     T fine_nu_cs2 = coarse_nu_cs2*viscScale;
                     T coarseOmega = 1. / (coarse_nu_cs2+0.5);
                     T fineOmega = 1. / (fine_nu_cs2+0.5);
                     T omegaRatio = coarseOmega / fineOmega;
                     for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
-                        components[1+Descriptor<T>::d+iPop] *= omegaRatio;
+                       components[1+Descriptor<T>::d+iPop] *= omegaRatio;
                     }
                     fineCell.getDynamics().setOmega(fineOmega);
+
                     fineCell.getDynamics().recompose(fineCell, components, order);
                 }
-                }
-            }
+            } } 
         }
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-LatticeInterpolateCoarseToFine2D<T,Descriptor>* LatticeInterpolateCoarseToFine2D<T,Descriptor>::clone() const{
-    return new LatticeInterpolateCoarseToFine2D<T,Descriptor>(*this);
+LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>* LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>::clone() const{
+    return new LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>(*this);
 }
 
 
@@ -716,6 +825,30 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > refine (
     defineDynamics(*result, result->getBoundingBox(), backgroundDynamics);
     applyProcessingFunctional (
             new LatticeInterpolateCoarseToFine2D<T,Descriptor>(dxScale,dtScale),
+            coarseLattice.getBoundingBox(), coarseLattice, *result );
+                            
+    return std::auto_ptr<MultiBlockLattice2D<T,Descriptor> >(result);
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > linearRefine (
+        MultiBlockLattice2D<T,Descriptor>& coarseLattice,
+        plint dxScale, plint dtScale, Dynamics<T,Descriptor>* backgroundDynamics )
+{
+    PLB_PRECONDITION( dxScale<=-1 );
+    // Relative level is positive when going from coarse to fine.
+    plint relativeLevel = -dxScale;
+    MultiBlockManagement2D management
+        = scaleMultiBlockManagement(coarseLattice.getMultiBlockManagement(),relativeLevel);
+    MultiBlockLattice2D<T,Descriptor>* result = new MultiBlockLattice2D<T,Descriptor> ( 
+                            management,
+                            defaultMultiBlockPolicy2D().getBlockCommunicator(),
+                            defaultMultiBlockPolicy2D().getCombinedStatistics(),
+                            defaultMultiBlockPolicy2D().getMultiCellAccess<T,Descriptor>(),
+                            backgroundDynamics->clone() );
+    defineDynamics(*result, result->getBoundingBox(), backgroundDynamics);
+    applyProcessingFunctional (
+            new LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>(dxScale,dtScale),
             coarseLattice.getBoundingBox(), coarseLattice, *result );
                             
     return std::auto_ptr<MultiBlockLattice2D<T,Descriptor> >(result);

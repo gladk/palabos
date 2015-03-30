@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,7 @@
 #include "multiBlock/serialMultiBlockLattice3D.h"
 #include "parallelism/parallelMultiBlockLattice3D.h"
 #include "multiBlock/serialMultiDataField3D.h"
+#include "multiBlock/serialMultiDataField3D.hh"
 #include "parallelism/parallelMultiDataField3D.h"
 #include "multiBlock/threadAttribution.h"
 #include "multiBlock/staticRepartitions3D.h"
@@ -54,7 +55,7 @@ public:
     BlockCommunicator3D* getBlockCommunicator() {
 #ifdef PLB_MPI_PARALLEL
         if (useBlockingCommunication) {
-            return new ParallelBlockCommunicator3D();
+            return new BlockingCommunicator3D();
         }
         else {
             return new ParallelBlockCommunicator3D();

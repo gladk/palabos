@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,10 @@ namespace plb {
 template<typename T, template<typename U> class Descriptor>
 void punchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
                   T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics, Box3D domain );
+
+template<typename T, template<typename U> class Descriptor>
+void analyticalPunchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
+                            T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics, Box3D domain );
 
 template<typename T, template<typename U> class Descriptor>
 T computeAverageSphereDensity( std::vector<MultiBlock3D*> const& twoPhaseArgs,

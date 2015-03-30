@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,8 +43,28 @@ int main(int argc, char* argv[])
     }
     catch (PlbIOException& exception) {
         pcout << "Wrong parameters; the syntax is: " 
-              << (std::string)global::argv(0) << " inputSTL.stl outputSTL.stl" << std::endl;
+              << (std::string)global::argv(0) << " inputSTL.stl outputSTL.stl [threshold [maxIter]]" << std::endl;
         exit(-1);
+    }
+
+    bool readThreshold = false;
+    T threshold = 0.0;
+    try {
+        global::argv(3).read(threshold);
+        readThreshold = true;
+    }
+    catch (PlbIOException& exception) {
+        readThreshold = false;
+    }
+
+    bool readMaxIter = false;
+    plint maxIter = 0;
+    try {
+        global::argv(4).read(maxIter);
+        readMaxIter = true;
+    }
+    catch (PlbIOException& exception) {
+        readMaxIter = false;
     }
 
     TriangleSet<T>* triangleSet = 0;
@@ -56,7 +76,17 @@ int main(int argc, char* argv[])
               << ": " << exception.what() << std::endl;
         exit(-1);
     }
-    triangleSet->refine();
+
+    if (readMaxIter) {
+        triangleSet->refineRecursively(threshold, maxIter);
+    } else {
+        if (readThreshold) {
+            triangleSet->refine(threshold);
+        } else {
+            triangleSet->refine();
+        }
+    }
+
     try {
         triangleSet->writeBinarySTL(outFileName);
     }
@@ -65,6 +95,8 @@ int main(int argc, char* argv[])
                   << ": " << exception.what() << std::endl;
             exit(-1);
     }
+
+    delete triangleSet;
 
     return 0;
 }

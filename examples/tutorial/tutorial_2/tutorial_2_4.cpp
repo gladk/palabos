@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -96,7 +96,7 @@ void halfCircleSetup (
     setBoundaryDensity (lattice, outlet, rhoOut);
 
     // Create the initial condition.
-    Array<T,2> zeroVelocity(0.,0.);
+    Array<T,2> zeroVelocity((T)0.,(T)0.);
     T constantDensity = (T)1;
     initializeAtEquilibrium (
        lattice, lattice.getBoundingBox(), constantDensity, zeroVelocity );

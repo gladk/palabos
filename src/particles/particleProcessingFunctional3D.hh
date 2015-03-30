@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,8 +28,10 @@
 #include "particles/particleProcessingFunctional3D.h"
 #include "particles/particleField3D.h"
 #include "dataProcessors/metaStuffFunctional3D.h"
+#include "core/geometry3D.h"
 #include "core/plbDebug.h"
 #include "core/blockStatistics.h"
+#include "core/util.h"
 #include "atomicBlock/atomicBlock3D.h"
 #include "atomicBlock/blockLattice3D.h"
 #include <algorithm>
@@ -503,9 +505,9 @@ void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::pro
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 T randNumber = (T)rand() / (T)RAND_MAX;
                 if(randNumber<probabilityPerCell) {
-                    T randX = (T)rand() / (T)RAND_MAX - (T)1;
-                    T randY = (T)rand() / (T)RAND_MAX - (T)1;
-                    T randZ = (T)rand() / (T)RAND_MAX - (T)1;
+                    T randX = (T)rand() / (T)RAND_MAX - (T)0.5;
+                    T randY = (T)rand() / (T)RAND_MAX - (T)0.5;
+                    T randZ = (T)rand() / (T)RAND_MAX - (T)0.5;
                     Array<T,3> position (
                             particleField.getLocation().x + iX + randX,
                             particleField.getLocation().y + iY + randY,
@@ -701,7 +703,7 @@ void MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::processGeneri
     PLB_ASSERT(flagMatrix);
 
     Dot3D loc = particleField->getLocation();
-    Dot3D offset = computeRelativeDisplacement(particleField, flagMatrix);
+    Dot3D offset = computeRelativeDisplacement(*particleField, *flagMatrix);
 
     T dx = 1.0 / (T) nx;
     T dy = 1.0 / (T) ny;
@@ -962,7 +964,7 @@ hasFluidNeighbourLabel:
                                              intWallNormal[1] * intWallNormal[1] + 
                                              intWallNormal[2] * intWallNormal[2];
                     if (norm2intWallNormal != 0) {
-                        T normWallNormal = (T) sqrt((T) norm2intWallNormal);
+                        T normWallNormal = std::sqrt((T) norm2intWallNormal);
                         Array<T,3> wallNormal;
                         wallNormal[0] = (T) intWallNormal[0] / normWallNormal;
                         wallNormal[1] = (T) intWallNormal[1] / normWallNormal;
@@ -1318,7 +1320,21 @@ void addWallParticles (
     applyProcessingFunctional (
             new CreateParticleFromVertexNoTagging3D<T,Descriptor> (
                     boundary.getMesh(),
-                    new RestParticle3D<T,Descriptor>(0, Array<T,3>(0.,0.,0.))),
+                    new RestParticle3D<T,Descriptor>(0, Array<T,3>((T)0.,(T)0.,(T)0.))),
+            particles.getBoundingBox(), particleArg );
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void addWallParticlesGeneric (
+    MultiParticleField3D<ParticleFieldT>& particles,
+    TriangleBoundary3D<T>& boundary )
+{
+    std::vector<MultiBlock3D*> particleArg;
+    particleArg.push_back(&particles);
+    applyProcessingFunctional (
+            new CreateParticleFromVertexNoTagging3D<T,Descriptor> (
+                    boundary.getMesh(),
+                    new RestParticle3D<T,Descriptor>(0, Array<T,3>((T)0.,(T)0.,(T)0.))),
             particles.getBoundingBox(), particleArg );
 }
 
@@ -1404,6 +1420,102 @@ void CountAndAccumulateTaggedParticles3D<T,Descriptor>::getTypeOfModification (
     modified[1] = modif::staticVariables;  // Scalar field.
 }
 
+/* ******** CountAndAccumulateTaggedParticlesRefined3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::CountAndAccumulateTaggedParticlesRefined3D(
+        plint tag_, plint dxScale_)
+    : tag(tag_),
+      dxScale(dxScale_)
+{
+    PLB_PRECONDITION(dxScale <= -1);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::processGenericBlocks(
+        Box3D coarseDomain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_PRECONDITION(blocks.size() == 2);
+
+    ParticleField3D<T,Descriptor>& particleField =
+        *dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    ScalarField3D<plint>& numParticlefield =
+        *dynamic_cast<ScalarField3D<plint>*>(blocks[1]);
+
+    T stretch = util::twoToThePower(-dxScale);
+    Dot3D refinedLocation = numParticlefield.getLocation();
+
+    std::vector<Particle3D<T,Descriptor>*> particles;
+    // Loop over the coarse particle grid and gather the particles.
+    for (plint iX=coarseDomain.x0; iX<=coarseDomain.x1; ++iX) {
+        for (plint iY=coarseDomain.y0; iY<=coarseDomain.y1; ++iY) {
+            for (plint iZ=coarseDomain.z0; iZ<=coarseDomain.z1; ++iZ) {
+                particleField.findParticles(Box3D(iX,iX,iY,iY,iZ,iZ), particles);
+                for (pluint iParticle=0; iParticle<particles.size(); ++iParticle) {
+                    // If the tag is acceptable, transform to the refined coordinates and count.
+                    if (particles[iParticle]->getTag() == tag) {
+                        Array<T,3> refinedParticlePosition = stretch *
+                            particles[iParticle]->getPosition();
+                        plint refinedX = -1;
+                        plint refinedY = -1;
+                        plint refinedZ = -1;
+                        computeGridPosition(refinedParticlePosition, refinedLocation,
+                                refinedX, refinedY, refinedZ);
+                        if (contained(refinedX, refinedY, refinedZ, numParticlefield.getBoundingBox())) {
+                            ++numParticlefield.get(refinedX, refinedY, refinedZ);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>*
+CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::clone() const
+{
+    return new CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::nothing;          // Particle field.
+    modified[1] = modif::staticVariables;  // Scalar field.
+}
+
+template<typename T, template<typename U> class Descriptor>
+plint CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::nearestCell(T pos)
+{
+    T afterComma = pos-floor(pos);
+    if (pos >= (T)0.) {
+        if (afterComma > (T)0.5) {
+            return (plint)(pos+(T)0.75);
+        }
+        else {
+            return (plint)(pos);
+        }
+    }
+    else {
+        if (afterComma > (T)0.5) {
+            return (plint)(pos);
+        }
+        else {
+            return (plint)(pos-(T)0.75);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>::computeGridPosition(
+        Array<T,3> const& position, Dot3D const& location, plint& iX, plint& iY, plint& iZ)
+{
+    iX = nearestCell(position[0]) - location.x;
+    iY = nearestCell(position[1]) - location.y;
+    iZ = nearestCell(position[2]) - location.z;
+}
 
 /* ******** CountTaggedParticles3D *********************************** */
 

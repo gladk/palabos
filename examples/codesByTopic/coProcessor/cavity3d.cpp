@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,10 +55,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     // All walls implement a Dirichlet velocity condition.
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, (T)1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, (T)1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T)1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T)1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -110,9 +110,9 @@ SparseBlockStructure3D createRegularDistribution3D (
     PLB_ASSERT(zVal.size()>=2);
     SparseBlockStructure3D dataGeometry (
             Box3D(xVal[0], xVal.back()-1, yVal[0], yVal.back()-1, zVal[0], zVal.back()-1) );
-    for (plint iX=0; iX<xVal.size()-1; ++iX) {
-        for (plint iY=0; iY<yVal.size()-1; ++iY) {
-            for (plint iZ=0; iZ<zVal.size()-1; ++iZ) {
+    for (plint iX=0; iX<(plint)xVal.size()-1; ++iX) {
+        for (plint iY=0; iY<(plint)yVal.size()-1; ++iY) {
+            for (plint iZ=0; iZ<(plint)zVal.size()-1; ++iZ) {
                 dataGeometry.addBlock (
                         Box3D( xVal[iX], xVal[iX+1]-1, yVal[iY],
                                yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 ),

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -49,7 +49,7 @@ void ComputeSmagoViscosityFunctional3D<T,Descriptor>::process (
                 Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
                 momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
                 T PiNeqNormSqr = SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq);
-                T PiNeqNorm    = sqrt(PiNeqNormSqr);
+                T PiNeqNorm    = std::sqrt(PiNeqNormSqr);
                 T alpha        = preFactor * Descriptor<T>::invRho(rhoBar);
                 T linearTerm   = alpha*PiNeqNorm;
                 T squareTerm   = (T)2*alpha*alpha*PiNeqNormSqr;

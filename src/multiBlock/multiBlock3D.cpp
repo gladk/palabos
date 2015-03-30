@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -584,10 +584,15 @@ void MultiBlock3D::duplicateOverlapsInModifiedMultiBlocks(plint level) {
         duplicateOverlapsAtLevelZero(multiBlocksChangedByAutomaticProcessors[level]);
     }
     else if (level>0) {
-        duplicateOverlapsInModifiedMultiBlocks(multiBlocksChangedByAutomaticProcessors[level]);
+        if (level < (plint)multiBlocksChangedByAutomaticProcessors.size() )
+        {
+            duplicateOverlapsInModifiedMultiBlocks(multiBlocksChangedByAutomaticProcessors[level]);
+        }
     }
     else {  // level < 0
-        duplicateOverlapsInModifiedMultiBlocks(multiBlocksChangedByManualProcessors[-level]);
+        if( -level<(plint)multiBlocksChangedByManualProcessors.size() ) {
+            duplicateOverlapsInModifiedMultiBlocks(multiBlocksChangedByManualProcessors[-level]);
+        }
     }
 }
 
@@ -640,7 +645,7 @@ id_t MultiBlockRegistration3D::announce(MultiBlock3D& block) {
 void MultiBlockRegistration3D::release(MultiBlock3D& block) {
     std::map<id_t,MultiBlock3D*>::iterator it = multiBlocks.find(block.getId());
     if (it == multiBlocks.end()) {
-        plbLogicError("Releasing a block which is not registered.");
+        throw PlbLogicException("Releasing a block which is not registered.");
     }
     else {
         uniqueId.releaseId(it->first);

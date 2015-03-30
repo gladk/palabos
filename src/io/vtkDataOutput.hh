@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,10 +26,12 @@
 #define VTK_DATA_OUTPUT_HH
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "parallelism/mpiManager.h"
 #include "dataProcessors/dataAnalysisWrapper2D.h"
 #include "dataProcessors/dataAnalysisWrapper3D.h"
 #include "dataProcessors/ntensorAnalysisWrapper2D.h"
+#include "dataProcessors/ntensorAnalysisWrapper2D.hh"
 #include "dataProcessors/ntensorAnalysisWrapper3D.h"
 #include "io/vtkDataOutput.h"
 #include "io/serializerIO.h"
@@ -157,10 +159,16 @@ void VtkImageOutput2D<T>::writeData( plint nx, plint ny, plint nDim,
 template<typename T>
 template<typename TConv>
 void VtkImageOutput2D<T>::writeData( ScalarField2D<T>& scalarField,
-                                     std::string scalarFieldName, TConv scalingFactor )
+                                     std::string scalarFieldName, TConv scalingFactor,
+                                     TConv additiveOffset )
 {
     std::auto_ptr<ScalarField2D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     writeData<TConv> (
             scalarField.getNx(), scalarField.getNy(), 1,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -170,10 +178,16 @@ void VtkImageOutput2D<T>::writeData( ScalarField2D<T>& scalarField,
 template<typename T>
 template<typename TConv>
 void VtkImageOutput2D<T>::writeData( MultiScalarField2D<T>& scalarField,
-                                     std::string scalarFieldName, TConv scalingFactor )
+                                     std::string scalarFieldName, TConv scalingFactor,
+                                     TConv additiveOffset )
 {
     std::auto_ptr<MultiScalarField2D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     writeData<TConv> (
             scalarField.getNx(), scalarField.getNy(), 1,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -186,7 +200,9 @@ void VtkImageOutput2D<T>::writeData( TensorField2D<T,n>& tensorField,
                                      std::string tensorFieldName, TConv scalingFactor )
 {
     std::auto_ptr<TensorField2D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     writeData<TConv> (
             tensorField.getNx(), tensorField.getNy(), n,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -199,7 +215,9 @@ void VtkImageOutput2D<T>::writeData( MultiTensorField2D<T,n>& tensorField,
                                      std::string tensorFieldName, TConv scalingFactor )
 {
     std::auto_ptr<MultiTensorField2D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     writeData<TConv> (
             tensorField.getNx(), tensorField.getNy(), n,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -295,10 +313,16 @@ void VtkImageOutput3D<T>::writeData( Box3D boundingBox, plint nDim,
 template<typename T>
 template<typename TConv>
 void VtkImageOutput3D<T>::writeData( ScalarField3D<T>& scalarField,
-                                     std::string scalarFieldName, TConv scalingFactor )
+                                     std::string scalarFieldName, TConv scalingFactor,
+                                     TConv additiveOffset )
 {
     std::auto_ptr<ScalarField3D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     writeData<TConv> (
             scalarField.getNx(), scalarField.getNy(), scalarField.getNz(), 1,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -308,10 +332,16 @@ void VtkImageOutput3D<T>::writeData( ScalarField3D<T>& scalarField,
 template<typename T>
 template<typename TConv>
 void VtkImageOutput3D<T>::writeData( MultiScalarField3D<T>& scalarField,
-                                     std::string scalarFieldName, TConv scalingFactor )
+                                     std::string scalarFieldName, TConv scalingFactor,
+                                     TConv additiveOffset )
 {
     std::auto_ptr<MultiScalarField3D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     writeData<TConv> (
             scalarField.getBoundingBox(), 1,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -324,7 +354,9 @@ void VtkImageOutput3D<T>::writeData( TensorField3D<T,n>& tensorField,
                                      std::string tensorFieldName, TConv scalingFactor )
 {
     std::auto_ptr<TensorField3D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     writeData<TConv> (
             tensorField.getNx(), tensorField.getNy(), tensorField.getNz(), n,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
@@ -337,7 +369,9 @@ void VtkImageOutput3D<T>::writeData( MultiTensorField3D<T,n>& tensorField,
                                      std::string tensorFieldName, TConv scalingFactor )
 {
     std::auto_ptr<MultiTensorField3D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     writeData<TConv> (
             tensorField.getBoundingBox(), n,
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),

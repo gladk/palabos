@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -144,6 +144,10 @@ public:
     /// Apply first collision, then streaming step to the whole domain
     virtual void collideAndStream();
     /// Increment time counter
+    /** Warning: don't call this method manually. Instead, call incrementTime()
+     *  on the multi-block lattice. Otherwise, the internal time of the multi-block
+     *  and the atomic-blocks get out of sync.
+     **/
     virtual void incrementTime();
     /// Get access to data transfer between blocks
     virtual BlockLatticeDataTransfer2D<T,Descriptor>& getDataTransfer();

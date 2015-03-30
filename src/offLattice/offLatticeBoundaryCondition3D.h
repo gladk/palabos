@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -65,6 +65,8 @@ public:
     std::auto_ptr<MultiTensorField3D<T,3> > computeVorticity();
     std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm(Box3D domain);
     std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm();
+    std::auto_ptr<MultiScalarField3D<T> > computeVorticityNorm(Box3D domain);
+    std::auto_ptr<MultiScalarField3D<T> > computeVorticityNorm();
     std::auto_ptr<MultiScalarField3D<T> > computeVelocityComponent(Box3D domain, plint iComp);
     std::auto_ptr<MultiScalarField3D<T> > computeVelocityComponent(plint iComp);
     std::auto_ptr<MultiScalarField3D<T> > computePressure(Box3D domain);
@@ -80,12 +82,17 @@ public:
     std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> > computeShearStress();
     std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> > computeShearStress(Box3D domain);
     T computeAverageVelocityComponent(Box3D domain, plint iComponent);
+    Array<T,3> computeAverageVelocity(Box3D domain);
     T computeAverageDensity(Box3D domain);
     T computeAverageDensity();
     T computeAverageEnergy(Box3D domain);
     T computeAverageEnergy();
     T computeRMSvorticity(Box3D domain);
     T computeRMSvorticity();
+    T computeAverageShearStressNorm(Box3D domain);
+    T computeAverageShearStressNorm();
+    T computeRMSshearStressNorm(Box3D domain);
+    T computeRMSshearStressNorm();
 private:
     VoxelizedDomain3D<T>& voxelizedDomain;
     MultiBlockLattice3D<T,Descriptor>& lattice;

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -78,11 +78,11 @@ void RegularizedClosure ( Cell<T,Descriptor>& cell, Dynamics<T,Descriptor> const
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> adTempl;
     
     T rhoBar = dynamics.computeRhoBar(cell);
-    T* u = cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt);
+    T* u = cell.getExternal(D::ExternalField::velocityBeginsAt);
     Array<T,D::d> jEq;
     for (plint iD = 0; iD < D::d; ++iD)
     {
-        jEq[iD] = Descriptor<T>::fullRho(rhoBar) * u[iD];
+        jEq[iD] = D::fullRho(rhoBar) * u[iD];
     }
     plint missingNormal = 0;
     std::vector<plint> missingDiagonal = indexTemplates::subIndexOutgoing<D,direction,orientation>();
@@ -217,7 +217,96 @@ template<typename T, template<typename U> class Descriptor, int direction, int o
 void RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
         completePopulations(Cell<T,Descriptor>& cell) const
 {
-    RegularizedClosure<T,Descriptor,direction,orientation>(cell, *this);
+    // RegularizedClosure<T,Descriptor,direction,orientation>(cell, *this);
+
+    typedef Descriptor<T> D;
+    
+    T rhoBar = this->computeRhoBar(cell);
+    
+    Array<T,D::d> jEq, jNeq; 
+    jEq.from_cArray(cell.getExternal(D::ExternalField::velocityBeginsAt));
+    jEq *= D::fullRho(rhoBar);
+    
+    T jEqSqr = VectorTemplate<T,Descriptor>::normSqr(jEq);
+    boundaryTemplates<T,Descriptor,direction,orientation>::compute_jNeq(
+         cell.getDynamics(), cell, rhoBar, jEq, jEqSqr, jNeq );
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> dummyPiNeq;
+    cell.getDynamics().regularize(cell, rhoBar, jEq+jNeq, T(), dummyPiNeq);
+}
+
+
+// ============= flat wall complete regularized boundary ==================//
+
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::id =
+    meta::registerGeneralDynamics<T,Descriptor, RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation> > (
+            std::string("Boundary_CompleteRegularizedAdvectionDiffusion")+util::val2str(direction) +
+            std::string("_")+util::val2str(orientation) );
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
+        RegularizedCompleteAdvectionDiffusionBoundaryDynamics (Dynamics<T,Descriptor>* baseDynamics, bool automaticPrepareCollision )
+    : StoreDensityDynamics<T,Descriptor>(baseDynamics,automaticPrepareCollision)
+{ }
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::RegularizedCompleteAdvectionDiffusionBoundaryDynamics (
+        HierarchicUnserializer& unserializer )
+    : StoreDensityDynamics<T,Descriptor>(0, false)
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>*
+    RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor, direction, orientation>::clone() const
+{
+    return new RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+int RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
+{
+    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
+{
+    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
+        completePopulations(Cell<T,Descriptor>& cell) const
+{
+    typedef Descriptor<T> D;
+    
+    T phiBar = this->computeRhoBar(cell);
+    
+    Array<T,D::d> jEq, jNeq; 
+    jEq.from_cArray(cell.getExternal(D::ExternalField::velocityBeginsAt));
+    jEq *= D::fullRho(phiBar);
+    
+    T rhoBar = *cell.getExternal(D::ExternalField::rhoBarBeginsAt);
+    T rho = D::fullRho(rhoBar);
+    T phi = D::fullRho(phiBar);
+    
+    T rhoPhiBar = D::rhoBar(rho*phi);
+    T jEqSqr = VectorTemplate<T,Descriptor>::normSqr(jEq);
+    boundaryTemplates<T,Descriptor,direction,orientation>::compute_jNeq(
+         cell.getDynamics(), cell, rhoPhiBar, jEq, jEqSqr, jNeq );
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> dummyPiNeq;
+    cell.getDynamics().regularize(cell, rhoPhiBar, jEq+jNeq, T(), dummyPiNeq);
 }
 
 // =============== 2D corners ===================//
@@ -274,11 +363,11 @@ void AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>::completeP
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> adTempl;
     
     T rhoBar = this->computeRhoBar(cell);
-    T* u = cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt);
+    T* u = cell.getExternal(D::ExternalField::velocityBeginsAt);
     Array<T,D::d> jEq;
     for (plint iD = 0; iD < D::d; ++iD)
     {
-        jEq[iD] = Descriptor<T>::fullRho(rhoBar) * u[iD];
+        jEq[iD] = D::fullRho(rhoBar) * u[iD];
     }
     // I need to get Missing information on the corners !!!!
     std::vector<plint> unknownIndexes = utilAdvDiff::subIndexOutgoing2DonCorners<D,xNormal,yNormal>();
@@ -352,11 +441,11 @@ void AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>::c
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> adTempl;
     
     T rhoBar = this->computeRhoBar(cell);
-    T* u = cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt);
+    T* u = cell.getExternal(D::ExternalField::velocityBeginsAt);
     Array<T,D::d> jEq;
     for (plint iD = 0; iD < D::d; ++iD)
     {
-        jEq[iD] = Descriptor<T>::fullRho(rhoBar) * u[iD];
+        jEq[iD] = D::fullRho(rhoBar) * u[iD];
     }
     // I need to get Missing information on the corners !!!!
     std::vector<plint> unknownIndexes = utilAdvDiff::subIndexOutgoing3DonCorners<D,xNormal,yNormal,zNormal>();
@@ -428,7 +517,7 @@ void AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1, normal2>::comp
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> adTempl;
     
     T rhoBar = this->computeRhoBar(cell);
-    T* u = cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt);
+    T* u = cell.getExternal(D::ExternalField::velocityBeginsAt);
     Array<T,D::d> jEq;
     for (plint iD = 0; iD < D::d; ++iD)
     {

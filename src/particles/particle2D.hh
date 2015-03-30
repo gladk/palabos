@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -85,12 +85,28 @@ bool Particle2D<T,Descriptor>::getVector(plint whichVector, Array<T,2>& vector) 
 }
 
 template<typename T, template<typename U> class Descriptor>
+bool Particle2D<T,Descriptor>::setVector(plint whichVector, Array<T,2> const& vector) {
+    return false;
+}
+
+template<typename T, template<typename U> class Descriptor>
 bool Particle2D<T,Descriptor>::getScalar(plint whichScalar, T& scalar) const {
     return false;
 }
 
 template<typename T, template<typename U> class Descriptor>
+bool Particle2D<T,Descriptor>::setScalar(plint whichScalar, T scalar) {
+    return false;
+}
+
+template<typename T, template<typename U> class Descriptor>
 bool Particle2D<T,Descriptor>::getTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,2>::n>& tensor) const
+{
+    return false;
+}
+
+template<typename T, template<typename U> class Descriptor>
+bool Particle2D<T,Descriptor>::setTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,2>::n> const& tensor)
 {
     return false;
 }
@@ -176,42 +192,61 @@ void PointParticle2D<T,Descriptor>::rhoBarJtoParticle (
 template<typename T, template<typename U> class Descriptor>
 void PointParticle2D<T,Descriptor>::fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling)
 {
-    Array<T,2> position1(this->getPosition());
-    std::vector<Dot2D> pos(4);
-    std::vector<T> weights(4);
-    linearInterpolationCoefficients(fluid, position1, pos, weights);
+    static const T maxVel = 0.25-1.e-6;
+    static const T maxVelSqr = maxVel*maxVel;
+#ifdef PLB_DEBUG
+    Box2D bbox(fluid.getBoundingBox());
+#endif
+    Dot2D loc(fluid.getLocation());
+    Array<T,2> position1(this->getPosition()-Array<T,2>(loc.x,loc.y));
+    PLB_ASSERT( position1[0] >= bbox.x0+0.5 );
+    PLB_ASSERT( position1[0] <= bbox.x1-0.5 );
+    PLB_ASSERT( position1[1] >= bbox.y0+0.5 );
+    PLB_ASSERT( position1[1] <= bbox.y1-0.5 );
+
+    Dot2D intPos( (plint)position1[0], (plint)position1[1] );
+    T u = position1[0] - (T)intPos.x;
+    T v = position1[1] - (T)intPos.y;
+
     Array<T,2> tmpVel;
-    Array<T,2> velocity1;
-    velocity1.resetToZero();
-    for (plint iCell=0; iCell<4; ++iCell) {
-        // TODO The following condition should never occur, but it is observed
-        //      to occur sometimes. In particular, it lead to an assertion being
-        //      raised in the two-viscosity code. It is likely that this happens
-        //      when the particle is on the edge between two cells, and due to
-        //      roundoff errors attributed to the wrong cell. This should be fixed,
-        //      and the following condition removed.
-        if (contained(pos[iCell].x,pos[iCell].y, fluid.getBoundingBox())) {
-            fluid.get(pos[iCell].x,pos[iCell].y).computeVelocity(tmpVel);
-        }
-        else {
-            tmpVel.resetToZero();
-        }
-        velocity1 += weights[iCell]*tmpVel*scaling;
+    Array<T,2> velocity1; velocity1.resetToZero();
+    fluid.get(intPos.x, intPos.y ).computeVelocity(tmpVel);
+    velocity1 += ((T)1.-u) * ((T)1.-v) *tmpVel;
+    fluid.get(intPos.x  ,intPos.y+1).computeVelocity(tmpVel);
+    velocity1 += ((T)1.-u) * (      v) *tmpVel;
+    fluid.get(intPos.x+1,intPos.y).computeVelocity(tmpVel);
+    velocity1 += (      u) * ((T)1.-v) *tmpVel;
+    fluid.get(intPos.x+1,intPos.y+1).computeVelocity(tmpVel);
+    velocity1 += (      u) * (      v) *tmpVel;
+
+    velocity1 *= scaling;
+
+    if (normSqr(velocity1)>maxVelSqr) {
+        velocity1 /= norm(velocity1);
+        velocity1 *= maxVel;
     }
 
     Array<T,2> position2(position1+velocity1);
-    linearInterpolationCoefficients(fluid, position2, pos, weights);
-    Array<T,2> velocity2;
-    velocity2.resetToZero();
-    for (plint iCell=0; iCell<4; ++iCell) {
-        // TODO same as above.
-        if (contained(pos[iCell].x,pos[iCell].y, fluid.getBoundingBox())) {
-            fluid.get(pos[iCell].x,pos[iCell].y).computeVelocity(tmpVel);
-        }
-        else {
-            tmpVel.resetToZero();
-        }
-        velocity2 += weights[iCell]*tmpVel*scaling;
+
+    intPos = Dot2D( (plint)position2[0], (plint)position2[1] );
+    u = position2[0] - (T)intPos.x;
+    v = position2[1] - (T)intPos.y;
+
+    Array<T,2> velocity2; velocity2.resetToZero();
+    fluid.get(intPos.x  ,intPos.y).computeVelocity(tmpVel);
+    velocity2 += ((T)1.-u) * ((T)1.-v) *tmpVel;
+    fluid.get(intPos.x  ,intPos.y+1).computeVelocity(tmpVel);
+    velocity2 += ((T)1.-u) * (      v) *tmpVel;
+    fluid.get(intPos.x+1,intPos.y).computeVelocity(tmpVel);
+    velocity2 += (      u) * ((T)1.-v) *tmpVel;
+    fluid.get(intPos.x+1,intPos.y+1).computeVelocity(tmpVel);
+    velocity2 += (      u) * (      v) *tmpVel;
+    
+    velocity2 *= scaling;
+
+    if (normSqr(velocity2)>maxVelSqr) {
+        velocity2 /= norm(velocity2);
+        velocity2 *= maxVel;
     }
 
     velocity = (velocity1+velocity2)/(T)2;
@@ -304,7 +339,7 @@ void NormedVelocityParticle2D<T,Descriptor>::advance() {
         particleNormU = particleUmax;
     }
     else {
-        particleNormU = pow(fluidNormu/fluidUmax, exponent)*particleUmax;
+        particleNormU = std::pow(fluidNormu/fluidUmax, (T) exponent)*particleUmax;
     }
     PLB_ASSERT( particleNormU<1. );
     this->getPosition() += this->getVelocity()/fluidNormu*particleNormU;
@@ -417,6 +452,7 @@ template<typename T, template<typename U> class Descriptor>
 bool RestParticle2D<T,Descriptor>::getVector(plint whichVector, Array<T,2>& vector) const {
     return Particle2D<T,Descriptor>::getVector(whichVector, vector);
 }
+
 /* *************** class VerletParticle2D ************************************ */
 
 template<typename T, template<typename U> class Descriptor>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,8 +35,8 @@ struct VectorIsLess {
     bool operator()(std::vector<int> const& v1, std::vector<int> const& v2) const {
         pluint bound = std::max(v1.size(), v2.size());
         for (pluint i=0; i<bound; ++i) {
-            int val1 = i<v1.size() ? v1[i] : 0;
-            int val2 = i<v2.size() ? v2[i] : 0;
+            int val1 = i<v1.size() ? v1[i] : -1;
+            int val2 = i<v2.size() ? v2[i] : -1;
             if (val1<val2) {
                 return true;
             }

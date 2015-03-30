@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,7 +42,6 @@ template< typename T,template<typename U> class Descriptor>
 void DefaultInitializeFreeSurface3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef typename InterfaceLists<T,Descriptor>::Node Node;
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
@@ -69,12 +68,18 @@ void DefaultInitializeFreeSurface3D<T,Descriptor>
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                T rho = rhoIni;
+                T rho = 0.;
+                if (useRhoIni) {
+                    rho = rhoIni;
+                }
+                else {
+                    rho = param.getDensity(iX,iY,iZ);
+                }
                 Array<T,3> j((T)0.,(T)0.,(T)0.);
                 iniCellAtEquilibrium(param.cell(iX,iY,iZ), rho, j/rho);
                 param.setDensity(iX,iY,iZ, rho);
                 param.setMomentum(iX,iY,iZ, j);
-                param.setForce(iX,iY,iZ, g);
+                //param.setForce(iX,iY,iZ, g);
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
@@ -89,8 +94,8 @@ void DefaultInitializeFreeSurface3D<T,Descriptor>
                         break;
                     case empty:
                     case protectEmpty:
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                        param.setForce(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                        //param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
@@ -115,7 +120,6 @@ template<typename T,template<typename U> class Descriptor>
 void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef typename InterfaceLists<T,Descriptor>::Node Node;
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
@@ -148,7 +152,7 @@ void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
                 iniCellAtEquilibrium(param.cell(iX,iY,iZ), rho, j/rho);
                 param.setDensity(iX,iY,iZ, rho);
                 param.setMomentum(iX,iY,iZ, j);
-                param.setForce(iX,iY,iZ, g);
+                //param.setForce(iX,iY,iZ, g);
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
@@ -161,8 +165,8 @@ void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
                         break;
                     case empty:
                     case protectEmpty:
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                        param.setForce(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                        //param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
@@ -187,7 +191,6 @@ void ConstantIniVelocityFreeSurface3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     
     T rho = rhoIni;
     Array<T,3> j(velocity*rho);
@@ -212,7 +215,6 @@ void InletConstVolumeFraction3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -231,7 +233,6 @@ void OutletMaximumVolumeFraction3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -239,6 +240,31 @@ void OutletMaximumVolumeFraction3D<T,Descriptor>
                 T maximumMass = param.getDensity(iX,iY,iZ)*volumeFraction;
                 if (param.mass(iX,iY,iZ) > maximumMass) {
                     param.mass(iX,iY,iZ) = maximumMass;
+                }
+            }
+        }
+    }
+}
+
+/* *************** Class OutletVolumeFractionInRange3D ******************************************* */
+
+template< typename T,template<typename U> class Descriptor>
+void OutletVolumeFractionInRange3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace twoPhaseFlag;
+    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
+    
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                T maximumMass = param.getDensity(iX,iY,iZ)*maxFraction;
+                T minimumMass = param.getDensity(iX,iY,iZ)*minFraction;
+                if (param.mass(iX,iY,iZ) > maximumMass) {
+                    param.mass(iX,iY,iZ) = maximumMass;
+                }
+                else if (param.mass(iX,iY,iZ) < minimumMass) {
+                    param.mass(iX,iY,iZ) = minimumMass;
                 }
             }
         }
@@ -253,7 +279,6 @@ void OutletMaximumVolumeFraction2_3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -287,7 +312,6 @@ void NoSlipMaximumVolumeFraction3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -336,17 +360,107 @@ void PunchSphere3D<T,Descriptor>
                     }
                     else {
                         param.flag(iX,iY,iZ) = empty;
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rho0));
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rho0);
-                        param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                         param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                         param.outsideDensity(iX,iY,iZ) = rho0;
                     }
                 }
             }
         }
+    }
+}
+
+/* *************** Class AnalyticalPunchSphere3D ******************************************* */
+
+template< typename T,template<typename U> class Descriptor>
+void AnalyticalPunchSphere3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace twoPhaseFlag;
+    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
+
+    Dot3D offset = param.absOffset();
+    
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint globalX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint globalY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint globalZ = iZ + offset.z;
+
+                if (param.flag(iX,iY,iZ) == empty || param.flag(iX,iY,iZ) == wall) {
+                    continue;
+                }
+
+                int nextFlag=0;
+                T nextVolumeFraction=0.;
+                subDomainVolumeFraction(globalX,globalY,globalZ, nextFlag, nextVolumeFraction);
+
+                if (nextFlag == fluid) {
+                    // Do nothing.
+                } else if (nextFlag == empty) {
+                    param.flag(iX,iY,iZ) = empty;
+                    param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rho0));
+                    param.mass(iX,iY,iZ) = T();
+                    param.volumeFraction(iX,iY,iZ) = T();
+                    param.setDensity(iX,iY,iZ, rho0);
+                    //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                    param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                    param.outsideDensity(iX,iY,iZ) = rho0;
+                } else {
+                    param.flag(iX,iY,iZ) = interface;
+                    param.volumeFraction(iX,iY,iZ) = nextVolumeFraction;
+                    param.mass(iX,iY,iZ) = nextVolumeFraction*rho0;
+                    param.setDensity(iX,iY,iZ, rho0);
+                    param.outsideDensity(iX,iY,iZ) = rho0;
+                }
+            }
+        }
+    }
+}
+
+template< typename T,template<typename U> class Descriptor>
+void AnalyticalPunchSphere3D<T,Descriptor>::subDomainVolumeFraction (
+        plint globalX, plint globalY, plint globalZ, int& flag, T& volumeFraction )
+{
+    plint numInside = 0;
+    plint numOutside = 0;
+
+    srand(1.0);
+    T xi = (T)globalX - 0.5;
+    T yi = (T)globalY - 0.5;
+    T zi = (T)globalZ - 0.5;
+    for (plint xSub=0; xSub<subDivision; ++xSub) {
+        T xPos = xi + (T) rand() / (T) RAND_MAX;
+        for (plint ySub=0; ySub<subDivision; ++ySub) {
+            T yPos = yi + (T) rand() / (T) RAND_MAX;
+            for (plint zSub=0; zSub<subDivision; ++zSub) {
+                T zPos = zi + (T) rand() / (T) RAND_MAX;
+                if (isInsideSphere(xPos,yPos,zPos)) {
+                    ++numInside;
+                }
+                else {
+                    ++numOutside;
+                }
+            }
+        }
+    }
+
+    if (numInside==0) {
+        flag = twoPhaseFlag::fluid;
+        volumeFraction = (T)1;
+    }
+    else if (numOutside==0) {
+        flag = twoPhaseFlag::empty;
+        volumeFraction = (T)0;
+    }
+    else {
+        flag = twoPhaseFlag::interface;
+        volumeFraction = (T)numOutside / ((T)numInside+(T)numOutside);
     }
 }
 
@@ -358,7 +472,6 @@ void CalculateAverageSphereDensity3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
 
     Dot3D offset = param.absOffset();
     Array<T,3> localCenter(center-Array<T,3>(offset.x,offset.y,offset.z));

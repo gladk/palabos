@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,6 +27,7 @@
 
 #include <vector>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 
@@ -48,10 +49,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
 
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -77,9 +78,13 @@ void analyzeStrainRate(MultiBlockLattice3D<T,DESCRIPTOR>& lattice)
     imageWriter.writeScaledGif( "S_LB_Trace",
             *extractSubDomain(*computeSymmetricTensorTrace(*strainRate_LB), slice), imSize,imSize );
     if (global::mpi().isMainProcessor()) {
-        int errCode = 0;
-        errCode = system("convert +append tmp/S_FD.gif tmp/S_LB.gif tmp/S_LB_Trace.gif tmp/strain.gif");
-        errCode = system("/bin/rm tmp/S_FD.gif tmp/S_LB.gif tmp/S_LB_Trace.gif");
+        int err = 0;
+        err = system("convert +append tmp/S_FD.gif tmp/S_LB.gif tmp/S_LB_Trace.gif tmp/strain.gif");
+        if (err != 0)
+            exit(err);
+        err = system("/bin/rm tmp/S_FD.gif tmp/S_LB.gif tmp/S_LB_Trace.gif");
+        if (err != 0)
+            exit(err);
     }
 
     auto_ptr<MultiScalarField3D<T> > differenceSqr (
@@ -118,7 +123,6 @@ int main(int argc, char* argv[]) {
     );
     const T logT     = (T)1/(T)100;
     const T imSave   = (T)0.2;
-    const T vtkSave  = (T)10.;
     const T maxT     = (T)10.1;
 
     writeLogFile(parameters, "3D diagonal cavity");

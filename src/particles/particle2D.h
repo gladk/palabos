@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,8 +57,11 @@ public:
     void setTag(plint tag_);
     virtual Particle2D<T,Descriptor>* clone() const =0;
     virtual bool getScalar(plint whichScalar, T& scalar) const;
+    virtual bool setScalar(plint whichScalar, T scalar);
     virtual bool getVector(plint whichVector, Array<T,2>& vector) const;
+    virtual bool setVector(plint whichVector, Array<T,2> const& vector);
     virtual bool getTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,2>::n>& tensor) const;
+    virtual bool setTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,2>::n> const& tensor);
     virtual bool setScalars(std::vector<T> const& scalars);
     virtual bool setVectors(std::vector<Array<T,2> > const& vectors);
     virtual bool setTensors(std::vector<Array<T,SymmetricTensorImpl<T,2>::n> > const& tensors);

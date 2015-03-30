@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,6 +24,12 @@
 
 /** \file
  * Copy 2D multiblocks on a new parallel distribution -- header file.
+ */
+
+/*
+ * All functions that take as an argument a Box2D, or compute intersections, or join,
+ * or crop, do not adjust periodicity of the newly created blocks by default. The user
+ * is responsible to take care of this matter explicitly.
  */
 
 #ifndef MULTI_BLOCK_GENERATOR_2D_H
@@ -59,7 +65,7 @@ std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
 ///   envelope-width, etc. An optional initialization value can be provided.
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > defaultGenerateMultiScalarField2D (
-        MultiBlockManagement2D const& management, plint nDim=1 );
+        MultiBlockManagement2D const& management, T iniVal=T() );
 
 /// Create a clone of a MultiScalarField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -138,7 +144,8 @@ std::auto_ptr<MultiScalarField2D<T> > except (
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > redistribute (
         MultiScalarField2D<T> const& originalField,
-        SparseBlockStructure2D const& newBlockStructure );
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original field on the domain of intersection,
 ///   with a different block-distribution.
@@ -391,7 +398,8 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > except (
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField2D<T,nDim> > redistribute (
         MultiTensorField2D<T,nDim> const& originalField,
-        SparseBlockStructure2D const& newBlockStructure );
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original field on the domain of intersection,
 ///   with a different block-distribution.
@@ -521,7 +529,8 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > except (
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T, Descriptor> > redistribute (
         MultiBlockLattice2D<T, Descriptor> const& originalBlock,
-        SparseBlockStructure2D const& newBlockStructure );
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original lattice on the domain of intersection,
 ///   with a different block-distribution.

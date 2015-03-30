@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * Helper functions for domain initialization -- header file.
  */
+
 #ifndef DATA_ANALYSIS_WRAPPER_2D_HH
 #define DATA_ANALYSIS_WRAPPER_2D_HH
 
@@ -150,30 +151,6 @@ std::auto_ptr<ScalarField2D<T> > computeKineticEnergy(BlockLattice2D<T,Descripto
     ScalarField2D<T>* energy = new ScalarField2D<T>(lattice.getNx(), lattice.getNy());
     computeKineticEnergy(lattice, *energy);
     return std::auto_ptr<ScalarField2D<T> >(energy);
-}
-
-
-/* *************** Packed RhoBar J *********************************** */
-
-template<typename T, template<typename U> class Descriptor>
-void computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice, MultiNTensorField2D<T>& rhoBarJ, Box2D domain)
-{
-    applyProcessingFunctional (
-            new PackedRhoBarJfunctional2D<T,Descriptor>, domain, lattice, rhoBarJ );
-}
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiNTensorField2D<T> > computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain)
-{
-    std::auto_ptr<MultiNTensorField2D<T> > rhoBarJ =
-        generateMultiNTensorField<T>(lattice, domain);
-    computePackedRhoBarJ(lattice, *rhoBarJ, domain);
-    return rhoBarJ;
-}
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiScalarField2D<T> > computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice) {
-    return computePackedRhoBarJ(lattice, lattice.getBoundingBox());
 }
 
 
@@ -1422,7 +1399,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeDensity(MultiBlockLattice2D<T,Descr
 {
     std::auto_ptr<MultiScalarField2D<T> > density =
         generateMultiScalarField<T>(lattice, domain);
-    computeDensity(lattice, *density, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxDensityFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the density multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeDensity(lattice, *density, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return density;
 }
 
@@ -1446,7 +1432,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeRhoBar(MultiBlockLattice2D<T,Descri
 {
     std::auto_ptr<MultiScalarField2D<T> > rhoBar =
         generateMultiScalarField<T>(lattice, domain);
-    computeRhoBar(lattice, *rhoBar, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxRhoBarFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the rhoBar multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeRhoBar(lattice, *rhoBar, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return rhoBar;
 }
 
@@ -1468,6 +1463,40 @@ void computeRhoBarJ( MultiBlockLattice2D<T,Descriptor>& lattice,
             new BoxRhoBarJfunctional2D<T,Descriptor>, domain, fields );
 }
 
+
+/* *************** Packed RhoBar J *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice, MultiNTensorField2D<T>& rhoBarJ, Box2D domain)
+{
+    applyProcessingFunctional (
+            new PackedRhoBarJfunctional2D<T,Descriptor>, domain, lattice, rhoBarJ );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiNTensorField2D<T> > computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain)
+{
+    std::auto_ptr<MultiNTensorField2D<T> > rhoBarJ =
+        generateMultiNTensorField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the PackedRhoBarJFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the rhoBarJ multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computePackedRhoBarJ(lattice, *rhoBarJ, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return rhoBarJ;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField2D<T> > computePackedRhoBarJ(MultiBlockLattice2D<T,Descriptor>& lattice) {
+    return computePackedRhoBarJ(lattice, lattice.getBoundingBox());
+}
+
+
 /* *************** Kinetic Energy ************************************ */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1482,7 +1511,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeKineticEnergy(MultiBlockLattice2D<T
 {
     std::auto_ptr<MultiScalarField2D<T> > energy =
         generateMultiScalarField<T>(lattice, domain);
-    computeKineticEnergy(lattice, *energy, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxKineticEnergyFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the energy multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeKineticEnergy(lattice, *energy, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return energy;
 }
 
@@ -1506,7 +1544,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeVelocityNorm(MultiBlockLattice2D<T,
 {
     std::auto_ptr<MultiScalarField2D<T> > velocityNorm =
         generateMultiScalarField<T>(lattice, domain);
-    computeVelocityNorm(lattice, *velocityNorm, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxVelocityNormFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityNorm multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeVelocityNorm(lattice, *velocityNorm, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return velocityNorm;
 }
 
@@ -1532,7 +1579,17 @@ std::auto_ptr<MultiScalarField2D<T> > computeVelocityComponent(MultiBlockLattice
 {
     std::auto_ptr<MultiScalarField2D<T> >velocityComponent =
         generateMultiScalarField<T>(lattice, domain);
-    computeVelocityComponent(lattice, *velocityComponent, domain, iComponent);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxVelocityComponentFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityComponent multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeVelocityComponent(lattice, *velocityComponent, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()),
+            iComponent);
     return velocityComponent;
 }
 
@@ -1558,7 +1615,16 @@ std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> > computeVelocity(MultiBloc
 {
     std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> > velocity
         = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
-    computeVelocity(lattice, *velocity, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxVelocityFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocity multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeVelocity(lattice, *velocity, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return velocity;
 }
 
@@ -1587,7 +1653,16 @@ std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> >
 {
     std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> > PiNeq
         = generateMultiTensorField<T,SymmetricTensor<T,Descriptor>::n>(lattice, domain);
-    computePiNeq(lattice, *PiNeq, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxPiNeqFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the PiNeq multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computePiNeq(lattice, *PiNeq, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return PiNeq;
 }
 
@@ -1615,7 +1690,16 @@ std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> >
 {
     std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> > PiNeq
         = generateMultiTensorField<T,SymmetricTensor<T,Descriptor>::n>(lattice, domain);
-    computeShearStress(lattice, *PiNeq, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxShearStressFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the PiNeq multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeShearStress(lattice, *PiNeq, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return PiNeq;
 }
 
@@ -1644,7 +1728,16 @@ std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> >
 {
     std::auto_ptr<MultiTensorField2D<T,SymmetricTensor<T,Descriptor>::n> > S
         = generateMultiTensorField<T,SymmetricTensor<T,Descriptor>::n>(lattice, domain);
-    computeStrainRateFromStress(lattice, *S, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxStrainRateFromStressFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the S multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeStrainRateFromStress(lattice, *S, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return S;
 }
 
@@ -1669,7 +1762,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeTemperature(MultiBlockLattice2D<T,D
 {
     std::auto_ptr<MultiScalarField2D<T> > temperature = 
         generateMultiScalarField<T>(lattice, domain);
-    computeTemperature(lattice, *temperature, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxTemperatureFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the temperature multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeTemperature(lattice, *temperature, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return temperature;
 }
 
@@ -1692,7 +1794,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeSoundSpeed(MultiBlockLattice2D<T,De
 {
     std::auto_ptr<MultiScalarField2D<T> > soundSpeed =
         generateMultiScalarField<T>(lattice, domain);
-    computeSoundSpeed(lattice, *soundSpeed, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxSoundSpeedFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the soundSpeed multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSoundSpeed(lattice, *soundSpeed, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return soundSpeed;
 }
 
@@ -1718,7 +1829,16 @@ std::auto_ptr<MultiScalarField2D<T> > computePopulation(MultiBlockLattice2D<T,De
 {
     std::auto_ptr<MultiScalarField2D<T> > population =
         generateMultiScalarField<T>(lattice, domain);
-    computePopulation(lattice, *population, domain, iPop);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxPopulationFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the population multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computePopulation(lattice, *population, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()), iPop);
     return population;
 }
 
@@ -1743,7 +1863,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeEquilibrium(MultiBlockLattice2D<T,D
 {
     std::auto_ptr<MultiScalarField2D<T> > equilibrium =
         generateMultiScalarField<T>(lattice, domain);
-    computeEquilibrium(lattice, *equilibrium, domain, iPop);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxEquilibriumFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the equilibrium multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeEquilibrium(lattice, *equilibrium, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()), iPop);
     return equilibrium;
 }
 
@@ -1769,7 +1898,16 @@ std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::q> > computeAllPopulations(Mul
 {
     std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::q> > populations = 
             generateMultiTensorField<T,Descriptor<T>::q>(lattice, domain);
-    computeAllPopulations(lattice, *populations, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxAllPopulationsFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the populations multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeAllPopulations(lattice, *populations, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return populations;
 }
 
@@ -1829,7 +1967,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeOmega(MultiBlockLattice2D<T,Descrip
 {
     std::auto_ptr<MultiScalarField2D<T> > omega =
         generateMultiScalarField<T>(lattice, domain);
-    computeOmega(lattice, *omega, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxOmegaFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the omega multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeOmega(lattice, *omega, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return omega;
 }
 
@@ -1853,7 +2000,16 @@ std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> > computeExternalForce(Mult
 {
     std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> > force
         = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
-    computeExternalForce(lattice, *force, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxExternalForceFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the force multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeExternalForce(lattice, *force, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
     return force;
 }
 
@@ -1862,6 +2018,79 @@ std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
     computeExternalForce(MultiBlockLattice2D<T,Descriptor>& lattice)
 {
     return computeExternalForce(lattice, lattice.getBoundingBox());
+}
+
+/* *************** ExternalScalar ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice,
+                     MultiScalarField2D<T>& scalar, int whichScalar, Box2D domain)
+{
+    applyProcessingFunctional (
+            new BoxExternalScalarFunctional2D<T,Descriptor>(whichScalar), domain, lattice, scalar );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField2D<T> > computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice, int whichScalar, Box2D domain)
+{
+    std::auto_ptr<MultiScalarField2D<T> > scalar
+        = generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxExternalScalarFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the scalar multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeExternalScalar(lattice, *scalar, whichScalar, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return scalar;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField2D<T> >
+    computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice, int whichScalar)
+{
+    return computeExternalScalar(lattice, whichScalar, lattice.getBoundingBox());
+}
+
+
+/* *************** ExternalVector ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice,
+                     MultiTensorField2D<T,Descriptor<T>::d>& tensorField, int vectorBeginsAt, Box2D domain)
+{
+    applyProcessingFunctional (
+            new BoxExternalVectorFunctional2D<T,Descriptor>(vectorBeginsAt), domain, lattice, tensorField );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
+computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice, int vectorBeginsAt, Box2D domain)
+{
+    std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> > tensorField
+        = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxExternalVectorFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the tensor multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeExternalVector(lattice, *tensorField, vectorBeginsAt,
+            domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return tensorField;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
+    computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice, int vectorBeginsAt)
+{
+    return computeExternalVector(lattice, vectorBeginsAt, lattice.getBoundingBox());
 }
 
 
@@ -2179,7 +2408,16 @@ template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeSqrt(MultiScalarField2D<T>& A, Box2D domain)
 {
     std::auto_ptr<MultiScalarField2D<T> > result = generateMultiScalarField<T>(A, domain);
-    computeSqrt(A, *result, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeScalarSqrtFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the result multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSqrt(A, *result, domain.enlarge(A.getMultiBlockManagement().getEnvelopeWidth()));
     return result;
 }
 
@@ -2200,7 +2438,16 @@ template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeLog(MultiScalarField2D<T>& A, Box2D domain)
 {
     std::auto_ptr<MultiScalarField2D<T> > result = generateMultiScalarField<T>(A, domain);
-    computeLog(A, *result, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeScalarLogFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the result multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeLog(A, *result, domain.enlarge(A.getMultiBlockManagement().getEnvelopeWidth()));
     return result;
 }
 
@@ -2221,7 +2468,16 @@ template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeAbsoluteValue(MultiScalarField2D<T>& A, Box2D domain)
 {
     std::auto_ptr<MultiScalarField2D<T> > result = generateMultiScalarField<T>(A, domain);
-    computeAbsoluteValue(A, *result, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeAbsoluteValueFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the result multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeAbsoluteValue(A, *result, domain.enlarge(A.getMultiBlockManagement().getEnvelopeWidth()));
     return result;
 }
 
@@ -2550,7 +2806,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeNorm(MultiTensorField2D<T,nDim>& te
 {
     std::auto_ptr<MultiScalarField2D<T> > component =
         generateMultiScalarField<T>(tensorField, domain);
-    computeNorm(tensorField, *component, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeNormFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the component multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeNorm(tensorField, *component, domain.enlarge(tensorField.getMultiBlockManagement().getEnvelopeWidth()));
     return component;
 }
 
@@ -2573,7 +2838,16 @@ template<typename T, int nDim>
 std::auto_ptr<MultiTensorField2D<T,nDim> > computeSqrt(MultiTensorField2D<T,nDim>& A, Box2D domain)
 {
     std::auto_ptr<MultiTensorField2D<T,nDim> > result = generateMultiTensorField<T,nDim>(A, domain);
-    computeSqrt(A, *result, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeTensorSqrtFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the result multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSqrt(A, *result, domain.enlarge(A.getMultiBlockManagement().getEnvelopeWidth()));
     return result;
 }
 
@@ -2598,7 +2872,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeNormSqr(MultiTensorField2D<T,nDim>&
 {
     std::auto_ptr<MultiScalarField2D<T> > component =
         generateMultiScalarField<T>(tensorField, domain);
-    computeNormSqr(tensorField, *component, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeNormSqrFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the component multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeNormSqr(tensorField, *component, domain.enlarge(tensorField.getMultiBlockManagement().getEnvelopeWidth()));
     return component;
 }
 
@@ -2623,7 +2906,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorNorm(MultiTensorFiel
 {
     std::auto_ptr<MultiScalarField2D<T> > norm =
         generateMultiScalarField<T>(tensorField, domain);
-    computeSymmetricTensorNorm(tensorField, *norm, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputesymmetricTensorNormFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the norm multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSymmetricTensorNorm(tensorField, *norm, domain.enlarge(tensorField.getMultiBlockManagement().getEnvelopeWidth()));
     return norm;
 }
 
@@ -2648,7 +2940,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorNormSqr(MultiTensorF
 {
     std::auto_ptr<MultiScalarField2D<T> > normSqr =
         generateMultiScalarField<T>(tensorField, domain);
-    computeSymmetricTensorNormSqr(tensorField, *normSqr, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeSymmetricTensorNormSqrFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the normSqr multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSymmetricTensorNormSqr(tensorField, *normSqr, domain.enlarge(tensorField.getMultiBlockManagement().getEnvelopeWidth()));
     return normSqr;
 }
 
@@ -2673,7 +2974,16 @@ std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorTrace(MultiTensorFie
 {
     std::auto_ptr<MultiScalarField2D<T> > trace =
         generateMultiScalarField<T>(tensorField, domain);
-    computeSymmetricTensorTrace(tensorField, *trace, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeSymmetricTensorTraceFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the trace multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeSymmetricTensorTrace(tensorField, *trace, domain.enlarge(tensorField.getMultiBlockManagement().getEnvelopeWidth()));
     return trace;
 }
 
@@ -2681,6 +2991,31 @@ template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorTrace(MultiTensorField2D<T,3>& tensorField)
 {
     return computeSymmetricTensorTrace(tensorField, tensorField.getBoundingBox());
+}
+
+/* *************** Gradient from scalar field *********************** */
+
+template<typename T>
+void computeGradient(MultiScalarField2D<T>& phi, MultiTensorField2D<T,2>& gradient, Box2D domain)
+{
+    plint envelopeWidth=1;
+    applyProcessingFunctional (
+        new BoxGradientFunctional2D<T>, domain, phi, gradient, envelopeWidth );
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField2D<T,2> > computeGradient(MultiScalarField2D<T>& phi, Box2D domain)
+{
+    std::auto_ptr<MultiTensorField2D<T,2> > gradient =
+    generateMultiTensorField<T,2>(phi, domain);
+    computeGradient(phi, *gradient, domain);
+    return gradient;
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField2D<T,2> > computeGradient(MultiScalarField2D<T>& phi)
+{
+    return computeGradient(phi, phi.getBoundingBox());
 }
 
 

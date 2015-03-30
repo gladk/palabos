@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which 
 ## you can select compilation options. Compilation dependencies
@@ -15,17 +15,9 @@
 #                optimFlags   = -O -finline-functions
 
 # Leading directory of the Palabos source code
-palabosRoot   = ../..
+palabosRoot  = ../..
 # Name of source files in current directory to compile and link with Palabos
-#projectFiles = scaleSTL.cpp
-#projectFiles = scaleSTLraw.cpp
-#projectFiles = toAsciiSTL.cpp
-#projectFiles = toBinarySTL.cpp
-#projectFiles = shiftSTLraw.cpp
-#projectFiles = stlToHtml.cpp
-projectFiles = revoxelize.cpp
-#projectFiles = refineSTL.cpp
-#projectFiles = rotateAtOriginSTL.cpp
+projectFiles = toBinarySTL.cpp
 
 # Set optimization flags on/off
 optimize     = true
@@ -54,7 +46,7 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor #-DPLB_MAC_OS_X
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on

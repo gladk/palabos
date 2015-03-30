@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -234,6 +234,37 @@ public:
                           BlockLattice3D<T,Descriptor>& fineLattice );
 
     virtual LatticeInterpolateCoarseToFine3D<T,Descriptor>* clone() const;
+    
+    virtual BlockDomain::DomainT appliesTo() const {
+        return BlockDomain::bulk;
+    }
+
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::nothing;
+        modified[1] = modif::staticVariables;
+    }
+private:
+    plint dxScale, dtScale;
+};
+
+
+/// Copy data from a coarse to a fine BlockLattice, using bilinear interpolation.
+template<typename T, template<typename U> class Descriptor>
+class LatticeLinearInterpolateCoarseToFine3D : public BoxProcessingFunctional3D_LL<T,Descriptor,T,Descriptor>
+{
+public:
+    LatticeLinearInterpolateCoarseToFine3D(plint dxScale_, plint dtScale_);
+
+    LatticeLinearInterpolateCoarseToFine3D (
+            LatticeLinearInterpolateCoarseToFine3D<T,Descriptor> const& rhs );
+    LatticeLinearInterpolateCoarseToFine3D<T,Descriptor>& operator= (
+            LatticeLinearInterpolateCoarseToFine3D<T,Descriptor> const& rhs );
+    
+    virtual void process( Box3D coarseDomain,
+                          BlockLattice3D<T,Descriptor>& coarseLattice,
+                          BlockLattice3D<T,Descriptor>& fineLattice );
+
+    virtual LatticeLinearInterpolateCoarseToFine3D<T,Descriptor>* clone() const;
     
     virtual BlockDomain::DomainT appliesTo() const {
         return BlockDomain::bulk;

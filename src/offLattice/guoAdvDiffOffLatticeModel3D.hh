@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -199,7 +199,7 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::cellCompletion (
         T delta = (T)1. - wallDistance * invDistanceToNeighbor;
         Array<T,3> normalFluidDirection((T)fluidDirection.x, (T)fluidDirection.y, (T)fluidDirection.z);
         normalFluidDirection *= invDistanceToNeighbor;
-        weights[iDirection] = util::sqr(fabs ( dot(normalFluidDirection, wallNormal) ));
+        weights[iDirection] = util::sqr(std::fabs ( dot(normalFluidDirection, wallNormal) ));
         sumWeights += weights[iDirection];
 
         computeRhoBarJNeq (
@@ -275,7 +275,7 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::computeRhoBarJNeq (
             rhoBar = wall_rhoBar;
         }
         else {
-            rhoBar = 1./delta * (wall_rhoBar+(delta-1.)*rhoBar1);
+            rhoBar = (T)1./delta * (wall_rhoBar+(delta-(T)1.)*rhoBar1);
         }
     }
     else {  // depth >= 2
@@ -294,18 +294,18 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::computeRhoBarJNeq (
         if (depth < 2) {
             rhoBar = rhoBar1;
         } else {
-            rhoBar = (4.0 * delta * rhoBar1 + (1.0 - 2.0 * delta) * rhoBar2) / (1.0 + 2.0 * delta);
+            rhoBar = ((T)4.0 * delta * rhoBar1 + ((T)1.0 - (T)2.0 * delta) * rhoBar2) / ((T)1.0 + (T)2.0 * delta);
         }
     }
     else if ( bdType==OffBoundary::flux )
     {
-        T dx = sqrt(util::sqr((T)fluidDirection.x)+util::sqr((T)fluidDirection.y)+util::sqr((T)fluidDirection.z));
+        T dx = std::sqrt(util::sqr((T)fluidDirection.x)+util::sqr((T)fluidDirection.y)+util::sqr((T)fluidDirection.z));
         T gradRho = wallData[0];
         rhoBar = rhoBar1 + dx*gradRho;
     }
     else if ( bdType==OffBoundary::isolation )
     {
-        T dx = sqrt(util::sqr((T)fluidDirection.x)+util::sqr((T)fluidDirection.y)+util::sqr((T)fluidDirection.z));
+        T dx = std::sqrt(util::sqr((T)fluidDirection.x)+util::sqr((T)fluidDirection.y)+util::sqr((T)fluidDirection.z));
         T rhoBarOut = Descriptor<T>::rhoBar(wallData[0]);
         T kappa = wallData[1];
         rhoBar = (rhoBar1+kappa*dx*rhoBarOut)/((T)1+kappa*dx);

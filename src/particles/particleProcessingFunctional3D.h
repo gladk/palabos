@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -121,7 +121,7 @@ private:
 };
 
 /// Generate a random number of particles inside the domain. Each cell generates
-///   at most one cell, with a given probability and at a random position inside
+///   at most one particle, with a given probability and at a random position inside
 ///   the cell. All particles are identical clones (except for their position).
 template<typename T, template<typename U> class Descriptor>
 class InjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
@@ -143,7 +143,7 @@ private:
 };
 
 /// Generate a random number of point-particles inside the domain. Each cell generates
-///   at most one cell, with a given probability and at a random position inside
+///   at most one particle, with a given probability and at a random position inside
 ///   the cell.
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
 class AnalyticalInjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
@@ -166,7 +166,7 @@ private:
 };
 
 /// Generate a random number of point-particles inside the domain. Each cell generates
-///   at most one cell, with a given probability and at a random position inside
+///   at most one particle, with a given probability and at a random position inside
 ///   the cell. Additionally to analytically-inject, this functional uses a bit-
 ///   mask to decide where to inject.
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
@@ -423,10 +423,15 @@ private:
     util::SelectInt* tags;
 };
 
-template<typename T, template<typename U> class Descriptor>
+template< typename T,
+          template<typename U> class Descriptor >
 void addWallParticles (
-    MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-    TriangleBoundary3D<T>& boundary );
+    MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles, TriangleBoundary3D<T>& boundary );
+
+template< typename T,
+          template<typename U> class Descriptor, class ParticleFieldT >
+void addWallParticlesGeneric (
+    MultiParticleField3D<ParticleFieldT>& particles, TriangleBoundary3D<T>& boundary );
 
 /// Count the number of particles at each cell node and add the result to the scalar field.
 template<typename T, template<typename U> class Descriptor>
@@ -451,6 +456,31 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     plint tag;
+};
+
+/// Count the number of particles (with a given tag) at each refined cell node, and add the result
+/// to the scalar field which is refined (defined on a refined grid with respect to the particle grid).
+/// The particles which belong to each "sub-volume" of the refined scalar grid contained in the
+/// "big volume" of the particle grid, must be identified, counted and accumulated.
+template<typename T, template<typename U> class Descriptor>
+class CountAndAccumulateTaggedParticlesRefined3D : public BoxProcessingFunctional3D
+{
+public:
+    CountAndAccumulateTaggedParticlesRefined3D(plint tag_, plint dxScale_);
+    /// Arguments: [0] Particle-field; [1] Number of particles (plint scalar-field).
+    virtual void processGenericBlocks(Box3D coarseDomain, std::vector<AtomicBlock3D*> fields);
+    virtual CountAndAccumulateTaggedParticlesRefined3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    /// These helper functions are also implemented in the ParticleField3D class,
+    /// but we need to re-implement them here, since we need them for the refined
+    /// scalar field.
+    static plint nearestCell(T pos);
+    static void computeGridPosition(Array<T,3> const& position, Dot3D const& location,
+            plint& iX, plint& iY, plint& iZ);
+private:
+    plint tag;
+    plint dxScale;
 };
 
 /// Count the number of particles with given tags at each cell node and place the result to the scalar field.

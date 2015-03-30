@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -212,7 +212,7 @@ void BoxGradientNormFunctional2D<T>::processBulk (
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             T xDeriv = fdDataField::bulkXderiv (value,iX, iY );
             T yDeriv = fdDataField::bulkYderiv (value,iX, iY );
-            T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
+            T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
             derivative.get(iX+offset.x, iY+offset.y) = gradientNorm;
         }
     }
@@ -228,7 +228,7 @@ void BoxGradientNormFunctional2D<T>::processEdge (
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             T xDeriv = fdDataField::edgeXderiv (value, direction, orientation, iX, iY );
             T yDeriv = fdDataField::edgeYderiv (value, direction, orientation, iX, iY );
-            T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
+            T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
             derivative.get(iX+offset.x, iY+offset.y) = gradientNorm;
         }
     }
@@ -244,7 +244,7 @@ void BoxGradientNormFunctional2D<T>::processCorner (
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             T xDeriv = fdDataField::cornerXderiv (value, normalX, normalY, iX, iY );
             T yDeriv = fdDataField::cornerYderiv (value, normalX, normalY, iX, iY );
-            T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
+            T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv));
             derivative.get(iX+offset.x, iY+offset.y) = gradientNorm;
         }
     }
@@ -289,7 +289,7 @@ void BoxPoissonResidueFunctional2D<T>::process (
                 pressure.get(iX,iY+1) +
                 pressure.get(iX-1,iY) +
                 pressure.get(iX,iY-1);
-            T residue = fabs( sumPressure -(T)4*pressure.get(iX,iY)
+            T residue = std::fabs( sumPressure -(T)4*pressure.get(iX,iY)
                               + rhs.get(iX+offset.x,iY+offset.y) );
             statistics.gatherMax(maxResidueId, residue);
         }
@@ -853,7 +853,7 @@ void GaussSeidelMaxDefectFunctional2D<T>::process (
                 u_h.get(iX,iY-1) -
                 4.*u_h.get(iX,iY);
             // compute the absolute value of the residue
-            T residue =  fabs ( discreteLaplacien_u_h - rhs.get(iX+offset.x,iY+offset.y) );
+            T residue =  std::fabs ( discreteLaplacien_u_h - rhs.get(iX+offset.x,iY+offset.y) );
             // save it in the internal statistics
             statistics.gatherMax(maxResidueId, residue);
         }

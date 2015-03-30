@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -146,7 +146,7 @@ void halfCircleSetup (
     setBoundaryDensity (lattice, outlet, rhoOut);
 
     // Create the initial condition.
-    Array<T,2> zeroVelocity(0.,0.);
+    Array<T,2> zeroVelocity((T)0.,(T)0.);
     T constantDensity = (T)1;
     initializeAtEquilibrium (
            lattice, lattice.getBoundingBox(), constantDensity, zeroVelocity );
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
     // Parameters for the creation of the multi-block.
     
     // d is the width of the block which is exempted from the full domain.
-    plint d = (plint) (2.*std::sqrt(util::sqr(radius)-util::sqr(N/4.)));
+    plint d = (plint) (2.*std::sqrt((T)util::sqr(radius)-(T)util::sqr(N/4.)));
     plint x0 = (N-d)/2 + 1;  // Begin of the exempted block.
     plint x1 = (N+d)/2 - 1;  // End of the exempted block.
 

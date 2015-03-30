@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,7 @@ void  IdentifyPureDynamics3D<T,Descriptor>::processGenericBlocks (
                     pureDynamics->omega = dynamics.getOmega();
                 }
                 else {
-                    if ( fabs(pureDynamics->omega-dynamics.getOmega())>eps ) {
+                    if ( std::fabs(pureDynamics->omega-dynamics.getOmega())>eps ) {
                         pureDynamics->isPure = false;
                     }
                 }

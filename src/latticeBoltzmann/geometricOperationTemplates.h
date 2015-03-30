@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -492,7 +492,30 @@ T normSqr(Array<T,n> const& v) {
 
 template<typename T, pluint n>
 T norm(Array<T,n> const& v) {
-    return sqrt(normSqr<T,n>(v));
+    return std::sqrt(normSqr<T,n>(v));
+}
+
+/// Compute the normal vector for a given triangle. If "isAreaWeighted" is false,
+///   then the normal has length equal to one. If "isAreaWeighted" is true, then
+///   the normal has length equal to twice the area of the triangle.
+template<typename T>
+Array<T,3> computeTriangleNormal(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> const& v2, bool isAreaWeighted)
+{
+#ifdef PLB_DEBUG
+    static T eps = getEpsilon<T>(floatingPointPrecision<T>());
+#endif
+
+    Array<T,3> e01 = v1 - v0;
+    Array<T,3> e02 = v2 - v0;
+
+    Array<T,3> n;
+    crossProduct<T>(e01, e02, n);
+    T normN = norm<T,3>(n);
+    PLB_ASSERT(normN > eps);
+    if (!isAreaWeighted)
+        n /= normN;
+
+    return n;
 }
 
 template<typename T>
@@ -521,7 +544,23 @@ T computeTriangleArea(T *v0, T *v1, T *v2)
     cross[1] = e01[2]*e02[0] - e01[0]*e02[2];
     cross[2] = e01[0]*e02[1] - e01[1]*e02[0];
 
-    return 0.5 * sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]);
+    return 0.5 * std::sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]);
+}
+
+template<typename T>
+T computeTetrahedronSignedVolume(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> const& v2, Array<T,3> const& v3)
+{
+    // The position arrays specify two oriented triangles, namely 
+    // (0, 1, 2) and (3, 2, 1). These triangles share
+    // the common edge 1-2.
+
+    Array<T,3> e10 = v0 - v1;
+    Array<T,3> e12 = v2 - v1;
+    Array<T,3> e13 = v3 - v1;
+    Array<T,3> cross;
+    crossProduct<T>(e12, e13, cross);
+
+    return dot(e10, cross) / 6.0;
 }
 
 /// Given two vectors this function computes the angle between them
@@ -531,13 +570,13 @@ T angleBetweenVectors(Array<T,3> const& v1, Array<T,3> const& v2)
 {
     Array<T,3> cross;
     crossProduct<T>(v1, v2, cross); 
-    return atan2(norm(cross), dot(v1,v2));
+    return std::atan2(norm(cross), dot(v1,v2));
 }
 
 template<typename T>
 Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T theta) {
     Array<T,3> const& u = normedAxis;
-    T d = sqrt(u[1]*u[1] + u[2]*u[2]);
+    T d = std::sqrt(u[1]*u[1] + u[2]*u[2]);
 
     Array<T,3> q1 = p;
     Array<T,3> q2 = q1;
@@ -557,8 +596,8 @@ Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T t
     q1[2] = q2[0] * u[0] + q2[2] * d;
 
     // Perform desired rotation.
-    T ct = cos(theta);
-    T st = sin(theta);
+    T ct = std::cos(theta);
+    T st = std::sin(theta);
     q2[0] = q1[0] * ct - q1[1] * st;
     q2[1] = q1[0] * st + q1[1] * ct;
     q2[2] = q1[2];
@@ -578,7 +617,126 @@ Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T t
 
     return q2;
 }
-  
+
+template<typename T>
+Array<T,3> rotateWithEulerAngles(Array<T,3> const& p, T phi, T theta, T psi)
+{
+    T eps = getEpsilon<T>(floatingPointPrecision<T>());
+    T pi = std::acos((T) -1.0);
+
+    PLB_ASSERT((theta > (T) 0.0 || util::fpequal(theta, (T) 0.0, eps)) &&
+               (theta < pi  || util::fpequal(theta, pi, eps)));
+
+    T a[3][3];
+    a[0][0] =  (T) 1.0;
+    a[0][1] =  (T) 0.0;
+    a[0][2] =  (T) 0.0;
+    a[1][0] =  (T) 0.0;
+    a[1][1] =  std::cos(theta);
+    a[1][2] = -std::sin(theta);
+    a[2][0] =  (T) 0.0;
+    a[2][1] =  std::sin(theta);
+    a[2][2] =  std::cos(theta);
+
+    T b[3][3];
+    b[0][0] =  std::cos(phi);
+    b[0][1] = -std::sin(phi);
+    b[0][2] =  (T) 0.0;
+    b[1][0] =  std::sin(phi);
+    b[1][1] =  std::cos(phi);
+    b[1][2] =  (T) 0.0;
+    b[2][0] =  (T) 0.0;
+    b[2][1] =  (T) 0.0;
+    b[2][2] =  (T) 1.0;
+
+    T c[3][3];
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            c[i][j] = (T) 0.0;
+            for (int k = 0; k < 3; k++) {
+                c[i][j] += a[i][k]*b[k][j];
+            }
+        }
+    }
+
+    b[0][0] =  std::cos(psi);
+    b[0][1] = -std::sin(psi);
+    b[0][2] =  (T) 0.0;
+    b[1][0] =  std::sin(psi);
+    b[1][1] =  std::cos(psi);
+    b[1][2] =  (T) 0.0;
+    b[2][0] =  (T) 0.0;
+    b[2][1] =  (T) 0.0;
+    b[2][2] =  (T) 1.0;
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            a[i][j] = (T) 0.0;
+            for (int k = 0; k < 3; k++) {
+                a[i][j] += b[i][k]*c[k][j];
+            }
+        }
+    }
+
+    Array<T,3> x;
+    for (int i = 0; i < 3; i++) {
+        x[i] = (T) 0.0;
+        for (int j = 0; j < 3; j++) {
+            x[i] += a[i][j]*p[j];
+        }
+    }
+
+    return x;
+}
+
+// This function returns the new position of the point "oldPosition", after a discrete rotation
+// with time step equal to 1.0. It needs the angular velocity of the rotation, a normalized vector
+// parallel to the axis of rotation, and a point on the axis of rotation.
+template<typename T>
+Array<T,3> getRotatedPosition(Array<T,3> const& oldPosition, Array<T,3> const& angularVelocity,
+        Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
+{
+    // Standard implementation
+    /*
+    Array<T,3> dp = oldPosition - pointOnRotationAxis;
+    T theta = dot(angularVelocity, rotationAxisUnitVector);
+    Array<T,3> rotatedPosition = rotateAtOrigin(dp, rotationAxisUnitVector, theta);
+    Array<T,3> newPosition = rotatedPosition + pointOnRotationAxis;
+    return(newPosition);
+    */
+
+    // Optimized implementation
+
+    static T eps = getEpsilon<T>();
+    static T epsSqr = eps*eps;
+
+    Array<T,3> dp = oldPosition - pointOnRotationAxis;
+    Array<T,3> parallelDp = dot(dp, rotationAxisUnitVector) * rotationAxisUnitVector;
+    Array<T,3> oldR = dp - parallelDp;
+    T normSqrOldR = normSqr(oldR);
+    if (normSqrOldR <= epsSqr) {
+        return(oldPosition);
+    }
+    Array<T,3> velocity = crossProduct(angularVelocity, oldR);
+    Array<T,3> newR = oldR + velocity;
+    T normSqrNewR = normSqr(newR);
+    Array<T,3> correctedR = std::sqrt(normSqrOldR / normSqrNewR) * newR;
+    Array<T,3> newPosition = correctedR + parallelDp + pointOnRotationAxis;
+    return(newPosition);
+}
+
+// This function returns the discrete rotational velocity of the point "oldPosition", considering
+// a time step equal to 1.0. It needs the angular velocity of the rotation, a normalized vector
+// parallel to the axis of rotation, and a point on the axis of rotation.
+template<typename T>
+Array<T,3> getRotationalVelocity(Array<T,3> const& oldPosition, Array<T,3> const& angularVelocity,
+        Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
+{
+    Array<T,3> newPosition = getRotatedPosition(oldPosition, angularVelocity, rotationAxisUnitVector, pointOnRotationAxis);
+    Array<T,3> velocity = newPosition - oldPosition;
+    return(velocity);
+}
+
 }  // namespace plb
 
 #endif

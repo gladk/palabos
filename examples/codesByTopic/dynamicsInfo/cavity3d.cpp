@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -61,10 +61,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     // All walls implement a Dirichlet velocity condition.
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -114,8 +114,6 @@ int main(int argc, char* argv[]) {
             1.         // lz 
     );
     const T logT     = (T)0.02;
-    const T imSave   = (T)0.06;
-    const T vtkSave  = (T)1.;
     const T maxT     = (T)20.1;
 
     plint nx = parameters.getNx();

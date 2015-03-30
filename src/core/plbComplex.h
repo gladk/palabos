@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,6 +24,8 @@
 
 #ifndef PLB_COMPLEX_H
 #define PLB_COMPLEX_H
+
+#include "core/globalDefs.h"
 
 namespace plb {
 
@@ -53,6 +55,16 @@ public:
 private:
     T Re, Imag;
     static T pi;
+};
+
+// In some templated codes (for example the call to std::sqrt(arg)), it is
+// necessary to cast type Complex<U> (i.e. the type of arg) to U, while
+// in all other cases, T is cast to T. That's why we overload
+// PlbTraits from globalDefs.h for the Complex type.
+template<typename U>
+struct PlbTraits<Complex<U> >
+{
+    typedef U BaseType;
 };
 
 template<typename T>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -253,6 +253,15 @@ std::string MultiScalarField2D<T>::basicType() {
     return NativeType<T>::getName();
 }
 
+template<typename T>
+MultiScalarField2D<T>& findMultiScalarField2D(id_t id) {
+    MultiBlock2D* multiBlock = multiBlockRegistration2D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiScalarField2D<T>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiScalarField2D<T>&)(*multiBlock);
+}
+
 
 //////// Class MultiTensorField2D //////////////////////////////////
 
@@ -495,6 +504,15 @@ std::string MultiTensorField2D<T,nDim>::blockName() {
 template<typename T, int nDim>
 std::string MultiTensorField2D<T,nDim>::basicType() {
     return NativeType<T>::getName();
+}
+
+template<typename T, int nDim>
+MultiTensorField2D<T,nDim>& findMultiTensorField2D(id_t id) {
+    MultiBlock2D* multiBlock = multiBlockRegistration2D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiTensorField2D<T,nDim>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiTensorField2D<T,nDim>&)(*multiBlock);
 }
 
 
@@ -745,6 +763,15 @@ std::string MultiNTensorField2D<T>::blockName() {
 template<typename T>
 std::string MultiNTensorField2D<T>::basicType() {
     return NativeType<T>::getName();
+}
+
+template<typename T>
+MultiNTensorField2D<T>& findMultiNTensorField2D(id_t id) {
+    MultiBlock2D* multiBlock = multiBlockRegistration2D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiNTensorField2D<T>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiNTensorField2D<T>&)(*multiBlock);
 }
 
 }  // namespace plb

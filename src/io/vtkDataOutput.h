@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -71,10 +71,10 @@ public:
                     DataSerializer const* serializer, std::string const& name );
     template<typename TConv>
     void writeData(ScalarField2D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1);
+                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
     template<typename TConv>
     void writeData(MultiScalarField2D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1);
+                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
     template<plint n, typename TConv>
     void writeData(TensorField2D<T,n>& tensorField,
                    std::string tensorFieldName, TConv scalingFactor=(T)1);
@@ -110,10 +110,10 @@ public:
                     DataSerializer const* serializer, std::string const& name );
     template<typename TConv>
     void writeData(ScalarField3D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1);
+                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
     template<typename TConv>
     void writeData(MultiScalarField3D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1);
+                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
     template<plint n, typename TConv>
     void writeData(TensorField3D<T,n>& tensorField,
                    std::string tensorFieldName, TConv scalingFactor=(T)1);

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,7 +43,6 @@ public:
     std::vector<T> const& getOrdinates() const { return y; }
     std::vector<T>& getOrdinates() { return y; }
     virtual T getFunctionValue(T t) const =0;
-    virtual T getDerivativeValue(T t) const =0;
     virtual T getIntegralValue() const =0;
     virtual T getIntegralValue(T tmin, T tmax) const =0;
 private:
@@ -51,9 +50,34 @@ private:
 };
 
 template<typename T>
-class NaturalCubicSpline : public Spline<T> {
+class CubicSpline : public Spline<T> {
 public:
-    NaturalCubicSpline() : icache(0) { }
+    CubicSpline()
+        :Spline<T>()
+    { }
+    CubicSpline(std::string fname)
+        :Spline<T>(fname)
+    { }
+    CubicSpline(std::vector<T> const& x_, std::vector<T> const& y_)
+        :Spline<T>(x_, y_)
+    { }
+    virtual ~CubicSpline() { }
+    virtual CubicSpline<T>* clone() const =0;
+    virtual T getFunctionValue(T t) const =0;
+    virtual T getDerivativeValue(T t) const =0;
+    virtual T getSecondDerivativeValue(T t) const =0;
+    virtual T getThirdDerivativeValue(T t) const =0;
+    virtual T getIntegralValue() const =0;
+    virtual T getIntegralValue(T tmin, T tmax) const =0;
+};
+
+template<typename T>
+class NaturalCubicSpline : public CubicSpline<T> {
+public:
+    NaturalCubicSpline()
+        : CubicSpline<T>(),
+          icache(0)
+    { }
     NaturalCubicSpline(std::string fname);
     NaturalCubicSpline(std::vector<T> const& x_, std::vector<T> const& y_);
     virtual ~NaturalCubicSpline() { }

@@ -1,25 +1,25 @@
 /* This file is part of the Palabos library.
  *
-* Copyright (C) 2011-2012 FlowKit Sarl
-* Route d'Oron 2
-* 11010 Lausanne, Switzerland
-* E-mail contact: contact@flowkit.com
-*
-* The most recent release of Palabos can be downloaded at
-* <http://www.palabos.org/>
-*
-* The library Palabos is free software: you can redistribute it and/or
-* modify it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* The library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) 2011-2015 FlowKit Sarl
+ * Route d'Oron 2
+ * 1010 Lausanne, Switzerland
+ * E-mail contact: contact@flowkit.com
+ *
+ * The most recent release of Palabos can be downloaded at
+ * <http://www.palabos.org/>
+ *
+ * The library Palabos is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * The library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "palabos2D.h"
@@ -33,7 +33,7 @@ using namespace plb;
 using namespace std;
 
 typedef double T;
-const T pi = (T)4.0*atan(1.0);
+const T pi = (T)4.0*std::atan((T)1.0);
 
 #define NSDESCRIPTOR descriptors::ForcedD2Q9Descriptor
 #define DYNAMICS GuoExternalForceBGKdynamics<T, NSDESCRIPTOR>(omega)
@@ -46,15 +46,15 @@ T womersleyVelocity(plint iY, T t, T A, T omega, T alpha, IncomprFlowParam<T> co
     const complex<T> I(0.,1.);
     T y = (T)iY / parameters.getResolution();
 
-    return ( A / (I * omega) * exp(I * omega * t) * 
-            ( 1. - cosh(sqrt(2.)*(y-.5)*(alpha+I*alpha)) /
-                cosh(sqrt(2.)/2. * (alpha+I*alpha)) ) ).real();
+    return ( A / (I * omega) * std::exp(I * omega * t) * 
+            ( (T)1. - std::cosh(std::sqrt((T)2.)*(y-(T).5)*(alpha+I*alpha)) /
+                std::cosh(std::sqrt((T)2.)/(T)2. * (alpha+I*alpha)) ) ).real();
 }
 
 /// Time dependent but space-independent Womersley force.
 T womersleyForce(T t, T A, T omega, IncomprFlowParam<T> const& parameters) 
 {
-    return A * cos(omega * t);
+    return A * std::cos(omega * t);
 }
 
 /// A functional, used to initialize the velocity for the boundary conditions
@@ -74,7 +74,7 @@ public:
     }
 private:
     IncomprFlowParam<T> parameters;
-    T alpha, A, omega;
+    T alpha, omega, A;
     T t;
 };
 
@@ -92,9 +92,9 @@ void channelSetup( MultiBlockLattice2D<T,NSDESCRIPTOR>& lattice,
     boundaryCondition.addVelocityBoundary1N(bottom, lattice);
     boundaryCondition.addPressureBoundary1P(top,    lattice);
     
-    Array<T,2> u(0.,0.);
+    Array<T,2> u((T)0.,(T)0.);
     setBoundaryVelocity( lattice, lattice.getBoundingBox(), u );
-    initializeAtEquilibrium(lattice,lattice.getBoundingBox(),1.0,u);
+    initializeAtEquilibrium(lattice,lattice.getBoundingBox(),(T)1.0,u);
 
     Array<T,NSDESCRIPTOR<T>::d> force(womersleyForce((T)0, amplitude, frequency, parameters),0.);
     setExternalVector(lattice,lattice.getBoundingBox(),NSDESCRIPTOR<T>::ExternalField::forceBeginsAt,force);
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
     pcout << "Starting simulation" << endl;
 
     const plint maxIter = tPeriod * 100;
-    const plint tSave = tPeriod / 24;
+    //const plint tSave = tPeriod / 24;
 
     
     T error = T();

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,9 +39,9 @@
 namespace plb {
 
 /// Compute the reduced bulk of the domain for fine to coarse copy
-Box3D computeCopyReducedBulk(Box3D domain);
-void computeCopyEdges(Box3D domain, std::vector<Box3D>& edges);
-void computeCopyCorners(Box3D domain, std::vector<Box3D>& corners);
+inline Box3D computeCopyReducedBulk(Box3D domain);
+inline void computeCopyEdges(Box3D domain, std::vector<Box3D>& edges);
+inline void computeCopyCorners(Box3D domain, std::vector<Box3D>& corners);
 
 template<typename T>
 void computeFilteringIndicesEdges(Box3D domain, std::vector<std::vector<plint> >& indices);

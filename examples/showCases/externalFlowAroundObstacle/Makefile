@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which 
 ## you can select compilation options. Compilation dependencies
@@ -78,10 +78,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-			profileFlags="$(profileFlags)" \
-			libraryPaths="$(libraryPaths)" \
-			includePaths="$(includePaths)" \
-			libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,7 @@
 
 #include "multiBlock/multiBlockManagement2D.h"
 #include "multiBlock/staticRepartitions2D.h"
+#include "multiBlock/defaultMultiBlockPolicy2D.h"
 #include "core/plbDebug.h"
 #include "core/plbDebug.h"
 #include "io/parallelIO.h"
@@ -308,6 +309,27 @@ MultiBlockManagement2D align( MultiBlockManagement2D const& originalManagement,
                 partnerManagement.getThreadAttribution(), remappedFromPartner ),
             originalManagement.getEnvelopeWidth(),
             originalManagement.getRefinementLevel() );
+}
+
+MultiBlockManagement2D align( std::vector<Box2D> const& originalDomain,
+                              MultiBlockManagement2D const& alignWith,
+                              plint envelopeWidth, plint refinementLevel, bool crop )
+{
+    Box2D bbox(alignWith.getBoundingBox());
+    if (crop && !originalDomain.empty()) {
+        bbox = originalDomain[0];
+        for (pluint i=1; i<originalDomain.size(); ++i) {
+            bbox = bound(bbox, originalDomain[i]);
+        }
+    }
+    SparseBlockStructure2D originalSparseBlock(bbox);
+    for (plint i=0; i<(plint)originalDomain.size(); ++i) {
+        originalSparseBlock.addBlock(originalDomain[i], i);
+    }
+    MultiBlockManagement2D originalManagement (
+            originalSparseBlock, defaultMultiBlockPolicy2D().getThreadAttribution(),
+            envelopeWidth, refinementLevel );
+    return align(originalManagement, alignWith);
 }
 
 MultiBlockManagement2D reparallelize(MultiBlockManagement2D const& management,

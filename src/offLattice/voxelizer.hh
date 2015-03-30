@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -218,7 +218,7 @@ bool VoxelizeMeshFunctional3D<T>::distanceToSurface (
         AtomicContainerBlock3D& hashContainer,
         Array<T,3> const& point, T& distance, bool& isBehind ) const
 {
-    T maxDistance = sqrt(3);
+    T maxDistance = std::sqrt((T)3);
     Array<T,2> xRange(point[0]-maxDistance, point[0]+maxDistance);
     Array<T,2> yRange(point[1]-maxDistance, point[1]+maxDistance);
     Array<T,2> zRange(point[2]-maxDistance, point[2]+maxDistance);
@@ -296,8 +296,11 @@ bool VoxelizeMeshFunctional3D<T>::checkIfFacetsCrossed (
         for (pluint iCrossing=1; iCrossing<crossings.size(); ++iCrossing) {
             //const T eps1 = std::numeric_limits<double>::epsilon()*1.e2;
             //if ( !util::fpequal(crossings[iCrossing], crossings[iCrossing-1], eps1) )
+
+            //const T eps1 = std::numeric_limits<double>::epsilon()*1.e4;
+            
             const T eps1 = std::numeric_limits<double>::epsilon()*1.e4;
-            if ( fabs(crossings[iCrossing]-crossings[iCrossing-1])>eps1)
+            if ( std::fabs(crossings[iCrossing]-crossings[iCrossing-1])>eps1)
             {
                 hasCrossed = !hasCrossed;
             }
@@ -434,14 +437,14 @@ bool VoxelizeMeshFunctional3D<T>::voxelizeFromNeighbor (
         newVoxelType = voxelFlag::invert(typeOfNeighbor);
         // Additional consistency checks only at the ultimate level of verification.
         if (verificationLevel==2) {
-            PLB_ASSERT( distance1 < sqrt((T)3)+(T)0.0001 );
+            PLB_ASSERT( distance1 < std::sqrt((T)3)+(T)0.0001 );
 #ifdef PLB_DEBUG
             bool ok = checkIfFacetsCrossed(hashContainer, point2, point1, distance2, whichTriangle2);
 #else
             (void) checkIfFacetsCrossed(hashContainer, point2, point1, distance2, whichTriangle2);
 #endif
             PLB_ASSERT( ok );
-            PLB_ASSERT( distance2 < sqrt((T)3)+(T)0.0001 );
+            PLB_ASSERT( distance2 < std::sqrt((T)3)+(T)0.0001 );
 
 #ifdef PLB_DEBUG
             bool ok1 = distanceToSurface( hashContainer, point1, distance3, isBehind1 );
@@ -450,7 +453,7 @@ bool VoxelizeMeshFunctional3D<T>::voxelizeFromNeighbor (
 #endif
 
             PLB_ASSERT( ok1 );
-            PLB_ASSERT( distance1 < sqrt((T)3)+(T)0.0001 );
+            PLB_ASSERT( distance1 < std::sqrt((T)3)+(T)0.0001 );
             // Attention: At this moment, the following consistency check fails sometimes,
             //   god knows why. It might be that there is a bug in the method
             //   mesh.distanceToSurface.
@@ -463,7 +466,7 @@ bool VoxelizeMeshFunctional3D<T>::voxelizeFromNeighbor (
             (void) distanceToSurface( hashContainer, point2, distance4, isBehind2 );
 #endif
             PLB_ASSERT( ok2 );
-            PLB_ASSERT( distance2 < sqrt((T)3)+(T)0.0001 );
+            PLB_ASSERT( distance2 < std::sqrt((T)3)+(T)0.0001 );
             PLB_ASSERT ( (voxelFlag::insideFlag(typeOfNeighbor) && isBehind2) ||
                          (voxelFlag::outsideFlag(typeOfNeighbor) && !isBehind2) );
         }

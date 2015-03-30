@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,6 +36,7 @@
 #include "multiBlock/multiContainerBlock3D.h"
 #include "core/dynamicsIdentifiers.h"
 #include <set>
+#include <numeric>
 
 
 namespace plb {
@@ -98,31 +99,68 @@ void uniqueDynamicsChains (
         std::vector<std::vector<int> >& chains, pluint& maxChainLength )
 {
     MultiContainerBlock3D container(lattice);
-    std::vector<MultiBlock3D*> latticeAndContainer, containerVector;
+    std::vector<MultiBlock3D*> latticeAndContainer;
     latticeAndContainer.push_back(&lattice);
     latticeAndContainer.push_back(&container);
-    containerVector.push_back(&container);
 
     StoreDynamicsFunctional3D<T,Descriptor> SDFunctional;
     applyProcessingFunctional(SDFunctional, domain, latticeAndContainer);
     maxChainLength = SDFunctional.getMaxChainLength();
 
-    std::vector<int> nextMaximum(maxChainLength);
-    for (pluint i=0; i<nextMaximum.size(); ++i) {
-        nextMaximum[i] = -1;
+    MultiBlockManagement3D const& management = container.getMultiBlockManagement();
+    ThreadAttribution const& threadAttribution = management.getThreadAttribution();
+    SparseBlockStructure3D const& sparseBlock = management.getSparseBlockStructure();
+
+    std::vector<int> localSerializedChains;
+    std::vector<plint> localBlocks = sparseBlock.getLocalBlocks(threadAttribution);
+    for (pluint i=0; i<localBlocks.size(); ++i) {
+        plint blockId = localBlocks[i];
+        AtomicContainerBlock3D& atomicContainer = container.getComponent(blockId);
+        StoreDynamicsID* storeId = dynamic_cast<StoreDynamicsID*>(atomicContainer.getData());
+        PLB_ASSERT( storeId );
+        storeId->startIterations();
+        while( !storeId->empty() ) {
+            localSerializedChains.insert (
+                    localSerializedChains.end(),
+                    storeId->getCurrent().begin(), storeId->getCurrent().end() );
+            storeId->iterate();
+        }
+        localSerializedChains.push_back(-1);
     }
-    std::vector<int> emptyVector(nextMaximum);
-    std::vector<std::vector<int> > maxima;
-    do {
-        IterateDynamicsFunctional3D functional(nextMaximum);
-        applyProcessingFunctional(functional, domain, containerVector);
-        nextMaximum = functional.getNextMaximum();
-        if (!vectorEquals(nextMaximum, emptyVector)) {
-            maxima.push_back(nextMaximum);
+
+#ifdef PLB_MPI_PARALLEL
+    std::vector<plint> idsPerProc(global::mpi().getSize(), 0);
+    idsPerProc[global::mpi().getRank()]=(plint)localSerializedChains.size();
+    global::mpi().allReduceVect(idsPerProc, MPI_SUM);
+
+    std::vector<plint> sumIdsPerProc(idsPerProc.size()+1);
+    sumIdsPerProc[0]=0;
+    std::partial_sum(idsPerProc.begin(), idsPerProc.end(), sumIdsPerProc.begin()+1);
+    plint totalNumIds = sumIdsPerProc.back();
+
+    std::vector<int> allIds(totalNumIds, 0);
+    plint start = sumIdsPerProc[global::mpi().getRank()];
+    for (pluint i=0; i<localSerializedChains.size(); ++i) {
+        allIds[start+i] = localSerializedChains[i];
+    }
+    global::mpi().allReduceVect(allIds, MPI_SUM);
+#else
+    std::vector<int> allIds(localSerializedChains);
+#endif
+
+    std::set<std::vector<int>, VectorIsLess> allChains;
+    std::vector<int> nextChain;
+    for (pluint i=0; i<allIds.size(); ++i) {
+        if (allIds[i]==-1) {
+            allChains.insert(nextChain);
+            nextChain.clear();
+        }
+        else {
+            nextChain.push_back(allIds[i]);
         }
     }
-    while (!vectorEquals(nextMaximum, emptyVector));
-    chains.swap(maxima);
+
+    chains.assign(allChains.begin(), allChains.end());
 }
 
 template<typename T, template<typename U> class Descriptor>

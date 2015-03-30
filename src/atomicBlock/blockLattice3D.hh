@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -213,7 +213,7 @@ void BlockLattice3D<T,Descriptor>::stream(Box3D domain) {
     boundaryStream(domain, Box3D(domain.x0,domain.x0+vicinity-1,
                                  domain.y0,domain.y1,
                                  domain.z0,domain.z1) );
-    boundaryStream(domain, Box3D(domain.x1-vicinity-1,domain.x1,
+    boundaryStream(domain, Box3D(domain.x1-vicinity+1,domain.x1,
                                  domain.y0,domain.y1,
                                  domain.z0,domain.z1) );
     boundaryStream(domain, Box3D(domain.x0+vicinity,domain.x1-vicinity,
@@ -461,7 +461,8 @@ void BlockLattice3D<T,Descriptor>::bulkCollideAndStream(Box3D domain) {
     // Make sure domain is contained within current lattice
     PLB_PRECONDITION( contained(domain, this->getBoundingBox()) );
 
-    if (Descriptor<T>::vicinity==1) {
+    // if (Descriptor<T>::q==15 || Descriptor<T>::q==19) {
+    if (Descriptor<T>::q==19) {
         // On nearest-neighbor lattice, use the cache-efficient
         //   version of collidAndStream.
         blockwiseBulkCollideAndStream(domain);

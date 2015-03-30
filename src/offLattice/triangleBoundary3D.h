@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,10 +22,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef INNER_FLOW_BOUNDARY_3D_H
-#define INNER_FLOW_BOUNDARY_3D_H
+#ifndef TRIANGLE_BOUNDARY_3D_H
+#define TRIANGLE_BOUNDARY_3D_H
 
 #include "core/globalDefs.h"
+#include "core/geometry3D.h"
 #include "offLattice/boundaryShapes3D.h"
 #include "offLattice/triangleSet.h"
 #include "offLattice/triangularSurfaceMesh.h"
@@ -247,6 +248,8 @@ public: // Mesh preparation interface.
     std::vector<Lid> getInletOutlet(plint sortDirection) const;
     template<typename DomainFunctional> plint tagDomain(DomainFunctional functional);
     template<typename DomainFunctional> plint tagDomain(DomainFunctional functional, Array<T,3> normal, T angleTolerance, plint previousTag=-1);
+    /// Tag all lids whose barycenters are inside the given cuboid and return the integer tag.
+    plint tagLids(Cuboid<T> const& c);
     std::vector<plint> getInletOutletIds(plint sortDirection) const;
     void getLidProperties (
         plint sortDirection, std::vector<Array<T,3> >& normal,
@@ -417,4 +420,4 @@ private:
 
 }  // namespace plb
 
-#endif  // INNER_FLOW_BOUNDARY_3D_H
+#endif  // TRIANGLE_BOUNDARY_3D_H

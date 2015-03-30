@@ -1,0 +1,153 @@
+<?xml version="1.0" ?>
+
+<!--
+    Parameters set by the user.
+    All user input variables and all data in external input files must be in the same system of units.
+ -->
+
+<geometry>
+    <!-- Coordinates of the physical simulation domain. -->
+    <simulationDomain>
+        <x> -0.450 2.500 </x>
+        <y> -0.455 0.445 </y>
+        <z> -0.455 0.445 </z>
+    </simulationDomain>
+    <!-- Files with the moving immersed surface geometries. -->
+    <movingSurfaceFileNames> cube.stl </movingSurfaceFileNames>
+    <!-- Files with the static immersed surface geometries. -->
+    <staticSurfaceFileNames> sphere.stl </staticSurfaceFileNames>
+    <!-- Direction of the flow (0-> positive x, 1-> positive y, 2-> positive z). -->
+    <flowDirection> 0 </flowDirection>
+</geometry>
+
+<numerics>
+    <!-- Immersed surfaces are represented as triangle surface meshes.
+         Because of the immersed boundary method used, the size of
+         the triangles must approximately be the same as the lattice cell size.
+         The value of this parameter provides the option to refine the
+         triangular representation of the immersed surfaces. -->
+    <refineSurfaceMeshes> true </refineSurfaceMeshes>
+    <!-- If surface mesh refinement has been selected, the next parameter
+         defines the target value of the maximum edge length of the new
+         refined surface mesh. If the value is negative, then the target
+         length is considered to be equal to dx. -->
+    <targetMaxEdgeLength> -1.0 </targetMaxEdgeLength>
+    <!-- This is the maximum number of surface refinements to be performed,
+         whether or not the target maximum triangle edge length has been
+         achieved. -->
+    <maxNumSurfaceRefinements> 100 </maxNumSurfaceRefinements>
+    <!-- Precision for geometric operations (FLT, DBL, LDBL, INF). -->
+    <precision> DBL </precision>
+    <!-- Characteristic length to define the resolution and the Reynolds number. -->
+    <characteristicLength> 0.1 </characteristicLength>
+    <!-- Total number of lattice nodes in the characteristic length. -->
+    <resolution> 7 </resolution>
+    <!-- Discrete time step. -->
+    <dt> 0.0025 </dt>
+    <!-- Maximum number of iterations. -->
+    <maxIter> 1000000 </maxIter>
+    <!-- Iterations for the immersed boundary method. -->
+    <ibIter> 4 </ibIter>
+    <!-- Number of initial iterations for smoothly increasing the inlet velocity. -->
+    <startIter> 15000 </startIter>
+    <!-- Smagorinsky LES model parameter. -->
+    <cSmago> 0.14 </cSmago>
+    <!-- Inlet velocity. -->
+    <inletVelocity> 0.1 0.0 0.0 </inletVelocity>
+    <!-- Use periodic lateral boundaries or free-slip ones? -->
+    <lateralPeriodic> true </lateralPeriodic>
+    <!-- Angular velocities for the moving surfaces (represented as column vectors). -->
+    <angularVelocities>
+        <x> 0.00 </x>
+        <y> 1.25 </y>
+        <z> 0.00 </z>
+    </angularVelocities>
+    <!-- Point on the axis of rotation for each moving surface (represented as column vectors). -->
+    <rotationAxisPoints>
+        <x> -0.15 </x>
+        <y>  0.00 </y>
+        <z>  0.00 </z>
+    </rotationAxisPoints>
+    <spongeZones>
+    <!-- Sponge zones: There are at most 6 sponge zones, as many as the
+         boundaries of the simulation lattice. Next, the width of each
+         of these zones is given. The widths are given per axis. The first
+         one for a specific axis direction, corresponds to the boundary normal
+         to that axis, which holds the minimum axis coordinate. If no sponge
+         zone is necessary at a lattice boundary, the corresponding width
+         should be 0.0. -->
+        <xWidths> 0.0 0.0 </xWidths>
+        <yWidths> 0.0 0.0 </yWidths>
+        <zWidths> 0.0 0.0 </zWidths>
+        <!-- Use sponges of "viscosity" or "Smagorinsky" type? -->
+        <useSmagorinskySponges> false </useSmagorinskySponges>
+        <!-- If the sponges are of Smagorinsky type, the following parameter is the
+             target Smagorinsky parameter at the end of the sponge zones. -->
+        <targetCSmago> 0.5 </targetCSmago>
+    </spongeZones>
+    <!-- Type of the outflow boundary condition.
+         If 0, then a constant pressure is imposed at the outlet.
+         If 1, then FluidPressureOutlet3D is used.
+         If 2, then VirtualOutlet is used. -->
+    <outflowBcType> 2 </outflowBcType>
+    <!-- File for signaling program abortion. -->
+    <abortFileName> abort </abortFileName>
+    <!-- XML file name for restarting. -->
+    <xmlContinueFileName> continue.xml </xmlContinueFileName>
+    <!-- Base file name for checkpoint files. -->
+    <baseFileName> checkpoint_ </baseFileName>
+    <!-- For a desktop PC this should be "false", for a cluster "true". -->
+    <useParallelIO> true </useParallelIO>
+</numerics>
+
+<fluid>
+    <!-- Fluid density. -->
+    <rho> 1.0 </rho>
+    <!-- Fluid kinematic viscosity. -->
+    <nu> 1.0e-3 </nu>
+    <!-- Absolute pressure at infinity. -->
+    <ambientPressure> 0.0 </ambientPressure>
+</fluid>
+
+<output>
+    <!-- Number of iterations for terminal output. -->
+    <statIter> 100 </statIter>
+    <!-- Number of iterations for disk output. -->
+    <outIter> 200 </outIter>
+    <!-- Number of iterations for checkpointing. Zero or negative means no checkpoints. -->
+    <cpIter> -1 </cpIter>
+    <!-- Number of iterations for checking for user-driven program abortion. -->
+    <abIter> 16 </abIter>
+    <!-- Save data on disk in a volume subdomain of the whole simulation domain or not? -->
+    <outputInDomain> true </outputInDomain>
+    <!-- Domain for disk output (must be a subset of the simulation domain). -->
+    <outputDomain>
+        <x> -0.450 2.500 </x>
+        <y> -0.455 0.445 </y>
+        <z> -0.455 0.445 </z>
+    </outputDomain>
+    <!-- Save data on disk on a set of slices or not? -->
+    <outputOnSlices> true </outputOnSlices>
+    <!-- Slices for disk output (must be subsets of the simulation domain). -->
+    <outputSlices>
+        <!-- Slices normal to the x-axis for disk output. -->
+        <xSlices>
+            <xPositions> 0.0 0.05 0.1 0.15 0.2 0.5 1.0 1.5 2.0 </xPositions>
+            <yRange> -0.455 0.445 </yRange>
+            <zRange> -0.455 0.445 </zRange>
+        </xSlices>
+        <!-- Slices normal to the y-axis for disk output. -->
+        <ySlices>
+            <yPositions> -0.4 -0.2 -0.1 0.0 0.1 0.2 0.4 </yPositions>
+            <zRange> -0.455 0.445 </zRange>
+            <xRange> -0.450 2.500 </xRange>
+        </ySlices>
+        <!-- Slices normal to the z-axis for disk output. -->
+        <zSlices>
+            <zPositions> -0.4 -0.2 -0.1 0.0 0.1 0.2 0.4 </zPositions>
+            <xRange> -0.450 2.500 </xRange>
+            <yRange> -0.455 0.445 </yRange>
+        </zSlices>
+    </outputSlices>
+</output>
+

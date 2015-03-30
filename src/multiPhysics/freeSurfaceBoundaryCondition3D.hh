@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -88,9 +88,9 @@ void RemoveMass3D<T,Descriptor>::processGenericBlocks(Box3D domain,std::vector<A
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                //param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
+                //param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>((T)1.));
                 param.setDensity(iX,iY,iZ, (T)1.);
-                param.setMomentum(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                param.setMomentum(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                 param.mass(iX,iY,iZ) = (T)0;
                 param.volumeFraction(iX,iY,iZ) = (T)0;
                 //param.flag(iX,iY,iZ) = empty;

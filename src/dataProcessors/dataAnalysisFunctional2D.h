@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -363,6 +363,35 @@ public:
                                        TensorField2D<T,Descriptor<T>::d>& tensorField);
     virtual BoxExternalForceFunctional2D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class BoxExternalScalarFunctional2D :
+    public BoxProcessingFunctional2D_LS<T,Descriptor,T>
+{
+public:
+    BoxExternalScalarFunctional2D(int whichScalar_);
+    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice,
+                                       ScalarField2D<T>& scalarField);
+    virtual BoxExternalScalarFunctional2D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    int whichScalar;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class BoxExternalVectorFunctional2D :
+    public BoxProcessingFunctional2D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    BoxExternalVectorFunctional2D(int vectorBeginsAt_);
+    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice,
+                                       TensorField2D<T,Descriptor<T>::d>& tensorField);
+    virtual BoxExternalVectorFunctional2D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    int vectorBeginsAt;
 };
 
 
@@ -956,6 +985,26 @@ public:
     virtual void process(Box2D domain, ScalarField2D<T>& scalarField,
                                        TensorField2D<T,3>& tensorField);
     virtual ComputeSymmetricTensorTraceFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class BoxGradientFunctional2D :
+    public BoundedBoxProcessingFunctional2D_ST<T,T,2>
+{
+public:
+    virtual void processBulk( Box2D domain, ScalarField2D<T>& phi,
+                                            TensorField2D<T,2>& gradient );
+    
+    virtual void processEdge( int direction, int orientation, Box2D domain,
+                              ScalarField2D<T>& phi,
+                              TensorField2D<T,2>& gradient );
+    virtual void processCorner( int normalX, int normalY, Box2D domain,
+                                ScalarField2D<T>& phi,
+                                TensorField2D<T,2>& gradient );
+    
+    virtual BoxGradientFunctional2D<T>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual BlockDomain::DomainT appliesTo() const;
 };

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -175,3 +175,4 @@ Dot3D computeRelativeDisplacement(AtomicBlock3D const& block1, AtomicBlock3D con
 } // namespace plb
 
 #endif  // ATOMIC_BLOCK_3D
+

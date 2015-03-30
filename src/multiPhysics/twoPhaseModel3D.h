@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -192,9 +192,10 @@ void getFilteredDensity(MultiTensorField3D<T,nDim>& densities, MultiScalarField3
  *               and takes its value from "outsideDensity", which can be either
  *               equal to rhoEmpty, or to the result of the pressure-correction model.
  **/
-typedef enum {kinetic=1, dynamic=2, bubblePressure=3, constRho=4, freeSurface=5} TwoPhaseModel;
+typedef enum {undefined=-1, kinetic=1, dynamic=2, bubblePressure=3, constRho=4, freeSurface=5} TwoPhaseModel;
 
-TwoPhaseModel stringToTwoPhaseModel(std::string modelName) {
+TwoPhaseModel stringToTwoPhaseModel(std::string modelName)
+{
     if (modelName=="kinetic") {
         return kinetic;
     }
@@ -213,6 +214,8 @@ TwoPhaseModel stringToTwoPhaseModel(std::string modelName) {
     else {
         PLB_ASSERT( false );
     }
+
+    return undefined;
 }
 
 
@@ -1588,15 +1591,9 @@ private:
 
 template<typename T, template<typename U> class Descriptor>
 struct TwoPhaseFields3D {
-    //static const int envelopeWidth = 2;
-    static const int envelopeWidth = 3; // Necessary when we use height functions to compute the curvature,
-                                        // or when double smoothing is used at the data processor that computes the
-                                        // normals from the volume fraction.
-    //static const int envelopeWidth = 4; // Necessary when we use height functions to compute the curvature and
-                                        //   use the old contact angle algorithm.
-    static const int smallEnvelopeWidth = 2;
-
-    static const int envelopeWidthForImmersedWalls = 4;
+    static const int envelopeWidth;
+    static const int smallEnvelopeWidth;
+    static const int envelopeWidthForImmersedWalls;
 
     TwoPhaseFields3D(SparseBlockStructure3D const& blockStructure,
                      Dynamics<T,Descriptor>* dynamics_, Dynamics<T,Descriptor>* dynamics2_,
@@ -1728,22 +1725,13 @@ struct TwoPhaseFields3D {
     }
     void initialization(SparseBlockStructure3D const& blockStructure, bool useImmersedWalls)
     {
-        Precision precision;
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        Precision precision = floatingPointPrecision<T>();
         T eps = getEpsilon<T>(precision);
         // The contact angle must take values between 0 and 180 degrees. If it is negative,
         // this means that contact angle effects will not be modeled.
-        PLB_ASSERT(contactAngle < (T) 180.0 || fabs(contactAngle - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
 
-        if (fabs(surfaceTension) <= eps) {
+        if (std::fabs(surfaceTension) <= eps) {
             useSurfaceTension = false;
         } else {
             useSurfaceTension = true;
@@ -2071,7 +2059,7 @@ struct TwoPhaseFields3D {
 
         if (useSurfaceTension) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension), 
+                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension, rhoDefault), 
                 lattice.getBoundingBox(), twoPhaseArgs, pl );
         }
 
@@ -2120,6 +2108,23 @@ struct TwoPhaseFields3D {
         //    lattice.getBoundingBox(), twoPhaseArgs, pl);
     }
 
+    void appendBlocksToCheckpointVector(std::vector<MultiBlock3D*>& checkpointBlocks)
+    {
+        checkpointBlocks.push_back(&lattice);
+        checkpointBlocks.push_back(&mass);
+        checkpointBlocks.push_back(&flag);
+        checkpointBlocks.push_back(&volumeFraction);
+        checkpointBlocks.push_back(&outsideDensity);
+        checkpointBlocks.push_back(&rhoBar);
+        checkpointBlocks.push_back(&j);
+        if (model != freeSurface) {
+            checkpointBlocks.push_back(lattice2);
+            checkpointBlocks.push_back(mass2);
+            checkpointBlocks.push_back(rhoBar2);
+            checkpointBlocks.push_back(j2);
+        }
+    }
+
     Dynamics<T,Descriptor> *dynamics, *dynamics2;
     T rhoDefault;
     T densityRatio;
@@ -2145,6 +2150,19 @@ struct TwoPhaseFields3D {
     std::vector<MultiBlock3D*> rhoBarJparam, rhoBarJparam2;
     std::vector<MultiBlock3D*> twoPhaseArgs;
 };
+
+template<typename T, template<typename U> class Descriptor>
+const int TwoPhaseFields3D<T,Descriptor>::envelopeWidth = 3; // Necessary when we use height functions to compute the curvature,
+                                                             // or when double smoothing is used at the data processor that
+                                                             // computes the normals from the volume fraction.
+//template<typename T, template<typename U> class Descriptor>
+//const int TwoPhaseFields3D<T,Descriptor>::envelopeWidth = 4; // Necessary when we use height functions to compute the curvature and
+                                                               // use the old contact angle algorithm.
+template<typename T, template<typename U> class Descriptor>
+const int TwoPhaseFields3D<T,Descriptor>::smallEnvelopeWidth = 1;
+
+template<typename T, template<typename U> class Descriptor>
+const int TwoPhaseFields3D<T,Descriptor>::envelopeWidthForImmersedWalls = 4;
 
 template<typename T, template<typename U> class Descriptor>
 class TwoPhaseOutletMaximumVolumeFraction3D : public BoxProcessingFunctional3D {

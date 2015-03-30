@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -54,7 +54,9 @@ public:
     virtual VisualParticle2D<T,Descriptor>* clone() const;
     virtual bool getVector(plint whichVector, Array<T,2>& vector) const;
     virtual bool getScalar(plint whichScalar, T& scalar) const;
+    virtual bool setScalar(plint whichScalar, T scalar);
     virtual bool setScalars(std::vector<T> const& scalars_);
+    virtual bool setVector(plint whichVector, Array<T,2> const& vector);
     virtual bool setVectors(std::vector<Array<T,2> > const& vectors_);
 private:
     std::vector<T> scalars;

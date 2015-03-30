@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,7 +69,7 @@ namespace descriptors {
         
     template<typename T>
     const T MRTD2Q9DescriptorBase<T>::S[BaseDescriptor::q] =
-    { T(), (T)1.63, (T)1.14, T(), (T)1.92, T(), (T)1.92, T(), T() };
+    { (T)1, (T)1.63, (T)1.14, (T)1, (T)1.92, (T)1, (T)1.92, T(), T() };
     // s7=s8 to have a shear viscosity nu
     // and the bulk viscosity depends on s1.
     // sq->s4 and s6
@@ -92,6 +92,9 @@ namespace descriptors {
     template<typename T>
     const char ForcedMRTD2Q9Descriptor<T>::name[] = "ForcedMRTD2Q9";
     
+    // External Force, density and momentum for ShanChen MRT 2D model
+    template<typename T>
+    const char ForcedMRTShanChenD2Q9Descriptor<T>::name[] = "ForcedShanChenMRTD2Q9";
     
     // EXTERNAL VELOCITY MRT D2Q9 ////////////////////////////////////////////////////////////
     
@@ -246,14 +249,14 @@ namespace descriptors {
     template<typename T>
     const T MRTD3Q19DescriptorBase<T>::S[BaseDescriptor::q] =
     {
-/*s0*/  T(), // rho (conserved)
+/*s0*/  (T)1, // rho (conserved)
 /*s1*/  (T)1.19, 
 /*s2*/  (T)1.4, 
-/*s3*/  T(), // rho*ux (conserved)
+/*s3*/  (T)1, // rho*ux (conserved)
 /*s4*/  (T)1.2, // <=> q index
-/*s5*/  T(), // rho*uy (conserved)
+/*s5*/  (T)1, // rho*uy (conserved)
 /*s6*/  (T)1.2, // = s4 <=> q index
-/*s7*/  T(), // rho*uz (conserved)
+/*s7*/  (T)1, // rho*uz (conserved)
 /*s8*/  (T)1.2, // = s4 <=> q index
 /*s9*/  T(), //should be equal to s13, used to define nu
 /*s10*/ (T)1.4,
@@ -286,10 +289,20 @@ namespace descriptors {
     template<typename T>
     const char ForcedMRTD3Q19Descriptor<T>::name[] = "ForcedMRTD3Q19";
     
+    // External Force, density and momentum for ShanChen MRT 3D model
+    template<typename T>
+    const char ForcedMRTShanChenD3Q19Descriptor<T>::name[] = "ForcedShanChenMRTD3Q19";
+    
     // EXTERNAL VELOCITY MRT D3Q19 ////////////////////////////////////////////////////////////
     
     template<typename T>
     const char ExternalVelocityMRTD3Q19Descriptor<T>::name[] = "ExternalVelocityMRTD3Q19";
+
+    // HUI ABSORBING LAYER MRT D3Q19 ////////////////////////////////////////////////////////////
+    
+    template<typename T>
+    const char AbsorbingWaveMRTD3Q19Descriptor<T>::name[] = "AbsorbingWaveMRTD3Q19";
+
 
 }  // namespace descriptors
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -250,6 +250,42 @@ inline bool contained(Array<T,3> const& x, Box3D const& box) {
            x[2]>box.z0 && x[2]<box.z1;
 }
 
+template<>
+inline bool contained<plint>(Array<plint,3> const& x, Box3D const& box) {
+    //IMPORTANT: the behavior of this function (for int) has changed in Palabos!
+    //use contained(plint, plint, plint, Box3D) instead.
+    //TODO: In the future, this function will do the following instead of an assert:
+    //return contained(x[0], x[1], x[2], box);
+    PLB_ASSERT( false );
+    return false;
+}
+
+/// Decide if a Lagrangian point is contained in 3D box, boundaries exclusive at the epsilon level of accuracy.
+template<typename T>
+inline bool contained(Array<T,3> const& x, Box3D const& box, T epsilon) {
+    return x[0]-epsilon>box.x0 && x[0]+epsilon<box.x1 &&
+           x[1]-epsilon>box.y0 && x[1]+epsilon<box.y1 &&
+           x[2]-epsilon>box.z0 && x[2]+epsilon<box.z1;
+}
+
+/// Decide if a Lagrangian point is contained in 3D box, boundaries inclusive at the epsilon level of accuracy.
+template<typename T>
+inline bool containedInclusive(Array<T,3> const& x, Box3D const& box, T epsilon)
+{
+    return util::greaterEqual_abs(x[0], (T) box.x0, epsilon) && util::lessEqual_abs(x[0], (T) box.x1, epsilon) &&
+           util::greaterEqual_abs(x[1], (T) box.y0, epsilon) && util::lessEqual_abs(x[1], (T) box.y1, epsilon) &&
+           util::greaterEqual_abs(x[2], (T) box.z0, epsilon) && util::lessEqual_abs(x[2], (T) box.z1, epsilon);
+}
+
+/// Decide if a Lagrangian point is contained in 3D box, boundaries inclusive at the floating point precision level of accuracy.
+template<typename T>
+inline bool containedInclusive(Array<T,3> const& x, Box3D const& box)
+{
+    return util::greaterEqual_abs(x[0], (T) box.x0) && util::lessEqual_abs(x[0], (T) box.x1) &&
+           util::greaterEqual_abs(x[1], (T) box.y0) && util::lessEqual_abs(x[1], (T) box.y1) &&
+           util::greaterEqual_abs(x[2], (T) box.z0) && util::lessEqual_abs(x[2], (T) box.z1);
+}
+
 /// Decide if lattice point is contained in 3D box, boundaries inclusive
 inline bool contained(Dot3D dot, Box3D const& box) {
     return contained(dot.x, dot.y, dot.z, box);
@@ -420,6 +456,18 @@ struct Cuboid {
     Array<T,3> upperRightCorner;
 };
 
+/// Decide if a Lagrangian point is contained in a cuboid, boundaries inclusive
+template<typename T>
+inline bool contained(Array<T,3> const& x, Cuboid<T> const& c)
+{
+    Array<T,3> llc = c.lowerLeftCorner;
+    Array<T,3> urc = c.upperRightCorner;
+
+    return x[0]>=llc[0] && x[0]<=urc[0] &&
+           x[1]>=llc[1] && x[1]<=urc[1] &&
+           x[2]>=llc[2] && x[2]<=urc[2];
+}
+
 /// Function to compute the intersection between a plane "plane" which is defined by
 ///   a point and a unit normal, and a line segment between points "point1"
 ///   and "point2". "intersection" is the object whose state is changed by this function.
@@ -439,14 +487,14 @@ inline int lineIntersectionWithPlane (
     T num = dot(plane.point, plane.normal) - dot(point1, plane.normal);
     T denom = dot(direction, plane.normal);
 
-    if (fabs(denom) <=  epsilon) {
+    if (std::fabs(denom) <=  epsilon) {
         return -1; // Line belongs to the plane or does not intersect it.
     }
 
     T t = num / denom;
 
-    if ((t < 0.0 && !(fabs(t) <= epsilon)) ||
-        (t > 1.0 && !(fabs(t - 1.0) <= epsilon))) {
+    if ((t < 0.0 && !(std::fabs(t) <= epsilon)) ||
+        (t > 1.0 && !(std::fabs(t - 1.0) <= epsilon))) {
         return 0;
     }
 
@@ -454,6 +502,21 @@ inline int lineIntersectionWithPlane (
 
     return 1;
 }
+
+/* This functions checks if the point "point" belongs to the half-space which is
+ * defined by the plane "plane" and pointed-into by the plane's normal.
+ */
+template<typename T>
+bool isInHalfSpace(Array<T,3> const& point, Plane<T> const& plane, T& signedDistanceFromPlane)
+{
+    Array<T,3> dx = point - plane.point;
+    signedDistanceFromPlane = dot<T,3>(dx, plane.normal);
+    if (signedDistanceFromPlane >= (T) 0) {
+        return true;
+    }
+    return false;
+}
+
 } // namespace plb
 
 #endif  // GEOMETRY_3D_H

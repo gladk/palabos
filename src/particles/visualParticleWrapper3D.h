@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,9 +26,12 @@
 #define VISUAL_PARTICLE_WRAPPER_3D_H
 
 #include "core/globalDefs.h"
+#include "core/array.h"
+#include "core/geometry3D.h"
 #include "particles/visualParticleFunctional3D.h"
 #include "offLattice/offLatticeBoundaryCondition3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
+
 #include <memory>
 
 namespace plb {
@@ -92,6 +95,13 @@ std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
         MultiScalarField3D<T>& scalarField,
         Box3D domain, Particle3D<T,Descriptor>* particleTemplate,
         T mostUnlikely, T mostLikely, T probability = 1., plint numShotsPerCell = 1 );
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void scalarFieldToParticles(MultiScalarField3D<T>& scalar, MultiParticleField3D<ParticleFieldT>& particleField, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
+    scalarFieldToSurface(TriangularSurfaceMesh<T>& mesh, MultiScalarField3D<T>& scalar, Box3D domain);
 
 }  // namespace plb
 

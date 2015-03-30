@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -152,6 +152,9 @@ namespace descriptors {
     template<typename T>
     const char ForcedRhoBarJD3Q15Descriptor<T>::name[] = "ForcedRhoBarJD3Q15";
 
+    template<typename T>
+    const char AbsorbingWaveD3Q15Descriptor<T>::name[] = "AbsorbingWave_D3Q15";
+
 
     // D3Q19 ///////////////////////////////////////////////////////////
 
@@ -216,6 +219,12 @@ namespace descriptors {
     
     template<typename T>
     const char VelocityD3Q19Descriptor<T>::name[] = "VelocityD3Q19";
+    
+    template<typename T>
+    const char SymTensorD3Q19Descriptor<T>::name[] = "SymTensorD3Q19";
+
+    template<typename T>
+    const char AbsorbingWaveD3Q19Descriptor<T>::name[] = "AbsorbingWave_D3Q19";
     
     // D3Q27 ///////////////////////////////////////////////////////////
 
@@ -284,6 +293,11 @@ namespace descriptors {
 
     template<typename T>
     const char ForcedRhoBarJD3Q27Descriptor<T>::name[] = "ForcedRhoBarJD3Q27";
+    
+    template<typename T>
+    const char AbsorbingWaveD3Q27Descriptor<T>::name[] = "AbsorbingWave_D3Q27";
+
+    
 
 }  // namespace descriptors
 

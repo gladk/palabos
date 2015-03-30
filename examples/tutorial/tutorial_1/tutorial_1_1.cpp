@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -58,7 +58,7 @@ void defineInitialDensityAtCenter(MultiBlockLattice2D<T,DESCRIPTOR>& lattice)
     // .. except for those in the box "centralSquare" which have density
     //    rho+deltaRho
     T deltaRho = 1.e-4;
-    Array<T,2> u0(0,0);
+    Array<T,2> u0((T)0,(T)0);
 
     // Initialize constant density everywhere.
     initializeAtEquilibrium (

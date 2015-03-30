@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,6 +38,8 @@
 #include "latticeBoltzmann/nearestNeighborLattices2D.h"
 #include "latticeBoltzmann/nearestNeighborLattices3D.h"
 #include "latticeBoltzmann/externalFields.h"
+#include "multiPhysics/shanChenLattices2D.h"
+#include "multiPhysics/shanChenLattices3D.h"
 #include <vector>
 
 namespace plb {
@@ -123,6 +125,14 @@ namespace descriptors {
     {
         static const char name[];
     };
+    
+    template <typename T>
+    struct ForcedMRTShanChenD2Q9Descriptor
+        : public MRTD2Q9DescriptorBase<T>, public ForcedShanChenExternalBase2D
+    {
+        static const char name[];
+    };
+    
 
     template <typename T>
     struct MRTD3Q19Descriptor
@@ -138,9 +148,24 @@ namespace descriptors {
         static const char name[];
     };
     
+    
+    template <typename T>
+    struct ForcedMRTShanChenD3Q19Descriptor
+        : public MRTD3Q19DescriptorBase<T>, public ForcedShanChenExternalBase3D
+    {
+        static const char name[];
+    };
+    
     template <typename T>
     struct ExternalVelocityMRTD3Q19Descriptor
         : public MRTD3Q19DescriptorBase<T>, public Velocity3dBase
+    {
+        static const char name[];
+    };
+
+    template <typename T>
+    struct AbsorbingWaveMRTD3Q19Descriptor
+        : public MRTD3Q19DescriptorBase<T>, public AbsorbingWaveExternalField3dBase
     {
         static const char name[];
     };

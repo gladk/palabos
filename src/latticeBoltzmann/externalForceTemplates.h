@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -112,8 +112,7 @@ static void addGuoForce( Array<T,Descriptor::q>& f, T* externalScalars,
 {
     static const int forceBeginsAt = Descriptor::ExternalField::forceBeginsAt;
     T* force = externalScalars + forceBeginsAt;
-    for (plint iPop=0; iPop < Descriptor::q; ++iPop) 
-    {
+    for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
         T c_u = T();
         for (int iD=0; iD<Descriptor::d; ++iD) {
             c_u += Descriptor::c[iPop][iD]*u[iD];

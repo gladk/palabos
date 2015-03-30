@@ -1,7 +1,10 @@
 #!/usr/bin/python
 
 #  This file is part of the Palabos library.
-#  Copyright (C) 2009-2010 Jonas Latt
+#  Copyright (C) 2011-2015 FlowKit Sarl
+#  Route d'Oron 2
+#  1010 Lausanne, Switzerland
+#  E-mail contact: contact@flowkit.com
 #
 #  The library Palabos is free software: you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License as

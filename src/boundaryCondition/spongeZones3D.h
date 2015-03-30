@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -77,6 +77,44 @@ private:
 };
 
 
+template<typename T, template<typename U> class Descriptor>
+class MaskedViscositySpongeZone : public BoxProcessingFunctional3D
+{
+public:
+    // Constructor for the tanh sponge function.
+    //   Nice value for the translation parameters is 0.5.
+    //   Nice value for the scale parameters is 0.12.
+    MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
+            Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
+            Array<T,6> const& scaleParameters_);
+
+    // Constructor for the cos sponge function.
+    MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
+                        Array<plint,6> const& numSpongeCells_);
+
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+
+    virtual MaskedViscositySpongeZone<T,Descriptor>* clone() const
+    {
+        return new MaskedViscositySpongeZone<T,Descriptor>(*this);
+    }
+
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+        modified[0] = modif::dynamicVariables; // Block lattice.
+        modified[1] = modif::nothing;          // Flag matrix.
+    }
+private:
+    plint nx, ny, nz;                  // Lattice dimensions.
+    T bulkOmega;                       // Value of the relaxation parameter outside of the sponge zone.
+    Array<plint,6> numSpongeCells;     // Width of the sponge zones.
+    Array<T,6> translationParameters;  // Translation parameters of the tanh sponge functions.
+    Array<T,6> scaleParameters;        // Scaling parameters of the tanh sponge functions.
+    bool useTanhSpongeFunction;        // Use a tanh sponge function, or a cos sponge function.
+    int flag;
+};
+
+
 // Data processor to implement a Smagorinsky sponge zone:
 // The Smagorinsky parameter is progressively increased
 // inside the zone.
@@ -116,6 +154,44 @@ private:
     Array<T,6> translationParameters;  // Translation parameters of the tanh sponge functions.
     Array<T,6> scaleParameters;        // Scaling parameters of the tanh sponge functions.
     bool useTanhSpongeFunction;        // Use a tanh sponge function, or a cos sponge function.
+};
+
+
+template<typename T, template<typename U> class Descriptor>
+class MaskedSmagorinskySpongeZone : public BoxProcessingFunctional3D
+{
+public:
+    // Constructor for the tanh sponge function.
+    //   Nice value for the translation parameters is 0.5.
+    //   Nice value for the scale parameters is 0.12.
+    MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
+            Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
+            Array<T,6> const& scaleParameters_);
+
+    // Constructor for the cos sponge function.
+    MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
+            Array<plint,6> const& numSpongeCells_);
+
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+
+    virtual MaskedSmagorinskySpongeZone<T,Descriptor>* clone() const
+    {
+        return new MaskedSmagorinskySpongeZone<T,Descriptor>(*this);
+    }
+
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+        modified[0] = modif::dynamicVariables; // Block lattice.
+        modified[1] = modif::nothing;          // Flag matrix.
+    }
+private:
+    plint nx, ny, nz;                  // Lattice dimensions.
+    T bulkCSmago, targetCSmago;        // Varying parameter: bulk and target values.
+    Array<plint,6> numSpongeCells;     // Width of the sponge zones.
+    Array<T,6> translationParameters;  // Translation parameters of the tanh sponge functions.
+    Array<T,6> scaleParameters;        // Scaling parameters of the tanh sponge functions.
+    bool useTanhSpongeFunction;        // Use a tanh sponge function, or a cos sponge function.
+    int flag;
 };
 
 }

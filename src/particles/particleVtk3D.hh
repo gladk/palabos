@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -104,6 +104,8 @@ void vtkForVertices(std::vector<Particle3D<T,Descriptor>*> const& particles,
     }
     
     std::ofstream ofile(fName.c_str());
+    ofile.precision(10);
+    std::scientific(ofile);
     ofile << "# vtk DataFile Version 3.0\n";
     ofile << "Surface mesh created with Palabos\n";
     ofile << "ASCII\n";
@@ -270,6 +272,8 @@ void vertexAsciiData(std::vector<Particle3D<T,Descriptor>*> const& particles,
     TriangularSurfaceMesh<T> const& mesh = boundary.getMesh();
     PLB_PRECONDITION((plint)particles.size() == mesh.getNumVertices());
     std::ofstream ofile(fName.c_str());
+    ofile.precision(10);
+    std::scientific(ofile);
     if (printHeader) {
         ofile << "Pos[0] Pos[1] Pos[2]";
         for (pluint iScalar=0; iScalar<scalars.size(); ++iScalar) {
@@ -309,7 +313,7 @@ void vertexAsciiData(std::vector<Particle3D<T,Descriptor>*> const& particles,
 template<typename T, template<typename U> class Descriptor>
 void writeAsciiParticlePos (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName )
+        std::string const& fName, T deltaX, Array<T,3> const& offset )
 {
     SparseBlockStructure3D blockStructure(particles.getBoundingBox());
     blockStructure.addBlock(particles.getBoundingBox(), 0);
@@ -324,6 +328,8 @@ void writeAsciiParticlePos (
     copy ( particles, particles.getBoundingBox(), multiSerialParticles, particles.getBoundingBox() );
     if (global::mpi().isMainProcessor()) {
         std::ofstream ofile(fName.c_str());
+        ofile.precision(10);
+        std::scientific(ofile);
         ParticleField3D<T,Descriptor>& atomicSerialParticles =
             dynamic_cast<ParticleField3D<T,Descriptor>&>(multiSerialParticles.getComponent(0));
 
@@ -332,6 +338,7 @@ void writeAsciiParticlePos (
         atomicSerialParticles.findParticles(oneBlockBulk.toLocal(particles.getBoundingBox()), found);
         for (pluint iParticle=0; iParticle<found.size(); ++iParticle) {
             Array<T,3> pos(found[iParticle]->getPosition());
+            pos = deltaX * pos + offset;
             ofile << pos[0] << "," << pos[1] << "," << pos[2] << "\n";
         }
     }
@@ -343,6 +350,7 @@ void particleVtkSerialImplementation (
         std::string const& fName,
         std::map<plint,std::string> const& additionalScalars,
         std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset,
         pluint maxNumParticlesToWrite)
 {
     if (global::mpi().isMainProcessor()) {
@@ -370,16 +378,18 @@ void particleVtkSerialImplementation (
         fprintf(fp, "Particle file created by Palabos\n");
         fprintf(fp, "ASCII\n");
         fprintf(fp, "DATASET UNSTRUCTURED_GRID\n");
-        fprintf(fp, "POINTS %12lu float\n", (unsigned long) numParticlesToWrite);
+        fprintf(fp, "POINTS %12lu double\n", (unsigned long) numParticlesToWrite);
         if (numParticlesToWrite == numParticles) {
             for (pluint iParticle = 0; iParticle < numParticles; iParticle++) {
                 Array<T,3> pos(found[iParticle]->getPosition());
-                fprintf(fp, "% .7e % .7e % .7e\n", (float) pos[0], (float) pos[1], (float) pos[2]);
+                pos = deltaX * pos + offset;
+                fprintf(fp, "% .10e % .10e % .10e\n", (double) pos[0], (double) pos[1], (double) pos[2]);
             }
         } else {
             for (pluint i = 0; i < numParticlesToWrite; i++) {
                 Array<T,3> pos(found[iParticles[i]]->getPosition());
-                fprintf(fp, "% .7e % .7e % .7e\n", (float) pos[0], (float) pos[1], (float) pos[2]);
+                pos = deltaX * pos + offset;
+                fprintf(fp, "% .10e % .10e % .10e\n", (double) pos[0], (double) pos[1], (double) pos[2]);
             }
         }
         fprintf(fp, "POINT_DATA %12lu\n", (unsigned long) numParticlesToWrite);
@@ -389,36 +399,36 @@ void particleVtkSerialImplementation (
             std::string vectorName = vectorIt->second;
             fprintf(fp, "VECTORS ");
             fprintf(fp, "%s", vectorName.c_str());
-            fprintf(fp, " float\n");
+            fprintf(fp, " double\n");
             if (numParticlesToWrite == numParticles) {
                 for (pluint iParticle = 0; iParticle < numParticles; iParticle++) {
                     Array<T,3> vectorValue;
                     found[iParticle]->getVector(vectorID, vectorValue);
-                    Array<float,3> floatVectorValue(vectorValue);
-                    fprintf( fp, "% .7e % .7e % .7e\n",
-                             (float) floatVectorValue[0], (float) floatVectorValue[1], (float) floatVectorValue[2] );
+                    Array<double,3> doubleVectorValue(vectorValue);
+                    fprintf( fp, "% .10e % .10e % .10e\n",
+                             (double) doubleVectorValue[0], (double) doubleVectorValue[1], (double) doubleVectorValue[2] );
                 }
             } else {
                 for (pluint i = 0; i < numParticlesToWrite; i++) {
                     Array<T,3> vectorValue;
                     found[iParticles[i]]->getVector(vectorID, vectorValue);
-                    Array<float,3> floatVectorValue(vectorValue);
-                    fprintf( fp, "% .7e % .7e % .7e\n",
-                             (float) floatVectorValue[0], (float) floatVectorValue[1], (float) floatVectorValue[2] );
+                    Array<double,3> doubleVectorValue(vectorValue);
+                    fprintf( fp, "% .10e % .10e % .10e\n",
+                             (double) doubleVectorValue[0], (double) doubleVectorValue[1], (double) doubleVectorValue[2] );
                 }
             }
         }
-        fprintf(fp, "SCALARS Tag float\n");
+        fprintf(fp, "SCALARS Tag double\n");
         fprintf(fp, "LOOKUP_TABLE default\n");
         if (numParticlesToWrite == numParticles) {
             for (pluint iParticle = 0; iParticle < numParticles; iParticle++) {
-                float tag = (float) found[iParticle]->getTag();
-                fprintf(fp, "% .7e\n", tag);
+                double tag = (double) found[iParticle]->getTag();
+                fprintf(fp, "% .10e\n", tag);
             }
         } else {
             for (pluint i = 0; i < numParticlesToWrite; i++) {
-                float tag = (float) found[iParticles[i]]->getTag();
-                fprintf(fp, "% .7e\n", tag);
+                double tag = (double) found[iParticles[i]]->getTag();
+                fprintf(fp, "% .10e\n", tag);
             }
         }
         std::map<plint,std::string>::const_iterator scalarIt = additionalScalars.begin();
@@ -427,21 +437,21 @@ void particleVtkSerialImplementation (
             std::string scalarName = scalarIt->second;
             fprintf(fp, "SCALARS ");
             fprintf(fp, "%s", scalarName.c_str());
-            fprintf(fp, " float\n");
+            fprintf(fp, " double\n");
             fprintf(fp, "LOOKUP_TABLE default\n");
             if (numParticlesToWrite == numParticles) {
                 for (pluint iParticle = 0; iParticle < numParticles; iParticle++) {
                     T scalarValue;
                     found[iParticle]->getScalar(scalarID, scalarValue);
-                    float floatScalarValue = (float) scalarValue;
-                    fprintf(fp, "% .7e\n", floatScalarValue);
+                    double doubleScalarValue = (double) scalarValue;
+                    fprintf(fp, "% .10e\n", doubleScalarValue);
                 }
             } else {
                 for (pluint i = 0; i < numParticlesToWrite; i++) {
                     T scalarValue;
                     found[iParticles[i]]->getScalar(scalarID, scalarValue);
-                    float floatScalarValue = (float) scalarValue;
-                    fprintf(fp, "% .7e\n", floatScalarValue);
+                    double doubleScalarValue = (double) scalarValue;
+                    fprintf(fp, "% .10e\n", doubleScalarValue);
                 }
             }
         }
@@ -452,12 +462,12 @@ void particleVtkSerialImplementation (
 template<typename T, template<typename U> class Descriptor>
 void writeParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, pluint maxNumParticlesToWrite )
+        std::string const& fName, T deltaX, Array<T,3> const& offset, pluint maxNumParticlesToWrite )
 {
     std::map<plint,std::string> additionalScalars;
     std::map<plint,std::string> additionalVectors;
     additionalVectors[0] = "Velocity";
-    writeParticleVtk(particles, fName, additionalScalars, additionalVectors, maxNumParticlesToWrite);
+    writeParticleVtk(particles, fName, additionalScalars, additionalVectors, deltaX, offset, maxNumParticlesToWrite);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -466,6 +476,7 @@ void writeParticleVtk (
         std::string const& fName,
         std::map<plint,std::string> const& additionalScalars,
         std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset,
         pluint maxNumParticlesToWrite )
 {
     SparseBlockStructure3D blockStructure(particles.getBoundingBox());
@@ -480,18 +491,19 @@ void writeParticleVtk (
 
     copy ( particles, particles.getBoundingBox(), multiSerialParticles, particles.getBoundingBox() );
     particleVtkSerialImplementation(multiSerialParticles, fName,
-                                    additionalScalars, additionalVectors, maxNumParticlesToWrite);
+                                    additionalScalars, additionalVectors, deltaX, offset, maxNumParticlesToWrite);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void writeSelectedParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, Box3D const& domain, util::SelectInt const& tags )
+        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        T deltaX, Array<T,3> const& offset )
 {
     std::map<plint,std::string> additionalScalars;
     std::map<plint,std::string> additionalVectors;
     additionalVectors[0] = "Velocity";
-    writeSelectedParticleVtk(particles, fName, domain, tags, additionalScalars, additionalVectors);
+    writeSelectedParticleVtk(particles, fName, domain, tags, additionalScalars, additionalVectors, deltaX, offset);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -499,7 +511,8 @@ void writeSelectedParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
         std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
         std::map<plint,std::string> const& additionalScalars,
-        std::map<plint,std::string> const& additionalVectors )
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset )
 {
     MultiParticleField3D<DenseParticleField3D<T,Descriptor> > filteredParticles((MultiBlock3D&)particles);
     std::vector<MultiBlock3D*> particleArgs;
@@ -519,9 +532,12 @@ void writeSelectedParticleVtk (
             defaultMultiBlockPolicy3D().getCombinedStatistics() );
 
     copy ( filteredParticles, domain, multiSerialParticles, domain );
-    particleVtkSerialImplementation(multiSerialParticles, fName, additionalScalars, additionalVectors, 0);
+    particleVtkSerialImplementation(multiSerialParticles, fName, additionalScalars, additionalVectors,
+                                    deltaX, offset, 0);
 }
 
 }  // namespace plb
+
+#undef frand
 
 #endif  // PARTICLE_VTK_3D_HH

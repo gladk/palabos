@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -66,6 +66,11 @@ void isoSurfaceMarchingCube (
         std::vector<typename TriangleSet<T>::Triangle>& triangles,
         MultiScalarField3D<T>& scalarField, std::vector<T> const& isoLevels, Box3D const& domain );
 
+/// This wrapper call to the marching-cube algorithm computes iso-surfaces from an analytical description.
+template<typename T, class Function>
+void isoSurfaceMarchingCube (
+        std::vector<typename TriangleSet<T>::Triangle>& triangles, MultiBlock3D& block, Function const& function, Box3D const& domain );
+
 template<typename T, template<typename U> class Descriptor>
 TriangleSet<T> vofToTriangles(MultiScalarField3D<T>& scalarField, T threshold, Box3D domain);
 
@@ -106,6 +111,43 @@ private:
     std::vector<T> isoValues;
     ScalarField3D<T>* scalar;
     Dot3D location;
+};
+
+
+template<typename T, class Function>
+class AnalyticalIsoSurface3D : public IsoSurfaceDefinition3D<T> {
+public:
+    AnalyticalIsoSurface3D(Function const& function_)
+        : function(function_)
+    { }
+    virtual bool isInside (
+            plint surfaceId, Array<plint,3> const& position ) const;
+    virtual Array<T,3> getSurfacePosition (
+            plint surfaceId, Array<plint,3> const& p1, Array<plint,3> const& p2 ) const;
+    virtual void setArguments(std::vector<AtomicBlock3D*> const& arguments) { }
+    virtual AnalyticalIsoSurface3D<T,Function>* clone() const;
+    virtual plint getNumArgs() const { return 0; }
+    virtual std::vector<plint> getSurfaceIds() const;
+private:
+    class WrappedIsInside {
+    public:
+        WrappedIsInside(Array<T,3> const& p1_, Array<T,3> const& p2_, Function const& function_)
+            : p1(p1_), p2(p2_), function(function_)
+        { }
+        T operator()(T position) const {
+            if (function.floatIsInside(p1+position*(p2-p1))) {
+                return (T)1;
+            }
+            else {
+                return (T)-1;
+            }
+        }
+    private:
+        Array<T,3> p1, p2;
+        Function function;
+    };
+private:
+    Function function;
 };
 
 
@@ -394,6 +436,8 @@ private:
              plint iX, plint iY, plint iZ, plint surfaceId,
              std::vector<Triangle>& triangles,
              std::vector<Array<plint,4> >& edgeAttributions );
+    static void removeFromVertex (
+            Array<T,3> const& p0, Array<T,3> const& p1, Array<T,3>& intersection );
 private:
     std::vector<plint> surfaceIds;
     IsoSurfaceDefinition3D<T>* isoSurface;

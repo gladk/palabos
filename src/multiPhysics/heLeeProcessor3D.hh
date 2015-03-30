@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -357,7 +357,7 @@ void Compute_gradMu_laplaceMu_u_p1_processor<T,Descriptor>::processGenericBlocks
                 momentTemplates<T,Descriptor>::get_rhoBar_j (
                         g.get(iX,iY,iZ), p1.get(iX,iY,iZ), u_);
                 u_ *= invRho/RT;
-                u_ -= gradMu_ * ( 0.5*invRho*C.get(iX,iY,iZ) );
+                u_ -= gradMu_ * ( (T)0.5*invRho*C.get(iX,iY,iZ) );
                 p1.get(iX,iY,iZ) +=
                      0.5*RT * (rho_h-rho_l)
                          * VectorTemplateImpl<T,3>::scalarProduct(u_, gradC_);

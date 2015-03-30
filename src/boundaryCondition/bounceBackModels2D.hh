@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,19 +41,24 @@ namespace plb {
 template<typename T, template<typename U> class Descriptor>
 class InitializeMomentumExchangeFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor> {
 public:
-    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice) {
+    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,2> tmp((plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY).getDynamics();
-                if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+                if (dynamics.getId() == mEBounceBackId) {
                     std::vector<plint> fluidDirections;
                     for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                         plint nextX = iX + Descriptor<T>::c[iPop][0];
                         plint nextY = iY + Descriptor<T>::c[iPop][1];
                         Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                        if ( typeid(partner) !=
-                             typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                        {
+                        int partnerId = partner.getId();
+                        if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                             fluidDirections.push_back(iPop);
                         }
                     }
@@ -105,21 +110,26 @@ public:
     virtual ~MomentumExchangeComplexDomainFunctional2D() {
         delete domain;
     }
-    virtual void process(Box2D boundingBox, BlockLattice2D<T,Descriptor>& lattice) {
+    virtual void process(Box2D boundingBox, BlockLattice2D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,2> tmp((plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         Dot2D relativeOffset = lattice.getLocation();
         for (plint iX=boundingBox.x0; iX<=boundingBox.x1; ++iX) {
             for (plint iY=boundingBox.y0; iY<=boundingBox.y1; ++iY) {
                 if ((*domain)(iX+relativeOffset.x,iY+relativeOffset.y)) {
                     Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY).getDynamics();
-                    if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+                    if (dynamics.getId() == mEBounceBackId) {
                         std::vector<plint> fluidDirections;
                         for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                             plint nextX = iX + Descriptor<T>::c[iPop][0];
                             plint nextY = iY + Descriptor<T>::c[iPop][1];
                             Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                            if ( typeid(partner) !=
-                                 typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                            {
+                            int partnerId = partner.getId();
+                            if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                                 fluidDirections.push_back(iPop);
                             }
                         }
@@ -153,21 +163,26 @@ private:
 template<typename T, template<typename U> class Descriptor>
 class InitializeDotMomentumExchangeFunctional2D : public DotProcessingFunctional2D_L<T,Descriptor> {
 public:
-    virtual void process(DotList2D const& dotList, BlockLattice2D<T,Descriptor>& lattice) {
+    virtual void process(DotList2D const& dotList, BlockLattice2D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,2> tmp((plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         for (plint iDot=0; iDot<dotList.getN(); ++iDot) {
             Dot2D const& dot = dotList.getDot(iDot);
             plint iX = dot.x;
             plint iY = dot.y;
             Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY).getDynamics();
-            if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+            if (dynamics.getId() == mEBounceBackId) {
                 std::vector<plint> fluidDirections;
                 for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                     plint nextX = iX + Descriptor<T>::c[iPop][0];
                     plint nextY = iY + Descriptor<T>::c[iPop][1];
                     Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                    if ( typeid(partner) !=
-                         typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                    {
+                    int partnerId = partner.getId();
+                    if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                         fluidDirections.push_back(iPop);
                     }
                 }

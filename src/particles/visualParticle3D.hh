@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -131,6 +131,18 @@ bool VisualParticle3D<T,Descriptor>::getScalar(plint whichScalar, T& scalar) con
 }
 
 template<typename T, template<typename U> class Descriptor>
+bool VisualParticle3D<T,Descriptor>::setScalar(plint whichScalar, T scalar)
+{
+    if (whichScalar<(plint)scalars.size()) {
+        scalars[whichScalar] = scalar;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 bool VisualParticle3D<T,Descriptor>::setScalars(std::vector<T> const& scalars_)
 {
     scalars = scalars_;
@@ -142,6 +154,18 @@ bool VisualParticle3D<T,Descriptor>::setVectors(std::vector<Array<T,3> > const& 
 {
     vectors = vectors_;
     return true;
+}
+
+template<typename T, template<typename U> class Descriptor>
+bool VisualParticle3D<T,Descriptor>::setVector(plint whichVector, Array<T,3> const& vector)
+{
+    if (whichVector<(plint)vectors.size()) {
+        vectors[whichVector] = vector;
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 
@@ -278,7 +302,7 @@ bool MappingParticleZslice3D<T,Descriptor>::crossedSurface2() const {
 
 template<typename T, template<typename U> class Descriptor>
 T MappingParticleZslice3D<T,Descriptor>::getSurfaceDistance() const {
-    return fabs(zSlice2 - zSlice1);
+    return std::fabs(zSlice2 - zSlice1);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -353,7 +377,7 @@ PlaneMappingParticle3D<T,Descriptor>::PlaneMappingParticle3D(plint tag_, Array<T
     T nn = norm(terminalPlane.normal);
     PLB_ASSERT(nn > eps);
     terminalPlane.normal /= nn;
-    PLB_ASSERT(timeScaling > (T) 1 || fabs(timeScaling - (T) 1) <= eps);
+    PLB_ASSERT(timeScaling > (T) 1 || std::fabs(timeScaling - (T) 1) <= eps);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -380,24 +404,15 @@ void PlaneMappingParticle3D<T,Descriptor>::advance()
         }
         Array<T,3> newPosition = this->getPosition();
         residenceTime += timeScaling;
-        T distanceFromPlane;
-        if (crossedTerminalPlane(distanceFromPlane)) {
-            Precision precision;
-            if (sizeof(T) == sizeof(float)) {
-                precision = FLT;
-            } else if (sizeof(T) == sizeof(double)) {
-                precision = DBL;
-            } else if (sizeof(T) == sizeof(long double)) {
-                precision = LDBL;
-            } else {
-                PLB_ASSERT(false);
-            }
+        T signedDistanceFromPlane;
+        if (isInHalfSpace(newPosition, terminalPlane, signedDistanceFromPlane)) {
+            Precision precision = floatingPointPrecision<T>();
             Array<T,3> terminalPosition((T) 0, (T) 0, (T) 0);
             T dt = 0.0;
             if (lineIntersectionWithPlane(terminalPlane, oldPosition, newPosition, precision, terminalPosition) != 1) {
-                terminalPosition = newPosition - distanceFromPlane * terminalPlane.normal;
-                T normalVelocityMagnitude = fabs(dot<T,3>(this->getVelocity(), terminalPlane.normal));
-                dt = distanceFromPlane / normalVelocityMagnitude;
+                terminalPosition = newPosition - signedDistanceFromPlane * terminalPlane.normal;
+                T normalVelocityMagnitude = std::fabs(dot<T,3>(this->getVelocity(), terminalPlane.normal));
+                dt = signedDistanceFromPlane / normalVelocityMagnitude;
             } else {
                 T distance = norm(newPosition - terminalPosition);
                 T velocityMagnitude = norm(this->getVelocity());
@@ -466,18 +481,136 @@ void PlaneMappingParticle3D<T,Descriptor>::rescale(int dxScale, int dtScale)
     // TODO: Is it correct not to rescale the timeScaling?
 }
 
+
+/* *************** class TimeRegisteringParticle3D ************************************ */
+
 template<typename T, template<typename U> class Descriptor>
-bool PlaneMappingParticle3D<T,Descriptor>::crossedTerminalPlane(T& distanceFromPlane) const
+int TimeRegisteringParticle3D<T,Descriptor>::id =
+        meta::registerGenericParticle3D<T,Descriptor,TimeRegisteringParticle3D<T,Descriptor> >("TimeRegistering");
+
+template<typename T, template<typename U> class Descriptor>
+TimeRegisteringParticle3D<T,Descriptor>::TimeRegisteringParticle3D()
+    : PointParticle3D<T,Descriptor>(),
+      registeredTime((T) 0),
+      timeScaling((T) 1),
+      reachedInitialPlane(false)
 {
-    Array<T,3> x = this->getPosition();
-    Array<T,3> dx = x - terminalPlane.point;
-    distanceFromPlane = dot<T,3>(dx, terminalPlane.normal);
+    initialPlane.point = Array<T,3>((T) 0, (T) 0, (T) 0);
+    initialPlane.normal = Array<T,3>((T) 1, (T) 0, (T) 0);
+}
 
-    if (distanceFromPlane >= (T) 0) {
-        return true;
+template<typename T, template<typename U> class Descriptor>
+TimeRegisteringParticle3D<T,Descriptor>::TimeRegisteringParticle3D(plint tag_,
+        Array<T,3> const& position_, Array<T,3> const& velocity_,
+        Plane<T> const& initialPlane_, T timeScaling_)
+    : PointParticle3D<T,Descriptor>(tag_, position_, velocity_),
+      initialPlane(initialPlane_),
+      registeredTime((T) 0),
+      timeScaling(timeScaling_),
+      reachedInitialPlane(false)
+{
+#ifdef PLB_DEBUG
+    T eps = 100.0 * std::numeric_limits<T>::epsilon();
+#endif
+    T nn = norm(initialPlane.normal);
+    PLB_ASSERT(nn > eps);
+    initialPlane.normal /= nn;
+    PLB_ASSERT(timeScaling > (T) 1 || std::fabs(timeScaling - (T) 1) <= eps);
+}
+
+template<typename T, template<typename U> class Descriptor>
+TimeRegisteringParticle3D<T,Descriptor>* TimeRegisteringParticle3D<T,Descriptor>::clone() const
+{
+    return new TimeRegisteringParticle3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int TimeRegisteringParticle3D<T,Descriptor>::getId() const 
+{
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TimeRegisteringParticle3D<T,Descriptor>::advance()
+{
+    Array<T,3> velocity = this->getVelocity();
+    PLB_ASSERT(norm(velocity) < (T) 1.0);
+
+    Array<T,3> oldPosition = this->getPosition();
+    this->getPosition() += velocity;
+    Array<T,3> newPosition = this->getPosition();
+
+    if (reachedInitialPlane) {
+        registeredTime += timeScaling;
+    } else {
+        T signedDistanceFromPlane;
+        if (isInHalfSpace(oldPosition, initialPlane, signedDistanceFromPlane)) {
+            // This particle was injected in the half space pointed to by the plane's normal.
+            registeredTime += timeScaling;
+            reachedInitialPlane = true;
+            return;
+        }
+
+        if (isInHalfSpace(newPosition, initialPlane, signedDistanceFromPlane)) {
+            // This particle crossed the plane in this time step.
+            Precision precision = floatingPointPrecision<T>();
+            Array<T,3> initialPosition((T) 0, (T) 0, (T) 0);
+            T dt = 0.0;
+            if (lineIntersectionWithPlane(initialPlane, oldPosition, newPosition,
+                        precision, initialPosition) != 1) {
+                initialPosition = newPosition - signedDistanceFromPlane * initialPlane.normal;
+                T normalVelocityMagnitude = std::fabs(dot<T,3>(this->getVelocity(),
+                            initialPlane.normal));
+                dt = signedDistanceFromPlane / normalVelocityMagnitude;
+            } else {
+                T distance = norm(newPosition - initialPosition);
+                T velocityMagnitude = norm(this->getVelocity());
+                dt = distance / velocityMagnitude;
+            }
+            registeredTime = dt;
+            reachedInitialPlane = true;
+            return;
+        }
     }
+}
 
-    return false;
+template<typename T, template<typename U> class Descriptor>
+void TimeRegisteringParticle3D<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    PointParticle3D<T,Descriptor>::serialize(serializer);
+    serializer.addValues<T,3>(initialPlane.point);
+    serializer.addValues<T,3>(initialPlane.normal);
+    serializer.addValue(registeredTime);
+    serializer.addValue(timeScaling);
+    serializer.addValue(reachedInitialPlane);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TimeRegisteringParticle3D<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    PointParticle3D<T,Descriptor>::unserialize(unserializer);
+    unserializer.readValues<T,3>(initialPlane.point);
+    unserializer.readValues<T,3>(initialPlane.normal);
+    unserializer.readValue(registeredTime);
+    unserializer.readValue(timeScaling);
+    unserializer.readValue(reachedInitialPlane);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TimeRegisteringParticle3D<T,Descriptor>::rescale(int dxScale, int dtScale)
+{
+    PointParticle3D<T,Descriptor>::rescale(dxScale, dtScale);
+
+    T posDimDx = 1.0;
+    T posDimDt = 0.0;
+    T posScaleFactor = scaleFromReference(dxScale, posDimDx, dtScale, posDimDt);
+    initialPlane.point *= posScaleFactor;
+
+    T timeDimDx = 0.0;
+    T timeDimDt = 1.0;
+    T timeScaleFactor = scaleFromReference(dxScale, timeDimDx, dtScale, timeDimDt);
+    registeredTime *= timeScaleFactor;
+    // TODO: Is it correct not to rescale the timeScaling?
 }
 
 }  // namespace plb

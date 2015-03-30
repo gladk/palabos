@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -305,6 +305,10 @@ template<typename T, template<class U> class Descriptor>
 void setExternalScalar( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
                         int whichScalar, MultiScalarField2D<T> &field );
 
+template<typename T, template<class U> class Descriptor, class Functional>
+void setGenericExternalScalar( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
+                               int whichScalar, Functional const& functional );
+
 template<typename T, template<class U> class Descriptor>
 void setExternalVector( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
                         int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector );
@@ -432,3 +436,4 @@ void assignComponent(MultiTensorField2D<T,nDim>& tensorField, int whichComponent
 }  // namespace plb
 
 #endif  // DATA_INITIALIZER_WRAPPER_2D_H
+

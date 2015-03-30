@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -73,10 +73,10 @@ void BubbleHistory3D<T>::transition(BubbleMatch3D& bubbleMatch, plint iterationS
 }
 
 template<typename T>
-void BubbleHistory3D<T>::updateBubblePressure(MultiScalarField3D<T>& outsideDensity, T rhoEmpty)
+void BubbleHistory3D<T>::updateBubblePressure(MultiScalarField3D<T>& outsideDensity, T rhoEmpty, T alpha, T beta, T gamma)
 {
     applyProcessingFunctional (
-            new UpdateBubblePressure3D<T>(bubbles, rhoEmpty),
+            new UpdateBubblePressure3D<T>(bubbles, rhoEmpty, alpha, beta, gamma),
             oldTagMatrix->getBoundingBox(), *oldTagMatrix, outsideDensity);
 }
 
@@ -92,25 +92,47 @@ void BubbleHistory3D<T>::freeze() {
 }
 
 template<typename T>
+void BubbleHistory3D<T>::freezeLargestBubble() {
+    typename std::map<plint,BubbleInfo3D>::iterator it;
+
+    T biggestVolume = -1.0;
+    plint largestBubbleID = -1;
+    for (it = bubbles.begin(); it!=bubbles.end(); ++it) {
+        plint bubbleID = it->first;
+        T volume = it->second.getVolume();
+        if (volume > biggestVolume) {
+            biggestVolume = volume;
+            largestBubbleID = bubbleID;
+        }
+    }
+
+    if (largestBubbleID != -1) {
+        bubbles[largestBubbleID].freeze();
+        PLB_ASSERT( (plint)fullBubbleRecord.size()>largestBubbleID );
+        fullBubbleRecord[largestBubbleID].frozen = true;
+    }
+}
+
+template<typename T>
 void BubbleHistory3D<T>::timeHistoryLog(std::string fName) {
     plb_ofstream ofile(fName.c_str());
     std::map<plint, std::pair<std::vector<plint>,std::vector<plint> > >::const_iterator
         it = timeHistory.begin();
     for (; it!=timeHistory.end(); ++it) {
         plint timeStep = it->first;
-        std::pair<std::vector<plint>,std::vector<plint> > log = it->second;
+        std::pair<std::vector<plint>,std::vector<plint> > logEntry = it->second;
         ofile << "Iteration " << std::setw(8) << timeStep << ".  ";
-        if (!log.first.empty()) {
+        if (!logEntry.first.empty()) {
             ofile << "Created bubble(s) with ID";
-            for (pluint i=0; i<log.first.size(); ++i) {
-                ofile << " " << log.first[i];
+            for (pluint i=0; i<logEntry.first.size(); ++i) {
+                ofile << " " << logEntry.first[i];
             }
             ofile << ".";
         }
-        if (!log.second.empty()) {
+        if (!logEntry.second.empty()) {
             ofile << " Removed bubble(s) with ID";
-            for (pluint i=0; i<log.second.size(); ++i) {
-                ofile << " " << log.second[i];
+            for (pluint i=0; i<logEntry.second.size(); ++i) {
+                ofile << " " << logEntry.second[i];
             }
             ofile << ".";
         }
@@ -217,12 +239,22 @@ void BubbleHistory3D<T>::computeNewBubbles (
         T newBubbleVolumeCorrection, std::map<plint,BubbleInfo3D>& newBubbles, std::map<plint,plint>& newToFinal )
 {
     PLB_ASSERT( bubbleVolume.size()==bubbleCenter.size() );
+    // Bubbles with a volume smaller than the cutoff-volume get automatically frozen.
+    /// CHANGES
+    /*--*/static const T cutoffVolume = getCutoffVolume();
     // A bubble is created from nothing.
+    ///- CHANGES
     if (oldIDs.empty()) {
         // Create a new bubble.
         PLB_ASSERT( newIDs.size()==1 );
         plint newID = *newIDs.begin();
         newBubbles[nextBubbleID] = BubbleInfo3D(bubbleVolume[newID]*newBubbleVolumeCorrection, bubbleCenter[newID]);
+        // CHANGES
+        // If a newly created bubble is smaller than the cutoff value, it gets automatically frozen.
+        /*--*/if (newBubbles[nextBubbleID].getVolume() < cutoffVolume) {
+        /*--*/    newBubbles[nextBubbleID].freeze();
+        /*--*/}
+        //- CHANGES
         newToFinal[newID] = nextBubbleID;
         ++nextBubbleID;
     }
@@ -251,11 +283,24 @@ void BubbleHistory3D<T>::computeNewBubbles (
         }
 
         // Then, compute the total volume of the new bubbles.
+        // And, determine which one is largest. Because, if the
+        // original bubble was frozen, only the largest new one
+        // remains frozen.
         T newTotalVolume = T();
         std::set<plint>::const_iterator itNew = newIDs.begin();
+        /// CHANGES
+        /*--*/T largestVolume = (T)-1.0;
+        ///- CHANGES
+        std::set<plint>::const_iterator itLargest = newIDs.end();
         for (; itNew!=newIDs.end(); ++itNew) {
             plint newID = *itNew;
             PLB_ASSERT(newID<=(plint)bubbleVolume.size());
+            /// CHANGES
+            /*--*/if (bubbleVolume[newID] > largestVolume) {
+            /*--*/    largestVolume = bubbleVolume[newID];
+            /*--*/    itLargest = itNew;
+            /*--*/}
+            ///- CHANGES
             newTotalVolume += bubbleVolume[newID];
         }
 
@@ -265,8 +310,9 @@ void BubbleHistory3D<T>::computeNewBubbles (
         for (; itNew!=newIDs.end(); ++itNew) {
             plint newID = *itNew;
             PLB_ASSERT(newID<=(plint)bubbleVolume.size());
+            
             T newInitialVolume = bubbleVolume[newID];
-            if (fabs(newTotalVolume)>epsilon) {
+            if (std::fabs(newTotalVolume)>epsilon) {
                 newInitialVolume *= totalReferenceVolume/newTotalVolume;
             }
 
@@ -284,9 +330,22 @@ void BubbleHistory3D<T>::computeNewBubbles (
 
             BubbleInfo3D nextBubble(newInitialVolume, bubbleCenter[newID]);
             nextBubble.setVolume(bubbleVolume[newID]);
-            if (isFrozen) {
-                nextBubble.freeze();
-            }
+
+            // OLD VERSION
+            //if (isFrozen) {
+            //    nextBubble.freeze();
+            //}
+
+            /// NEW VERSION
+            // If a bubble created through splitting/merging is smaller than
+            // the cutoff value, it gets automatically frozen.
+            /*--*/if (nextBubble.getVolume() < cutoffVolume) {
+            /*--*/    nextBubble.freeze();
+            /*--*/}
+            //// If original bubble was frozen, freeze the largest resulting bubble.
+            /*--*/if (isFrozen && itNew == itLargest) {
+            /*--*/    nextBubble.freeze();
+            /*--*/}
 
             newToFinal[newID] = finalID;
             newBubbles[finalID] = nextBubble;
@@ -302,7 +361,7 @@ void BubbleHistory3D<T>::updateBubbleLog (
     std::set<plint>& oldIDs = bubbleTransition.oldIDs;
     std::set<plint>& newIDs = bubbleTransition.newIDs;
     // Update the bubble-transition to point to the final ID (instead of
-    // newID), wo it is properly written into the log.
+    // newID), wo it is properly written into the Log.
     std::set<plint> save_newIDs;
     for (std::set<plint>::iterator it=newIDs.begin(); it!=newIDs.end(); ++it)
     {
@@ -486,7 +545,10 @@ void CorrelateBubbleIds3D<T>::processGenericBlocks(Box3D domain,std::vector<Atom
 
     Dot3D tag2Ofs = computeRelativeDisplacement(tagMatrix1, tagMatrix2);
 
-    pluint numNewBubbles = data.newToOldMap0.size();
+#ifdef PLB_DEBUG
+    pluint numNewBubbles =
+#endif
+        data.newToOldMap0.size();
     PLB_ASSERT( data.newToOldMap1.size()==numNewBubbles );
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -514,9 +576,12 @@ void CorrelateBubbleIds3D<T>::processGenericBlocks(Box3D domain,std::vector<Atom
 /* *************** Class UpdateBubblePressure3D ******************************** */
 
 template<typename T>
-UpdateBubblePressure3D<T>::UpdateBubblePressure3D(std::map<plint,BubbleInfo3D> const& bubbles_, T rho0_)
+UpdateBubblePressure3D<T>::UpdateBubblePressure3D(std::map<plint,BubbleInfo3D> const& bubbles_, T rho0_, T alpha_, T beta_, T gamma_)
     : bubbles(bubbles_),
-      rho0(rho0_)
+      rho0(rho0_),
+      alpha(alpha_),
+      beta(beta_),
+      gamma(gamma_)
 { }
 
 template<typename T>
@@ -528,23 +593,35 @@ template<typename T>
 void UpdateBubblePressure3D<T>::process(Box3D domain, ScalarField3D<plint>& tags, ScalarField3D<T>& density)
 {
     Dot3D ofs = computeRelativeDisplacement(tags, density);
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
                 plint tag = tags.get(iX,iY,iZ);
+                T rho = rho0;
                 if (tag>=0) {
                     typename std::map<plint,BubbleInfo3D>::const_iterator it = bubbles.find(tag);
                     PLB_ASSERT( it!=bubbles.end() );
                     BubbleInfo3D const& info = it->second;
-                    T rho = rho0*(T)info.getVolumeRatio();
-                    if (rho>1.2*rho0) {
-                        rho = 1.2*rho0;
+                    if (!info.isFrozen()) {
+                        T volumeRatio = info.getVolumeRatio();
+                        if (alpha < (T) 0 || beta < (T) 0) {
+                            // Model: rho = rho0 * (V0/V)^gamma
+                            rho = rho0 * std::pow(volumeRatio, gamma);
+                        } else {
+                            // Model: rho = rho0 * [1 + alpha * (1 - V/V0)^beta]
+                            rho = rho0 * (1.0 + alpha * std::pow((T)(1.0 - 1.0/volumeRatio), beta));
+                        }
+                        // Cutoff value
+                        if (rho>1.05*rho0) {
+                            rho = 1.05*rho0;
+                        }
+                        if (rho<0.95*rho0) {
+                            rho = 0.95*rho0;
+                        }
                     }
-                    density.get(iX+ofs.x,iY+ofs.y,iZ+ofs.z) = rho;
                 }
-                else {
-                    density.get(iX+ofs.x,iY+ofs.y,iZ+ofs.z) = rho0;
-                }
+                density.get(iX+ofs.x,iY+ofs.y,iZ+ofs.z) = rho;
             }
         }
     }

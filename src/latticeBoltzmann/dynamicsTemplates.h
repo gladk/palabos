@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -49,6 +49,18 @@ static T bgk_ma2_equilibrium(plint iPop, T rhoBar, T invRho, Array<T,Descriptor<
         ::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
 }
 
+static T complete_bgk_ma2_equilibrium(plint iPop, T rhoBar, T invRho, Array<T,Descriptor<T>::d> const& j, T jSqr) {
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+static void complete_bgk_ma2_regularize(Cell<T,Descriptor> &cell, T rhoBar, T invRho, Array<T,Descriptor<T>::d> const& j, T jSqr,
+                                     Array<T,SymmetricTensor<T,Descriptor>::n> const& piNeq, T omega = (T)1, T omegaNonPhys = (T)1 ) 
+{
+    dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_regularize(cell.getRawPopulations(), rhoBar, invRho, j, jSqr, piNeq, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
 static void bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,Descriptor<T>::d> const& j,
                                 T jSqr, Array<T,Descriptor<T>::q>& eqPop )
 {
@@ -56,10 +68,91 @@ static void bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,Descriptor<T>::d> co
         ::bgk_ma2_equilibria(rhoBar, invRho, j, jSqr, eqPop);
 }
 
+static void complete_bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,Descriptor<T>::d> const& j,
+                                T jSqr, Array<T,Descriptor<T>::q>& eqPop )
+{
+    dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_equilibria(rhoBar, invRho, j, jSqr, eqPop);
+}
+
 static T bgk_ma2_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T omega)
 {
     return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
         ::bgk_ma2_collision(cell.getRawPopulations(), rhoBar, j, omega);
+}
+
+static T complete_bgk_ma2_collision(Cell<T,Descriptor>& cell, T rhoBar, T invRho, Array<T,Descriptor<T>::d> const& j, T omega)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_collision(cell.getRawPopulations(), rhoBar, invRho, j, omega);
+}
+
+static T complete_mrt_ma2_collision(Cell<T,Descriptor>& cell, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_mrt_ma2_collision(cell.getRawPopulations(), omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T complete_regularized_mrt_ma2_collision(Cell<T,Descriptor>& cell, T rhoBar, const Array<T,Descriptor<T>::d> &j, const Array<T,SymmetricTensor<T,Descriptor>::n> &piNeq, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_regularized_mrt_ma2_collision(cell.getRawPopulations(), rhoBar, j, piNeq, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T consistent_smagorinsky_complete_regularized_mrt_ma2_collision(Cell<T,Descriptor>& cell, T cSmago, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::consistent_smagorinsky_complete_regularized_mrt_ma2_collision(cell.getRawPopulations(), cSmago,  omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T truncated_mrt_ma2_collision(Cell<T,Descriptor>& cell, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::truncated_mrt_ma2_collision(cell.getRawPopulations(), omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T complete_mrt_smagorinsky_ma2_collision(Cell<T,Descriptor>& cell, T cSmago, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_mrt_smagorinsky_ma2_collision(cell.getRawPopulations(), cSmago, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T complete_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T cSmago, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(cell.getRawPopulations(), rhoBar, j, cSmago, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T truncated_mrt_smagorinsky_ma2_collision(Cell<T,Descriptor>& cell, T cSmago, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::truncated_mrt_smagorinsky_ma2_collision(cell.getRawPopulations(), cSmago, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T truncated_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T cSmago, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::truncated_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(cell.getRawPopulations(), rhoBar, j, cSmago, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T complete_mrt_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_mrt_ma2_ext_rhoBar_j_collision(cell.getRawPopulations(), rhoBar, j, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T truncated_mrt_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::truncated_mrt_ma2_ext_rhoBar_j_collision(cell.getRawPopulations(), rhoBar, j, omega, omegaNonPhys, Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n);
+}
+
+static T computePsiComplete(T omega) {
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>::computePsiComplete(omega);
+}
+
+static T computePsiTruncated(T omega) {
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>::computePsiTruncated(omega);
 }
 
 static T bgk_inc_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T omega, T invRho0=(T)1 )
@@ -124,13 +217,32 @@ static T bgk_ma2_equilibrium(plint iPop, T rhoBar, T invRho, Array<T,Descriptor:
        );
 }
 
+static T complete_bgk_ma2_equilibrium(plint iPop, T rhoBar, T invRho, Array<T,Descriptor::d> const& j, T jSqr) {
+    PLB_ASSERT(false);
+    return T();
+}
+
 static void bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,Descriptor::d>
         const& j,
                                 T jSqr, Array<T,Descriptor::q>& eqPop )
 {
-    for (int iPop=0; iPop<Descriptor::d; ++iPop) {
+    for (int iPop=0; iPop<Descriptor::q; ++iPop) {
         eqPop[iPop] = bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
     }
+}
+
+static void complete_bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,Descriptor::d> const& j, 
+                                         T jSqr, Array<T,Descriptor::q>& eqPop )
+{
+    for (int iPop=0; iPop<Descriptor::q; ++iPop) {
+        eqPop[iPop] = complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+    }
+}
+
+static void complete_bgk_ma2_regularize(Array<T,Descriptor::q> &f, T rhoBar, T invRho, Array<T,Descriptor::d> const& j, T jSqr,
+                                        Array<T,SymmetricTensorImpl<T,Descriptor::d>::n> const& piNeq, T omega, T omegaNonPhys) 
+{
+    PLB_ASSERT(false);
 }
 
 static T bgk_ma2_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const& j, T omega) {
@@ -142,6 +254,65 @@ static T bgk_ma2_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descript
                                 iPop, rhoBar, invRho, j, jSqr );
     }
     return jSqr*invRho*invRho;
+}
+
+static T complete_bgk_ma2_collision(Array<T,Descriptor::q>& f, T rhoBar, T invRho, Array<T,Descriptor::d> const& j, T omega) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T complete_mrt_ma2_collision(Array<T,Descriptor::q>& f, T omega, T omegaNonPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T truncated_mrt_ma2_collision(Array<T,Descriptor::q>& f, T omega, T omegaNonPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T complete_mrt_ma2_ext_rhoBar_j_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const &j, T omega, T omegaNonPhys, plint iPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T truncated_mrt_ma2_ext_rhoBar_j_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const &j, T omega, T omegaNonPhys, plint iPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T complete_mrt_smagorinsky_ma2_collision(Array<T,Descriptor::q>& f, T cSmago, T omega, T omegaNonPhys, plint iPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T complete_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const& j, 
+                                                             T cSmago, T omega, T omegaNonPhys, plint iPhys) 
+{
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T truncated_mrt_smagorinsky_ma2_collision(Array<T,Descriptor::q>& f, T cSmago, T omega, T omegaNonPhys, plint iPhys) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T truncated_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const& j, 
+                                                             T cSmago, T omega, T omegaNonPhys, plint iPhys) 
+{
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T computePsiComplete(T omega) {
+    PLB_ASSERT(false);
+    return T();
+}
+
+static T computePsiTruncated(T omega) {
+    PLB_ASSERT(false);
+    return T();
 }
 
 static T bgk_inc_collision(Array<T,Descriptor::q>& f, T rhoBar, Array<T,Descriptor::d> const& j, T omega, T invRho0=(T)1 ) {

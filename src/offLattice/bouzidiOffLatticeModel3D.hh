@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,7 +45,7 @@ BouzidiOffLatticeModel3D<T,Descriptor>::BouzidiOffLatticeModel3D (
     invAB.resize(D::q);
     invAB[0] = T();
     for (plint iPop=1; iPop<D::q; ++iPop) {
-        invAB[iPop] = (T)1 / sqrt(util::sqr(D::c[iPop][0])+util::sqr(D::c[iPop][1])+util::sqr(D::c[iPop][2]));
+        invAB[iPop] = (T)1 / std::sqrt(util::sqr(D::c[iPop][0])+util::sqr(D::c[iPop][1])+util::sqr(D::c[iPop][2]));
     }
 }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,7 @@
 
 #include "offLattice/marchingCube.h"
 #include "offLattice/triangleSet.h"
+#include "offLattice/connectedTriangleSet.h"
 #include "offLattice/nextNeighbors3D.h"
 #include "offLattice/triangleToDef.h"
 #include "offLattice/triangularSurfaceMesh.h"
@@ -45,9 +46,12 @@
 #include "offLattice/guoAdvDiffOffLatticeModel3D.h"
 #include "offLattice/triangleSetGenerator.h"
 #include "offLattice/immersedWalls3D.h"
+#include "offLattice/immersedAdvectionDiffusionWalls3D.h"
 #include "offLattice/filippovaHaenel3D.h"
 
 #ifndef PLB_BGP
+#ifdef PLB_USE_EIGEN
 #include "offLattice/generalizedOffLatticeModel3D.h"
+#endif
 #endif
 

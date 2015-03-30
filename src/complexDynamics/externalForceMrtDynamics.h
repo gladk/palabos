@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,13 +45,7 @@ template<typename T, template<typename U> class Descriptor>
 class GuoExternalForceMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    GuoExternalForceMRTdynamics(plint externalParam_);
-    GuoExternalForceMRTdynamics(MRTparam<T,Descriptor>* param_);
-    GuoExternalForceMRTdynamics(HierarchicUnserializer& unserializer);
-    GuoExternalForceMRTdynamics(GuoExternalForceMRTdynamics<T,Descriptor> const& rhs);
-    GuoExternalForceMRTdynamics<T,Descriptor>& operator=(GuoExternalForceMRTdynamics<T,Descriptor> const& rhs);
-    virtual ~GuoExternalForceMRTdynamics<T,Descriptor>();
-    void swap(GuoExternalForceMRTdynamics<T,Descriptor>& rhs);
+    GuoExternalForceMRTdynamics(T omega_);
     
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceMRTdynamics<T,Descriptor>* clone() const;
@@ -59,11 +53,6 @@ public:
     /// Return a unique ID for this class.
     virtual int getId() const;
 
-    /// Serialize the dynamics object.
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    /// Un-Serialize the dynamics object.
-    virtual void unserialize(HierarchicUnserializer& unserializer);
-
 /* *************** Collision and Equilibrium ************************* */
 
     /// Implementation of the collision step
@@ -73,39 +62,7 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-                                 
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
 private:
-    MRTparam<T,Descriptor>* param;
-    plint externalParam;
-    static int id;
-};
-
-template<typename T, template<typename U> class Descriptor>
-class VariableOmegaForcedMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
-public:
-/* *************** Construction / Destruction ************************ */
-    VariableOmegaForcedMRTdynamics(T omega);
-    
-    /// Clone the object on its dynamic type.
-    virtual VariableOmegaForcedMRTdynamics<T,Descriptor>* clone() const;
-
-    /// Return a unique ID for this class.
-    virtual int getId() const;
-
-/* *************** Collision and Equilibrium ************************* */
-
-    /// Implementation of the collision step
-    virtual void collide(Cell<T,Descriptor>& cell,
-                         BlockStatistics& statistics_);
-
-    /// Compute equilibrium distribution function
-    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                 T jSqr, T thetaBar=T()) const;
-                                 
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
-private:
-    static MRTparam<T,Descriptor> param;
     static int id;
 };
 
@@ -115,13 +72,8 @@ template<typename T, template<typename U> class Descriptor>
 class GuoExternalForceSmagorinskyMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    GuoExternalForceSmagorinskyMRTdynamics(plint externalParam_, T cSmago_);
-    GuoExternalForceSmagorinskyMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_);
+    GuoExternalForceSmagorinskyMRTdynamics(T omega_, T cSmago_);
     GuoExternalForceSmagorinskyMRTdynamics(HierarchicUnserializer& unserializer);
-    GuoExternalForceSmagorinskyMRTdynamics(GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor> const& rhs);
-    GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor>& operator=(GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor> const& rhs);
-    virtual ~GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor>();
-    void swap(GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor>& rhs);
 
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceSmagorinskyMRTdynamics<T,Descriptor>* clone() const;
@@ -143,11 +95,7 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
 private:
-    MRTparam<T,Descriptor>* param;
-    plint externalParam;
     T cSmago;
     static int id;
 };
@@ -156,19 +104,14 @@ private:
 /// Implementation of the quasi incompressible MRT collision step with external force
 /// and Smagorinsky model
 template<typename T, template<typename U> class Descriptor>
-class GuoExternalForceSmagorinskyQuasiIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+class GuoExternalForceSmagorinskyIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    GuoExternalForceSmagorinskyQuasiIncMRTdynamics(plint externalParam_, T cSmago_);
-    GuoExternalForceSmagorinskyQuasiIncMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_);
-    GuoExternalForceSmagorinskyQuasiIncMRTdynamics(HierarchicUnserializer& unserializer);
-    GuoExternalForceSmagorinskyQuasiIncMRTdynamics(GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs);
-    GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor>& operator=(GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs);
-    virtual ~GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor>();
-    void swap(GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor>& rhs);
+    GuoExternalForceSmagorinskyIncMRTdynamics(T omega_, T cSmago_);
+    GuoExternalForceSmagorinskyIncMRTdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
-    virtual GuoExternalForceSmagorinskyQuasiIncMRTdynamics<T,Descriptor>* clone() const;
+    virtual GuoExternalForceSmagorinskyIncMRTdynamics<T,Descriptor>* clone() const;
 
     /// Return a unique ID for this class.
     virtual int getId() const;
@@ -187,28 +130,19 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
 private:
-    MRTparam<T,Descriptor>* param;
-    plint externalParam;
     T cSmago;
     static int id;
 };
 
-/// Implementation of the quasi incompressible MRT collision step with external force
-/// and Smagorinsky model
+/// Implementation of the MRT collision step with external force
+/// and ConsistentSmagorinsky model
 template<typename T, template<typename U> class Descriptor>
 class GuoExternalForceConsistentSmagorinskyMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    GuoExternalForceConsistentSmagorinskyMRTdynamics(plint externalParam_, T cSmago_);
-    GuoExternalForceConsistentSmagorinskyMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_);
+    GuoExternalForceConsistentSmagorinskyMRTdynamics(T omega_, T cSmago_);
     GuoExternalForceConsistentSmagorinskyMRTdynamics(HierarchicUnserializer& unserializer);
-    GuoExternalForceConsistentSmagorinskyMRTdynamics(GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor> const& rhs);
-    GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor>& operator=(GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor> const& rhs);
-    virtual ~GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor>();
-    void swap(GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor>& rhs);
 
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceConsistentSmagorinskyMRTdynamics<T,Descriptor>* clone() const;
@@ -230,31 +164,23 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
 private:
-    MRTparam<T,Descriptor>* param;
-    plint externalParam;
     T cSmago;
     static int id;
 };
 
+
 /// Implementation of the quasi incompressible MRT collision step with external force
-/// and Smagorinsky model
+/// and ConsistentSmagorinsky model
 template<typename T, template<typename U> class Descriptor>
-class GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+class GuoExternalForceConsistentSmagorinskyIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics(plint externalParam_, T cSmago_);
-    GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_);
-    GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics(HierarchicUnserializer& unserializer);
-    GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics(GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs);
-    GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>& operator=(GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs);
-    virtual ~GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>();
-    void swap(GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>& rhs);
+    GuoExternalForceConsistentSmagorinskyIncMRTdynamics(T omega_, T cSmago_);
+    GuoExternalForceConsistentSmagorinskyIncMRTdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
-    virtual GuoExternalForceConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>* clone() const;
+    virtual GuoExternalForceConsistentSmagorinskyIncMRTdynamics<T,Descriptor>* clone() const;
 
     /// Return a unique ID for this class.
     virtual int getId() const;
@@ -273,12 +199,36 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-
-    MRTparam<T,Descriptor> const& getMrtParameter() const;
 private:
-    MRTparam<T,Descriptor>* param;
-    plint externalParam;
     T cSmago;
+    static int id;
+};
+
+
+
+/// Implementation of the MRT collision step with He External force
+template<typename T, template<typename U> class Descriptor>
+class HeExternalForceMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    HeExternalForceMRTdynamics(T omega_);
+    
+    /// Clone the object on its dynamic type.
+    virtual HeExternalForceMRTdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+private:
     static int id;
 };
 

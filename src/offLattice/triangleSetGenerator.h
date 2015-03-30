@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,7 +28,10 @@
 #define TRIANGLE_SET_GENERATOR_H
 
 #include "core/globalDefs.h"
+#include "core/array.h"
 #include "offLattice/triangleSet.h"
+
+#include <vector>
 
 namespace plb {
 
@@ -66,16 +69,28 @@ TriangleSet<T> constructCuboid (
         Array<T,3> const& lowerCorner, Array<T,3> const& upperCorner,
         Array<plint,3> const& nSegments );
 
-
 template<typename T>
 TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sortDirection, std::vector<T> patchLengths);
 
 /// Create and return a rectangle. The rectangle is on the x-y plane, and its lower left
-///   corner is at the origin of the axes. It's sides have length "lx" and "ly", while
+///   corner is at the origin of the axes. Its sides have length "lx" and "ly", while
 ///   the number of points for the triangulation are "nx" and "ny" on the x and y axis,
 ///   respectively. This means that the total number of triangles is 2*(nx-1)*(ny-1).
 template<typename T>
 TriangleSet<T> constructRectangle(T lx, T ly, plint nx, plint ny);
+
+/// Create and return a generically placed rectangle. The center of the rectangle is placed
+///   at "center", and its normal is "normal". Its sides have length "lx" and "ly", while
+///   the number of points for the triangulation are "nx" and "ny" on the x and y axis,
+///   respectively. This means that the total number of triangles is 2*(nx-1)*(ny-1).
+template<typename T>
+TriangleSet<T> constructGenericRectangle(T lx, T ly, plint nx, plint ny, Array<T,3> const& center, Array<T,3> const& normal);
+
+/// Create a strip of triangles. There are given two sets of points "from" and "to". These
+///   must contain the same number of points. This function creates a set of triangles
+///   by connecting points from "from" with points from "to".
+template<typename T>
+TriangleSet<T> constructStrip(std::vector<Array<T,3> > from, std::vector<Array<T,3> > to);
 
 } // namespace plb
 

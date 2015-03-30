@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -132,7 +132,7 @@ void BGKCarreauDynamics<T,Descriptor,N>::collide (
     {
         omegaTmp = carreauDynamicsTemplates<T,0>::
             fromPiAndRhoToOmega(alpha, nu0_nuInfoverCs2, nuInfoverCs2, nMinusOneOverTwo, omega0);
-        if (fabs((omegaTmp - omega0)/omega0) < 1.0e-10)
+        if (std::fabs((omegaTmp - omega0)/omega0) < 1.0e-10)
         {
             omega0=omegaTmp;
             break;
@@ -211,7 +211,7 @@ void RegularizedBGKCarreauDynamics<T,Descriptor,N>::collide (
     {
         omegaTmp = carreauDynamicsTemplates<T,0>::
             fromPiAndRhoToOmega(alpha, nu0overCs2, nMinusOneOverTwo, omega0);
-        if (fabs((omegaTmp - omega0)/omega0) < 1.0e-3)
+        if (std::fabs((omegaTmp - omega0)/omega0) < 1.0e-3)
         {
             break;
         }

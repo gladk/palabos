@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,11 +27,14 @@
 
 #include "core/runTimeDiagnostics.h"
 #include "core/util.h"
-#include "spline.h"
+#include "algorithm/spline.h"
+
 #include <cstdio>
 #include <limits>
 
 namespace plb {
+
+/* ***************** class Spline ***************************************** */
 
 template<typename T>
 Spline<T>::Spline(std::string fname)
@@ -73,9 +76,11 @@ Spline<T>::Spline(std::vector<T> const& x_, std::vector<T> const& y_)
 #endif // PLB_DEBUG
 }
 
+/* ***************** class NaturalCubicSpline ***************************************** */
+
 template<typename T>
 NaturalCubicSpline<T>::NaturalCubicSpline(std::string fname)
-    : Spline<T>(fname)
+    : CubicSpline<T>(fname)
 { 
     icache = 0;
     constructSpline();
@@ -83,14 +88,15 @@ NaturalCubicSpline<T>::NaturalCubicSpline(std::string fname)
 
 template<typename T>
 NaturalCubicSpline<T>::NaturalCubicSpline(std::vector<T> const& x_, std::vector<T> const& y_)
-    : Spline<T>(x_, y_)
+    : CubicSpline<T>(x_, y_)
 { 
     icache = 0;
     constructSpline();
 }
 
 template<typename T>
-NaturalCubicSpline<T>* NaturalCubicSpline<T>::clone() const {
+NaturalCubicSpline<T>* NaturalCubicSpline<T>::clone() const
+{
     return new NaturalCubicSpline<T>(*this);
 }
 
@@ -196,10 +202,11 @@ T NaturalCubicSpline<T>::getDerivativeValue(T t) const
     std::vector<T> const& x = this->getAbscissae();
     plint n = (plint) x.size();
     PLB_ASSERT( n>=1 );
+
+#ifdef PLB_DEBUG
     T x1 = x[0];
     T x2 = x[n-1];
 
-#ifdef PLB_DEBUG
     static T eps = 100.0 * std::numeric_limits<T>::epsilon();
     if ((t < x1 && !util::fpequal(t, x1, eps)) ||
         (t > x2 && !util::fpequal(t, x2, eps)))
@@ -225,10 +232,11 @@ T NaturalCubicSpline<T>::getSecondDerivativeValue(T t) const
     std::vector<T> const& x = this->getAbscissae();
     plint n = (plint) x.size();
     PLB_ASSERT( n>=1 );
+
+#ifdef PLB_DEBUG
     T x1 = x[0];
     T x2 = x[n-1];
 
-#ifdef PLB_DEBUG
     static T eps = 100.0 * std::numeric_limits<T>::epsilon();
     if ((t < x1 && !util::fpequal(t, x1, eps)) ||
         (t > x2 && !util::fpequal(t, x2, eps)))
@@ -254,10 +262,11 @@ T NaturalCubicSpline<T>::getThirdDerivativeValue(T t) const
     std::vector<T> const& x = this->getAbscissae();
     plint n = (plint) x.size();
     PLB_ASSERT( n>=1 );
+
+#ifdef PLB_DEBUG
     T x1 = x[0];
     T x2 = x[n-1];
 
-#ifdef PLB_DEBUG
     static T eps = 100.0 * std::numeric_limits<T>::epsilon();
     if ((t < x1 && !util::fpequal(t, x1, eps)) ||
         (t > x2 && !util::fpequal(t, x2, eps)))
@@ -299,10 +308,11 @@ T NaturalCubicSpline<T>::getIntegralValue(T tmin, T tmax) const
     std::vector<T> const& x = this->getAbscissae();
     std::vector<T> const& y = this->getOrdinates();
     plint n = (plint) x.size();
+
+#ifdef PLB_DEBUG
     T x1 = x[0];
     T x2 = x[n-1];
 
-#ifdef PLB_DEBUG
     if (tmin > tmax)
         plbLogicError("Invalid arguments.");
     if ((tmin < x1 && !util::fpequal(tmin, x1, eps)) ||

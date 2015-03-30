@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -133,6 +133,14 @@ void MomentumExchangeBounceBack<T,Descriptor>::collide (
     for (plint iPop=1; iPop <= Descriptor<T>::q/2; ++iPop) {
         std::swap(cell[iPop], cell[iPop+Descriptor<T>::q/2]);
     }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MomentumExchangeBounceBack<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    collide(cell, stat);
 }
 
 template<typename T, template<typename U> class Descriptor>

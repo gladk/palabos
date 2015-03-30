@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -164,9 +164,6 @@ void MultiGridManagement2D::refine(plint coarseLevel, Box2D coarseDomain) {
     // The extended coarse domain it the one which is going to be added
     //   to the original fine lattice.
     Box2D extendedCoarseDomain(coarseDomain.enlarge(overlapWidth));
-
-    // Same as coarseDomain, but in units of the fine lattice.
-    Box2D fineDomain(coarseDomain.multiply(2));
     
     // If the domain in question touches a boundary of the multi-block,
     //   both the reduced and the extended coarse domain are
@@ -372,9 +369,6 @@ void MultiGridManagement2D::refineMultiGrid(plint coarseLevel, Box2D coarseDomai
     // The extended coarse domain it the one which is going to be added
     //   to the original fine lattice.
     Box2D extendedCoarseDomain(coarseDomain.enlarge(overlapWidth));
-
-    // Same as coarseDomain, but in units of the fine lattice.
-    Box2D fineDomain(coarseDomain.multiply(2));
     
     // If the domain in question touches a boundary of the multi-block,
     //   both the reduced and the extended coarse domain are

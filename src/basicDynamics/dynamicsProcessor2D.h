@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,9 +22,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/** \file
- * Functionals for domain initialization -- header file.
- */
 #ifndef DYNAMICS_PROCESSOR_2D_H
 #define DYNAMICS_PROCESSOR_2D_H
 

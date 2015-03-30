@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -51,7 +51,7 @@ PsiShanChen93<T>::PsiShanChen93(T rho_0_)
 
 template<typename T>
 T PsiShanChen93<T>::compute(T rho) const {
-    return rho_0 * ((T)1 - exp(-rho/rho_0));
+    return rho_0 * ((T)1 - std::exp(-rho/rho_0));
 }
 
 template<typename T>
@@ -67,7 +67,7 @@ PsiShanChen94<T>::PsiShanChen94(T psi_0_, T rho_0_)
 
 template<typename T>
 T PsiShanChen94<T>::compute(T rho) const {
-    return psi_0 * exp(-rho_0/rho);
+    return psi_0 * std::exp(-rho_0/rho);
 }
 
 template<typename T>

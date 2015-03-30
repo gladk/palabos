@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,7 +26,7 @@
 #define TIME_PERIODIC_SIGNAL_H
 
 #include <string>
-#include "spline.h"
+#include "algorithm/spline.h"
 
 namespace plb {
 

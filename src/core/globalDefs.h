@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,15 @@
 #include <cstddef>
 
 namespace plb {
+
+// We take the definition that the base type of T is just T, except
+// in special cases. For example, for complex numbers, the base type
+// of Complex<U> is U. PlbTraits is correspondingly overloaded in
+// plbComplex.h.
+template<typename T>
+struct PlbTraits {
+    typedef T BaseType;
+};
 
 /// Integer type for Palabos
 /** On some architectures, this type is larger
@@ -76,7 +85,20 @@ typedef unsigned long id_t;
 /// Single precision (float): FLT
 /// Double precision (double): DBL
 /// Extended precision (long double): LDBL
-enum Precision { FLT, DBL, LDBL };
+/// "Infinite" precision: INF
+enum Precision { FLT, DBL, LDBL, INF };
+
+template<typename T>
+inline Precision floatingPointPrecision()
+{
+    if (sizeof(T) == sizeof(float)) {
+        return FLT;
+    } else if (sizeof(T) == sizeof(long double)) {
+        return LDBL;
+    }
+
+    return DBL;
+}
 
 template<typename T>
 inline T getEpsilon(Precision precision)
@@ -90,8 +112,11 @@ inline T getEpsilon(Precision precision)
     case DBL:
         epsilon = std::numeric_limits<double>::epsilon();
         break;
-    case LDBL: default:
+    case LDBL:
         epsilon = std::numeric_limits<long double>::epsilon();
+        break;
+    case INF: default:
+        epsilon = std::numeric_limits<T>::min();
         break;
     }
 
@@ -100,9 +125,25 @@ inline T getEpsilon(Precision precision)
     return (coef * epsilon);
 }
 
+// Version that works also for integral types, and always refers to the
+// type defined by the template argument. This means that if T is a floating point
+// type, then "getEpsilon<T>()" is the same as "getEplsilon<T>(floatingPointPrecision<T>())".
+// The function "getEpsilon<T>(Precision)" works for floating point types only, and can
+// be used with two different precisions (e.g. T is double, but Precision is float). This
+// version works with one type (T) and T can be also integral (in such a case, epsilon is
+// zero).
+template<typename T>
+inline T getEpsilon()
+{
+    T epsilon = std::numeric_limits<T>::epsilon();
+    T coef = 10.0; // hack for better results
+    return(coef * epsilon);
+}
+
 /// Enumeration type that sets the file format for the triangular surface meshes.
 /// Stereolithography format: STL
-enum SurfaceGeometryFileFormat { STL };
+/// Object file format: OFF
+enum SurfaceGeometryFileFormat { STL, OFF };
 
 /// Ordering of indices when a BlockXD is converted into a serial data stream.
 /** Signification of constants:

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define OFF_LATTICE_BOUNDARY_PROFILES_3D_HH
 
 #include "core/globalDefs.h"
+#include "algorithm/functions.h"
 #include "offLattice/offLatticeBoundaryProfiles3D.h"
 
 namespace plb {
@@ -179,13 +180,7 @@ void IncreasingPoiseuilleProfile3D<T,Descriptor>::getData (
     BlockLattice3D<T,Descriptor> const* lattice =
         dynamic_cast<BlockLattice3D<T,Descriptor> const* >(argument);
     plint t = lattice->getTimeCounter().getTime();
-    T signal=T();
-    if (t<maxT) {
-        signal = (T)0.5*((T)1+tanh((T)6/(T)maxT*((T)t-(T)maxT/(T)2)));
-    }
-    else {
-        signal = (T)1;
-    }
+    T signal = util::sinIncreasingFunction<T>((T) t, (T) maxT);
     Array<T,3> radial = pos-center;
     T r = norm(radial) / radius;
     if (r<=(T)1.) {
@@ -231,13 +226,7 @@ void IncreasingVelocityProfile3D<T,Descriptor>::getData (
     BlockLattice3D<T,Descriptor> const* lattice =
         dynamic_cast<BlockLattice3D<T,Descriptor> const* >(argument);
     plint t = lattice->getTimeCounter().getTime();
-    T signal=T();
-    if (t<maxT) {
-        signal = (T)0.5*((T)1+tanh((T)6/(T)maxT*((T)t-(T)maxT/(T)2)));
-    }
-    else {
-        signal = (T)1;
-    }
+    T signal = util::sinIncreasingFunction<T>((T) t, (T) maxT);
     data = u*signal;
 }
 
@@ -338,12 +327,12 @@ void OscillatingPoiseuilleProfile3D<T,Descriptor>::getData (
         Array<T,3>& data, OffBoundary::Type& bdType ) const
 {
     bdType = OffBoundary::dirichlet;
-    static const T pi = (T)4.*atan(1.);
+    static const T pi = (T)4.*std::atan((T)1.);
     BlockLattice3D<T,Descriptor> const* lattice =
         dynamic_cast<BlockLattice3D<T,Descriptor> const* >(argument);
     PLB_ASSERT(lattice);
     T t = (T) lattice->getTimeCounter().getTime();
-    T signal = (sin((T)2.*pi*t/period)+(T)1.)*(T)0.5;
+    T signal = (std::sin((T)2.*pi*t/period)+(T)1.)*(T)0.5;
 
     Array<T,3> radial = pos-center;
     T r = norm(radial) / radius;

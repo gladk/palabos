@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile for the Palabos example program cavity3d.
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which 
 ## you can select compilation options. Compilation dependencies
@@ -15,7 +15,7 @@
 #                optimFlags   = -O -finline-functions
 
 # Leading directory of the Palabos source code
-palabosRoot   = ../..
+palabosRoot  = ../..
 # Name of source files in current directory to compile and link with Palabos
 projectFiles = plb2vtk3D.cpp
 #projectFiles = plb2vtk2D.cpp
@@ -38,17 +38,16 @@ usePOSIX     = true
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
-includePaths = #/home/jlatt/svn/projets/exmachina/palabosPlus/io/
+includePaths =
 # Dynamic and static libraries (other than Palabos)
 libraries    =
-srcPaths     = #/home/jlatt/svn/projets/exmachina/palabosPlus/io/
 
 # Compiler to use without MPI parallelism
 serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags =
+compileFlags = -Wall -Wnon-virtual-dtor #-DPLB_MAC_OS_X
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
@@ -64,7 +63,7 @@ profileFlags = -pg
 # to SConstruct. It is recommended not to modify anything there.
 ##########################################################################
 
-SCons     = $(palabosRoot)/scons/scons.py -j 2 -f $(palabosRoot)/SConstruct
+SCons     = $(palabosRoot)/scons/scons.py -j 6 -f $(palabosRoot)/SConstruct
 
 SConsArgs = palabosRoot=$(palabosRoot) \
             projectFiles="$(projectFiles)" \
@@ -80,11 +79,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-	    profileFlags="$(profileFlags)" \
-	    libraryPaths="$(libraryPaths)" \
-	    includePaths="$(includePaths)" \
-	    srcPaths="$(srcPaths)" \
-	    libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

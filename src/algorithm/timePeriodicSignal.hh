@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,8 +27,9 @@
 
 #include "core/runTimeDiagnostics.h"
 #include "core/util.h"
-#include "spline.h"
-#include "timePeriodicSignal.h"
+#include "algorithm/spline.h"
+#include "algorithm/timePeriodicSignal.h"
+
 #include <limits>
 
 namespace plb {

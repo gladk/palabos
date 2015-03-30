@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,6 +55,36 @@ public:
                           BlockLattice2D<T,FluidDescriptor>& fluid,
                           BlockLattice2D<T,TemperatureDescriptor>& temperature );
     virtual BoussinesqThermalProcessor2D<T,FluidDescriptor,TemperatureDescriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::staticVariables;
+        modified[1] = modif::staticVariables;
+    }
+    
+private:
+    T gravity, T0, deltaTemp;
+    Array<T,FluidDescriptor<T>::d> dir;
+};
+
+/**
+* Class for the coupling between a Navier-Stokes (NS) lattice and an
+* Advection-Diffusion (AD) lattice in the boussinesq approximation.
+*/
+template< typename T,
+          template<typename U1> class FluidDescriptor, 
+          template<typename U2> class TemperatureDescriptor
+        >
+class CompleteBoussinesqThermalProcessor2D :
+    public BoxProcessingFunctional2D_LL<T,FluidDescriptor,T,TemperatureDescriptor>
+{
+public:
+    
+    CompleteBoussinesqThermalProcessor2D(T gravity_, T T0_, T deltaTemp_,
+                                 Array<T,FluidDescriptor<T>::d> dir_);
+    
+    virtual void process( Box2D domain,
+                          BlockLattice2D<T,FluidDescriptor>& fluid,
+                          BlockLattice2D<T,TemperatureDescriptor>& temperature );
+    virtual CompleteBoussinesqThermalProcessor2D<T,FluidDescriptor,TemperatureDescriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
         modified[0] = modif::staticVariables;
         modified[1] = modif::staticVariables;

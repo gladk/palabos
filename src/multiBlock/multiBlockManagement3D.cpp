@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,7 @@
 
 #include "multiBlock/multiBlockManagement3D.h"
 #include "multiBlock/staticRepartitions3D.h"
+#include "multiBlock/defaultMultiBlockPolicy3D.h"
 #include "core/plbDebug.h"
 #include <algorithm>
 
@@ -323,6 +324,28 @@ MultiBlockManagement3D align( MultiBlockManagement3D const& originalManagement,
             originalManagement.getEnvelopeWidth(),
             originalManagement.getRefinementLevel() );
 }
+
+MultiBlockManagement3D align( std::vector<Box3D> const& originalDomain,
+                              MultiBlockManagement3D const& alignWith,
+                              plint envelopeWidth, plint refinementLevel, bool crop )
+{
+    Box3D bbox(alignWith.getBoundingBox());
+    if (crop && !originalDomain.empty()) {
+        bbox = originalDomain[0];
+        for (pluint i=1; i<originalDomain.size(); ++i) {
+            bbox = bound(bbox, originalDomain[i]);
+        }
+    }
+    SparseBlockStructure3D originalSparseBlock(bbox);
+    for (plint i=0; i<(plint)originalDomain.size(); ++i) {
+        originalSparseBlock.addBlock(originalDomain[i], i);
+    }
+    MultiBlockManagement3D originalManagement (
+            originalSparseBlock, defaultMultiBlockPolicy3D().getThreadAttribution(),
+            envelopeWidth, refinementLevel );
+    return align(originalManagement, alignWith);
+}
+
 
 MultiBlockManagement3D reparallelize(MultiBlockManagement3D const& management,
                                      plint blockLx, plint blockLy, plint blockLz)

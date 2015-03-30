@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -99,6 +99,7 @@ std::vector<MultiTensorField2D<T,nDim> *> generateTensorFields (
 template<typename T, template<typename U> class Descriptor>
 class FineGridInterfaceInstantiator {
     public:
+        virtual ~FineGridInterfaceInstantiator() { }
         virtual FineGridInterfaceInstantiator* clone()=0;
         
         virtual void instantiateDataProcessors(Box2D whereToInstanciate,
@@ -114,6 +115,7 @@ class FineGridInterfaceInstantiator {
 template<typename T, template<typename U> class Descriptor>
 class CoarseGridInterfaceInstantiator {
     public:
+        virtual ~CoarseGridInterfaceInstantiator() { }
         virtual CoarseGridInterfaceInstantiator* clone()=0;
         
         virtual void instantiateDataProcessors(Box2D whereToInstanciate,

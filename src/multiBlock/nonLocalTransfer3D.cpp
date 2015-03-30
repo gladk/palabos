@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -66,6 +66,7 @@ std::vector<Overlap3D> copyDomainDataTransfer (
     std::vector<Box3D> block1Components, block2Inters;
     std::vector<Overlap3D> dataTransfer; // The return value.
     block1.intersect(block1Domain, block1Ids, block1Components);
+    PLB_ASSERT( block1Ids.size() == block1Components.size() );
     for (pluint iComp1=0; iComp1<block1Ids.size(); ++iComp1) {
         block2Ids.clear();
         block2Inters.clear();

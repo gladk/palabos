@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -86,13 +86,10 @@ private:
     IncomprFlowParam<T> parameters;
 };
 
-void definePoiseuilleGeometry( BlockLatticeBase2D<T,DESCRIPTOR>& lattice,
+void definePoiseuilleGeometry( MultiBlockLattice2D<T,DESCRIPTOR>& lattice,
                                IncomprFlowParam<T> const& parameters,
                                OnLatticeBoundaryCondition2D<T,DESCRIPTOR>& boundaryCondition )
 {
-    const plint nx = parameters.getNx();
-    const plint ny = parameters.getNy();
-
     // Create Velocity boundary conditions
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
@@ -131,12 +128,13 @@ int main(int argc, char* argv[]) {
 
     writeLogFile(parameters, "Poiseuille flow");
 
+    plint envelopeWidth = 1;
     MultiBlockLattice2D<T, DESCRIPTOR> lattice (
-        MultiBlockManagement2D( createRegularMultiBlockDistribution2D(parameters.getNx(),parameters.getNy(), 1, 1, 1),
-                                DefaultMultiBlockPolicy2D::getThreadAttribution() ),
-        DefaultMultiBlockPolicy2D::getBlockCommunicator<T>(),
-        DefaultMultiBlockPolicy2D::getCombinedStatistics<T>(),
-        DefaultMultiBlockPolicy2D::getMultiCellAccess<T,DESCRIPTOR>(),
+        MultiBlockManagement2D( createRegularDistribution2D(parameters.getNx(),parameters.getNy(), 1, 1),
+                                defaultMultiBlockPolicy2D().getThreadAttribution(), envelopeWidth ),
+        defaultMultiBlockPolicy2D().getBlockCommunicator(),
+        defaultMultiBlockPolicy2D().getCombinedStatistics(),
+        defaultMultiBlockPolicy2D().getMultiCellAccess<T,DESCRIPTOR>(),
         new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega())
     );
 

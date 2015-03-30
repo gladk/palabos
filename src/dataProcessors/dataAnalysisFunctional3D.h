@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * Data processors for data analysis -- header file.
  */
+
 #ifndef DATA_ANALYSIS_FUNCTIONAL_3D_H
 #define DATA_ANALYSIS_FUNCTIONAL_3D_H
 
@@ -405,6 +406,17 @@ public:
 };
 
 template<typename T, template<typename U> class Descriptor> 
+class BoxAllNonEquilibriumFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::q>
+{
+public:
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice,
+                                       TensorField3D<T,Descriptor<T>::q>& nonEquilibrium);
+    virtual BoxAllNonEquilibriumFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T, template<typename U> class Descriptor> 
 class BoxAllPopulationsToLatticeFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::q>
 {
 public:
@@ -463,6 +475,46 @@ private:
     int whichScalar;
 };
 
+template<typename T, template<typename U> class Descriptor>
+class BoxExternalVectorFunctional3D :
+    public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    BoxExternalVectorFunctional3D(int vectorBeginsAt_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice,
+                                       TensorField3D<T,Descriptor<T>::d>& tensorField);
+    virtual BoxExternalVectorFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    int vectorBeginsAt;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class BoxDynamicParameterFunctional3D :
+    public BoxProcessingFunctional3D_LS<T,Descriptor,T>
+{
+public:
+    BoxDynamicParameterFunctional3D(plint whichScalar_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice,
+                                       ScalarField3D<T>& scalarField);
+    virtual BoxDynamicParameterFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint whichParameter;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class BoxDynamicViscosityFunctional3D :
+    public BoxProcessingFunctional3D_LS<T,Descriptor,T>
+{
+public:
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice,
+                                       ScalarField3D<T>& scalarField);
+    virtual BoxDynamicViscosityFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
 /* *************** PART II ******************************************* */
 /* *************** Analysis of the scalar-field ********************** */
 /* ******************************************************************* */
@@ -510,6 +562,7 @@ private:
     plint averageScalarId;
     int flag;
 };
+
 /** Attention: No matter what the type of T is (even if it is an integer type),
  *    the min is computed in double-precision floating point numbers, and
  *    converted to T at the end (and rounded, if T is an integer).
@@ -946,6 +999,105 @@ private:
     T bound;
 };
 
+template<typename T, template<typename U> class Descriptor>
+class LBMsmoothen3D : public BoxProcessingFunctional3D_SS<T,T> {
+public:
+    virtual void process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result);
+    virtual LBMsmoothen3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+template<typename T>
+class Smoothen3D : public BoxProcessingFunctional3D_SS<T,T> {
+public:
+    virtual void process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result);
+    virtual Smoothen3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+template<typename T>
+class MollifyScalar3D : public BoxProcessingFunctional3D {
+public:
+    MollifyScalar3D(T l_, plint d_, Box3D globalDomain_, int exclusionFlag_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual MollifyScalar3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T l;                // Characteristic length (compact support) of the mollifier.
+    plint d;            // Mollifying neighborhood (d <= envelope).
+    Box3D globalDomain; // The globalDomain must be at most as big as the whole simulation
+                        // domain for non-periodic problems, and bigger than the whole simulation
+                        // domain plus the envelope (per periodic direction) for periodic problems.
+    int exclusionFlag;  // Flag which is excluded from the mollification proceedure.
+};
+
+template<typename T,template<typename U> class Descriptor>
+class LBMcomputeGradient3D : public BoxProcessingFunctional3D_ST<T,T,3> {
+public:
+    virtual void process(Box3D domain, ScalarField3D<T>& scalarField, TensorField3D<T,3>& gradient);
+    virtual LBMcomputeGradient3D<T,Descriptor>* clone() const {
+        return new LBMcomputeGradient3D(*this);
+    }
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::nothing;
+        modified[1] = modif::staticVariables;
+    }
+};
+
+template<typename T>
+class UpdateMinScalarTransientStatistics3D : public BoxProcessingFunctional3D {
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual UpdateMinScalarTransientStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class UpdateMaxScalarTransientStatistics3D : public BoxProcessingFunctional3D {
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual UpdateMaxScalarTransientStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class UpdateAveScalarTransientStatistics3D : public BoxProcessingFunctional3D {
+public:
+    UpdateAveScalarTransientStatistics3D(plint n_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual UpdateAveScalarTransientStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    plint n;
+};
+
+template<typename T>
+class UpdateRmsScalarTransientStatistics3D : public BoxProcessingFunctional3D {
+public:
+    UpdateRmsScalarTransientStatistics3D(plint n_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual UpdateRmsScalarTransientStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    plint n;
+};
+
+template<typename T>
+class UpdateDevScalarTransientStatistics3D : public BoxProcessingFunctional3D {
+public:
+    UpdateDevScalarTransientStatistics3D(plint n_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual UpdateDevScalarTransientStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    plint n;
+};
+
 
 /* *************** PART III ****************************************** */
 /* *************** Analysis of the tensor-field ********************** */
@@ -974,6 +1126,48 @@ public:
 private:
     plint countId;
     BoolMask boolMask;
+};
+
+/** Attention: No matter what the type of T is (even if it is an integer type),
+ *    the sum is computed in double-precision floating point numbers, and
+ *    converted to T at the end (and rounded, if T is an integer).
+ **/
+template<typename T,int nDim>
+class BoxTensorSumFunctional3D : public ReductiveBoxProcessingFunctional3D_T<T,nDim> {
+public:
+    BoxTensorSumFunctional3D();
+    virtual void process(Box3D domain, TensorField3D<T,nDim>& tensorField);
+    virtual BoxTensorSumFunctional3D<T,nDim>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+        modified[0] = modif::nothing;
+    }
+    Array<T,nDim> getSumTensor() const;
+private:
+    Array<plint,nDim> sumTensorId;
+};
+
+/** Attention: No matter what the type of T is (even if it is an integer type),
+ *    the average is computed in double-precision floating point numbers, and
+ *    converted to T at the end (and rounded, if T is an integer).
+ **/
+template<typename T, int nDim>
+class MaskedBoxTensorAverageFunctional3D : public ReductiveBoxProcessingFunctional3D_ST<int,T,nDim> {
+public:
+    MaskedBoxTensorAverageFunctional3D(int flag_);
+    virtual void process( Box3D domain,
+                          ScalarField3D<int>& mask,
+                          TensorField3D<T,nDim>& tensorField );
+    virtual MaskedBoxTensorAverageFunctional3D<T,nDim>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
+    {
+        modified[0] = modif::nothing;
+        modified[1] = modif::nothing;
+    }
+    Array<T,nDim> getAverageTensor() const;
+private:
+    Array<plint, nDim> averageTensorId;
+    int flag;
 };
 
 template<typename T1, typename T2, int nDim>
@@ -1180,6 +1374,26 @@ public:
     virtual BlockDomain::DomainT appliesTo() const;
 };
 
+template<typename T>
+class BoxComputeInstantaneousReynoldsStressFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual BoxComputeInstantaneousReynoldsStressFunctional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class BoxLambda2Functional3D : public BoxProcessingFunctional3D
+{
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual BoxLambda2Functional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
 template<typename T, int nDim>
 class BoxBulkDivergenceFunctional3D :
     public BoxProcessingFunctional3D_ST<T,T,nDim>
@@ -1347,7 +1561,7 @@ public:
     Normalize_Tensor_functional3D(Precision precision_ = DBL)
         : precision(precision_)
     {
-        PLB_ASSERT(precision == FLT || precision == DBL || precision == LDBL);
+        PLB_ASSERT(precision == FLT || precision == DBL || precision == LDBL || precision == INF);
     }
     virtual void process(Box3D domain, TensorField3D<T,nDim>& data, TensorField3D<T,nDim>& result);
     virtual Normalize_Tensor_functional3D<T,nDim>* clone() const;
@@ -1364,7 +1578,7 @@ public:
     Normalize_Tensor_inplace_functional3D(Precision precision_ = DBL)
         : precision(precision_)
     {
-        PLB_ASSERT(precision == FLT || precision == DBL || precision == LDBL);
+        PLB_ASSERT(precision == FLT || precision == DBL || precision == LDBL || precision == INF);
     }
     virtual void process(Box3D domain, TensorField3D<T,nDim>& data);
     virtual Normalize_Tensor_inplace_functional3D<T,nDim>* clone() const;
@@ -1372,28 +1586,6 @@ public:
 private:
     Precision precision;
 };
-
-/* ************* Class LBMsmoothen3D ******************* */
-
-template<typename T, template<typename U> class Descriptor>
-class LBMsmoothen3D : public BoxProcessingFunctional3D_SS<T,T> {
-public:
-    virtual void process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result);
-    virtual LBMsmoothen3D<T,Descriptor>* clone() const;
-    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
-};
-
-/* ************* Class Smoothen3D ******************* */
-
-template<typename T>
-class Smoothen3D : public BoxProcessingFunctional3D_SS<T,T> {
-public:
-    virtual void process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result);
-    virtual Smoothen3D<T>* clone() const;
-    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
-};
-
-/* ************* Class LBMsmoothenTensor3D ******************* */
 
 template<typename T, int nDim, template<typename U> class Descriptor>
 class LBMsmoothenTensor3D : public BoxProcessingFunctional3D_TT<T,nDim,T,nDim> {
@@ -1403,8 +1595,6 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 };
 
-/* ************* Class SmoothenTensor3D ******************* */
-
 template<typename T, int nDim>
 class SmoothenTensor3D : public BoxProcessingFunctional3D_TT<T,nDim,T,nDim> {
 public:
@@ -1412,26 +1602,6 @@ public:
     virtual SmoothenTensor3D<T,nDim>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 };
-
-/* ************* Class MollifyScalar3D ******************* */
-
-template<typename T>
-class MollifyScalar3D : public BoxProcessingFunctional3D {
-public:
-    MollifyScalar3D(T l_, plint d_, Box3D globalDomain_, int exclusionFlag_);
-    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
-    virtual MollifyScalar3D<T>* clone() const;
-    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
-private:
-    T l;                // Characteristic length (compact support) of the mollifier.
-    plint d;            // Mollifying neighborhood (d <= envelope).
-    Box3D globalDomain; // The globalDomain must be at most as big as the whole simulation
-                        // domain for non-periodic problems, and bigger than the whole simulation
-                        // domain plus the envelope (per periodic direction) for periodic problems.
-    int exclusionFlag;  // Flag which is excluded from the mollification proceedure.
-};
-
-/* ************* Class MollifyTensor3D ******************* */
 
 template<typename T, int nDim>
 class MollifyTensor3D : public BoxProcessingFunctional3D {
@@ -1448,23 +1618,6 @@ private:
                         // domain plus the envelope (per periodic direction) for periodic problems.
     int exclusionFlag;  // Flag which is excluded from the mollification proceedure.
 };
-
-/* ************* Class LBMcomputeGradient3D ******************* */
-
-template<typename T,template<typename U> class Descriptor>
-class LBMcomputeGradient3D : public BoxProcessingFunctional3D_ST<T,T,3> {
-public:
-    virtual void process(Box3D domain, ScalarField3D<T>& scalarField, TensorField3D<T,3>& gradient);
-    virtual LBMcomputeGradient3D<T,Descriptor>* clone() const {
-        return new LBMcomputeGradient3D(*this);
-    }
-    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::nothing;
-        modified[1] = modif::staticVariables;
-    }
-};
-
-/* ************* Class LBMcomputeDivergence3D ******************* */
 
 template<typename T,template<typename U> class Descriptor>
 class LBMcomputeDivergence3D : public BoxProcessingFunctional3D_ST<T,T,3> {

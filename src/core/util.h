@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -120,7 +120,7 @@ inline double twoToThePower(int power) {
         case -6: return 1./64.;
         case -7: return 1./128.;
         case -8: return 1./256.;
-        default: return pow(2., (double)power);
+        default: return std::pow(2., (double)power);
     }
 }
 
@@ -139,7 +139,7 @@ inline plint intTwoToThePower(int power)
         case 8: return 256;
         case 9: return 512;
         case 10: return 1024;
-        default: return util::roundToInt(pow(2., (double)power));
+        default: return util::roundToInt(std::pow(2., (double)power));
     }
 }
 
@@ -386,20 +386,20 @@ bool fpequal(T x, T y, T eps)
 {
     bool val;
 
-    if (fabs(x) <= (T) 2.0 * eps)
+    if (std::fabs(x) <= (T) 2.0 * eps)
         x = (T) 0.0;
 
-    if (fabs(y) <= (T) 2.0 * eps)
+    if (std::fabs(y) <= (T) 2.0 * eps)
         y = (T) 0.0;
 
     if (x == (T) 0.0 || y == (T) 0.0) {
-        if (fabs(x - y) <= (T) 2.0 * eps)
+        if (std::fabs(x - y) <= (T) 2.0 * eps)
             val = true;
         else
             val = false;
     } else {
-        if (fabs(x - y) <= eps * fabs(x) &&
-            fabs(x - y) <= eps * fabs(y))
+        if (std::fabs(x - y) <= eps * std::fabs(x) &&
+            std::fabs(x - y) <= eps * std::fabs(y))
             val = true;
         else
             val = false;
@@ -410,34 +410,61 @@ bool fpequal(T x, T y, T eps)
 
 /// Test equality of two floating point numbers, with an accuracy
 ///   that is relative to the value of the arguments. The epsilon 
-///   value is set by default to 100*the numeric_limits
+///   value is set by default to the corresponding floating point
+///   precision.
 template<typename T>
 bool fpequal(T x, T y)
 {
-    T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    
-    bool val;
+    T eps = getEpsilon<T>(floatingPointPrecision<T>());
+    return fpequal(x, y, eps);
+}
 
-    if (fabs(x) <= (T) 2.0 * eps)
-        x = (T) 0.0;
+template<typename T>
+bool greaterEqual(T x, T y, T eps)
+{
+    return (x > y) || fpequal(x, y, eps);
+}
 
-    if (fabs(y) <= (T) 2.0 * eps)
-        y = (T) 0.0;
+template<typename T>
+bool greaterEqual(T x, T y)
+{
+    return (x > y) || fpequal(x, y);
+}
 
-    if (x == (T) 0.0 || y == (T) 0.0) {
-        if (fabs(x - y) <= (T) 2.0 * eps)
-            val = true;
-        else
-            val = false;
-    } else {
-        if (fabs(x - y) <= eps * fabs(x) &&
-            fabs(x - y) <= eps * fabs(y))
-            val = true;
-        else
-            val = false;
-    }
+template<typename T>
+bool greaterThan(T x, T y, T eps)
+{
+    return (x > y) && !fpequal(x, y, eps);
+}
 
-    return val;
+template<typename T>
+bool greaterThan(T x, T y)
+{
+    return (x > y) && !fpequal(x, y);
+}
+
+template<typename T>
+bool lessEqual(T x, T y, T eps)
+{
+    return (x < y) || fpequal(x, y, eps);
+}
+
+template<typename T>
+bool lessEqual(T x, T y)
+{
+    return (x < y) || fpequal(x, y);
+}
+
+template<typename T>
+bool lessThan(T x, T y, T eps)
+{
+    return (x < y) && !fpequal(x, y, eps);
+}
+
+template<typename T>
+bool lessThan(T x, T y)
+{
+    return (x < y) && !fpequal(x, y);
 }
 
 /// Test equality of two floating point numbers, with absolute accuracy,
@@ -446,7 +473,83 @@ bool fpequal(T x, T y)
 template<typename T>
 bool fpequal_abs(T x, T y, T eps)
 {
-    return fabs(x-y) <= eps;
+    return std::fabs(x-y) <= eps;
+}
+
+/// Test equality of two floating point numbers, with absolute accuracy,
+///   independent of the value of the arguments. This is useful in relation
+///   with calculations in which all important quantities are of the order 1.
+///   The epsilon value is set by default to the corresponding floating point
+///   precision.
+template<typename T>
+bool fpequal_abs(T x, T y)
+{
+    T eps = getEpsilon<T>(floatingPointPrecision<T>());
+    return fpequal_abs(x, y, eps);
+}
+
+template<typename T>
+bool greaterEqual_abs(T x, T y, T eps)
+{
+    return (x > y) || fpequal_abs(x, y, eps);
+}
+
+template<typename T>
+bool greaterEqual_abs(T x, T y)
+{
+    return (x > y) || fpequal_abs(x, y);
+}
+
+template<typename T>
+bool greaterThan_abs(T x, T y, T eps)
+{
+    return (x > y) && !fpequal_abs(x, y, eps);
+}
+
+template<typename T>
+bool greaterThan_abs(T x, T y)
+{
+    return (x > y) && !fpequal_abs(x, y);
+}
+
+template<typename T>
+bool lessEqual_abs(T x, T y, T eps)
+{
+    return (x < y) || fpequal_abs(x, y, eps);
+}
+
+template<typename T>
+bool lessEqual_abs(T x, T y)
+{
+    return (x < y) || fpequal_abs(x, y);
+}
+
+template<typename T>
+bool lessThan_abs(T x, T y, T eps)
+{
+    return (x < y) && !fpequal_abs(x, y, eps);
+}
+
+template<typename T>
+bool lessThan_abs(T x, T y)
+{
+    return (x < y) && !fpequal_abs(x, y);
+}
+
+/// Helper functions to check equality with 0 and 1.
+/// They should work with floating-point and integral types as well.
+template<typename T>
+inline bool isZero(T x)
+{
+    T eps = getEpsilon<T>();
+    return(std::fabs(x) <= eps);
+}
+
+template<typename T>
+inline bool isOne(T x)
+{
+    T eps = getEpsilon<T>();
+    return(std::fabs(x - (T) 1) <= eps);
 }
 
 
@@ -455,7 +558,7 @@ public:
     UniqueId() : currentId(0) { }
     id_t getId() {
         if (currentId==std::numeric_limits<id_t>::max()) {
-            plbLogicError("Too many unique IDs requested.");
+            throw PlbLogicException("Too many unique IDs requested.");
         }
         assignedIds.insert(currentId);
         return currentId++;
@@ -463,7 +566,7 @@ public:
     void releaseId(id_t id) {
         std::set<id_t>::iterator it = assignedIds.find(id);
         if (it==assignedIds.end()) {
-            plbLogicError("Releasing a non-assigned ID.");
+            throw PlbLogicException("Releasing a non-assigned ID.");
         }
         assignedIds.erase(it);
     }
@@ -474,8 +577,10 @@ private:
     id_t currentId;
     std::set<id_t> assignedIds;
 };
+
 }  // namespace util
 
 }  // namespace plb
 
 #endif  // UTIL_H
+

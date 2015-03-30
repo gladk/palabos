@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -89,7 +89,7 @@ void WaveDynamics<T,Descriptor>::collide (
 }
 
 template<typename T, template<typename U> class Descriptor>
-void WaveDynamics<T,Descriptor>::collide (
+void WaveDynamics<T,Descriptor>::collideExternal (
         Cell<T,Descriptor>& cell, T rhoBar,
         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
 {
@@ -160,6 +160,173 @@ T WaveDynamics<T,Descriptor>::waveEquilibrium (
         return Descriptor<T>::invCs2 * Descriptor<T>::t[iPop] * (
                      kappa + rhoBar * vs2 + c_j );
     }
+}
+
+
+// ============== Wave Absorption dynamics ====================== //
+
+template<typename T, template<typename U> class Descriptor>
+int WaveAbsorptionDynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,WaveAbsorptionDynamics<T,Descriptor> >("Wave_Absorption");
+
+template<typename T, template<typename U> class Descriptor>
+WaveAbsorptionDynamics<T,Descriptor>::WaveAbsorptionDynamics(Dynamics<T,Descriptor>* baseDynamics_)
+    : CompositeDynamics<T,Descriptor>(baseDynamics_, false)  // false is for automaticPrepareCollision.
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+WaveAbsorptionDynamics<T,Descriptor>::WaveAbsorptionDynamics(HierarchicUnserializer& unserializer)
+    : CompositeDynamics<T,Descriptor>(0, false)
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::collide(Cell<T,Descriptor>& cell, BlockStatistics& statistics)
+{
+    static const T epsilon = 1.e4 * std::numeric_limits<T>::epsilon();
+    int sigmaPos = Descriptor<T>::ExternalField::sigmaBeginsAt;
+    int rhoBarPos = Descriptor<T>::ExternalField::rhoBarBeginsAt;
+    int uPos = Descriptor<T>::ExternalField::uBeginsAt;
+    T sigma = *cell.getExternal(sigmaPos);
+    T rhoBarF = *cell.getExternal(rhoBarPos);
+    Array<T,Descriptor<T>::d> uF;
+    uF.from_cArray(cell.getExternal(uPos));
+
+    if (sigma<epsilon) {
+        this->getBaseDynamics().collide(cell, statistics);
+    }
+    else {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        this->getBaseDynamics().computeRhoBarJ(cell, rhoBar, j);
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        T jSqr = normSqr(j);
+        Array<T,Descriptor<T>::q> fEq;
+        this->getBaseDynamics().computeEquilibria(fEq, rhoBar, j, jSqr);
+        
+        Array<T,Descriptor<T>::d> jF = Descriptor<T>::fullRho(rhoBarF)*uF;
+        T jFsqr = normSqr(jF);
+        Array<T,Descriptor<T>::q> fEqF;
+        this->getBaseDynamics().computeEquilibria(fEqF, rhoBarF, jF, jFsqr);
+        
+        this->getBaseDynamics().collide(cell, statistics);
+
+        for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+            cell[iPop] -= sigma*(fEq[iPop] - fEqF[iPop]);
+        }
+
+        if (cell.takesStatistics()) {
+            gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& statistics )
+{
+    static const T epsilon = 1.e4 * std::numeric_limits<T>::epsilon();
+    int sigmaPos = Descriptor<T>::ExternalField::sigmaBeginsAt;
+    int rhoBarPos = Descriptor<T>::ExternalField::rhoBarBeginsAt;
+    int uPos = Descriptor<T>::ExternalField::uBeginsAt;
+    T sigma = *cell.getExternal(sigmaPos);
+    T rhoBarF = *cell.getExternal(rhoBarPos);
+    Array<T,Descriptor<T>::d> uF;
+    uF.from_cArray(cell.getExternal(uPos));
+
+    if (sigma<epsilon) {
+        this->getBaseDynamics().collideExternal(cell, rhoBar, j, thetaBar, statistics);
+    }
+    else {
+        T jSqr = normSqr(j);
+        Array<T,Descriptor<T>::q> fEq;
+        this->getBaseDynamics().computeEquilibria(fEq, rhoBar, j, jSqr);
+        
+        Array<T,Descriptor<T>::d> jF = Descriptor<T>::fullRho(rhoBarF)*uF;
+        T jFsqr = normSqr(jF);
+        Array<T,Descriptor<T>::q> fEqF;
+        this->getBaseDynamics().computeEquilibria(fEqF, rhoBarF, jF, jFsqr);
+        
+        this->getBaseDynamics().collideExternal(cell, rhoBar, j, thetaBar, statistics);
+
+        for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+            cell[iPop] -= sigma*(fEq[iPop] - fEqF[iPop]);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    CompositeDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    CompositeDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::prepareCollision(Cell<T,Descriptor>& cell)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+int WaveAbsorptionDynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+// Implementation of a specific "sigma" function for WaveAbsorptionDynamics.
+
+template<typename T>
+WaveAbsorptionSigmaFunction3D<T>::WaveAbsorptionSigmaFunction3D(Box3D domain_, Array<plint,6> const& numCells_, T omega_)
+    : domain(domain_),
+      numCells(numCells_),
+      xi((T) 4 / omega_ - (T) 1.0e-3)
+{ }
+
+template<typename T>
+T WaveAbsorptionSigmaFunction3D<T>::operator()(plint iX, plint iY, plint iZ) const
+{
+    std::vector<plint> distances(6, 0);
+
+    numCells[0] ? addDistance(domain.x0 + numCells[0], iX, distances, 0) : (void) 0;
+    numCells[1] ? addDistance(iX, domain.x1 - numCells[1], distances, 1) : (void) 0;
+    numCells[2] ? addDistance(domain.y0 + numCells[2], iY, distances, 2) : (void) 0;
+    numCells[3] ? addDistance(iY, domain.y1 - numCells[3], distances, 3) : (void) 0;
+    numCells[4] ? addDistance(domain.z0 + numCells[4], iZ, distances, 4) : (void) 0;
+    numCells[5] ? addDistance(iZ, domain.z1 - numCells[5], distances, 5) : (void) 0;
+
+    plint distance = 0;
+    plint ind = -1;
+    for (pluint i = 0; i < distances.size(); ++i) {
+        if (distances[i] > distance) {
+            distance = distances[i];
+            ind = i;
+        }
+    }
+
+    if (distance == 0) {
+        return(T());
+    } else {
+        return(xi*sigma(T(), (T) numCells[ind], (T) distance));
+    }
+}
+
+template<typename T>
+void WaveAbsorptionSigmaFunction3D<T>::addDistance(plint from, plint pos, std::vector<plint>& distances, plint i) const
+{
+    plint dist = from - pos;
+    if (dist > 0) {
+        distances[i] = dist;
+    }
+}
+
+template<typename T>
+T WaveAbsorptionSigmaFunction3D<T>::sigma(T x0, T x1, T x) const
+{
+    return((T) 3125 * (x1 - x) * std::pow(x - x0, (T) 4)) / ((T) 256 * std::pow(x1 - x0, (T) 5));
 }
 
 }  // namespace plb

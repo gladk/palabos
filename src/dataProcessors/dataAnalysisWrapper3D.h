@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * Helper functions for data analysis -- header file.
  */
+
 #ifndef DATA_ANALYSIS_WRAPPER_3D_H
 #define DATA_ANALYSIS_WRAPPER_3D_H
 
@@ -200,13 +201,11 @@ T computeAverage(ScalarField3D<T>& scalarField, Box3D domain);
 template<typename T>
 T computeAverage(ScalarField3D<T>& scalarField);
 
-
 template<typename T>
 T computeAverage(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag, Box3D domain);
 
 template<typename T>
 T computeAverage(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag);
-
 
 template<typename T>
 T computeMin(ScalarField3D<T>& scalarField, Box3D domain);
@@ -416,6 +415,18 @@ plint count(TensorField3D<T,nDim>& field, Box3D domain, BoolMask boolMask);
 template<typename T, int nDim, class BoolMask> 
 plint count(TensorField3D<T,nDim>& field, BoolMask boolMask);
 
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(TensorField3D<T,nDim>& tensorField, Box3D domain);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(TensorField3D<T,nDim>& tensorField);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(TensorField3D<T,nDim>& tensorField, ScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(TensorField3D<T,nDim>& tensorField, ScalarField3D<int>& mask, int flag);
+
 /* *************** Component (scalar-field) out of a tensor-field ****** */
 
 template<typename T, int nDim>
@@ -463,7 +474,7 @@ template<typename T>
 std::auto_ptr<ScalarField3D<T> > computeSymmetricTensorNorm(TensorField3D<T,6>& norm);
 
 
-/* *************** Squared Tensor-norm of each symmetric tensor of a field*/
+/* *************** Squared Tensor-norm of each symmetric tensor of a field ************* */
 
 template<typename T>
 void computeSymmetricTensorNormSqr(TensorField3D<T,6>& tensorField, ScalarField3D<T>& normSqr);
@@ -499,7 +510,7 @@ template<typename T>
 std::auto_ptr<TensorField3D<T,3> > computeVorticity(TensorField3D<T,3>& velocity);
 
 
-/* *************** Vorticity, witout boundary treatment, from Velocity field  */
+/* *************** Vorticity, witout boundary treatment, from Velocity field ************** */
 
 template<typename T>
 void computeBulkVorticity(TensorField3D<T,3>& velocity, TensorField3D<T,3>& vorticity);
@@ -507,7 +518,7 @@ void computeBulkVorticity(TensorField3D<T,3>& velocity, TensorField3D<T,3>& vort
 template<typename T>
 std::auto_ptr<TensorField3D<T,3> > computeBulkVorticity(TensorField3D<T,3>& velocity);
 
-/* *************** Divergence, witout boundary treatment, from Velocity field  */
+/* *************** Divergence, witout boundary treatment, from Velocity field ************* */
 
 template<typename T>
 void computeBulkDivergence(TensorField3D<T,3>& velocity, ScalarField3D<T>& divergence);
@@ -525,7 +536,7 @@ template<typename T>
 std::auto_ptr<TensorField3D<T,6> > computeStrainRate(TensorField3D<T,3>& velocity);
 
 
-/* *************** Str. rate, witout boundary treatment, from Velocity field  */
+/* *************** Strain rate, witout boundary treatment, from Velocity field ************ */
 
 template<typename T>
 void computeBulkStrainRate(TensorField3D<T,3>& velocity, TensorField3D<T,6>& S);
@@ -899,6 +910,17 @@ std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::q> > computeEquilibrium (
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::q> > computeEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice);
 
+template<typename T, template<typename U> class Descriptor>
+void computeNonEquilibrium (
+    MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::q>& nonEquilibrium, Box3D domain );
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::q> > computeNonEquilibrium (
+    MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain );
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::q> > computeNonEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice);
+
 
 template<typename T, template<typename U> class Descriptor>
 void computeAllPopulations(MultiBlockLattice3D<T,Descriptor>& lattice,
@@ -1003,6 +1025,51 @@ std::auto_ptr<MultiScalarField3D<T> >
     computeExternalScalar(MultiBlockLattice3D<T,Descriptor>& lattice, int whichScalar);
 
 
+/* *************** ExternalVector ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeExternalVector(MultiBlockLattice3D<T,Descriptor>& lattice,
+                           MultiTensorField3D<T,Descriptor<T>::d>& tensorField, int vectorBeginsAt, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
+    computeExternalVector(MultiBlockLattice3D<T,Descriptor>& lattice, int vectorBeginsAt, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
+    computeExternalVector(MultiBlockLattice3D<T,Descriptor>& lattice, int vectorBeginsAt);
+
+
+/* *************** DynamicParameter ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeDynamicParameter( MultiBlockLattice3D<T,Descriptor>& lattice,
+                              MultiScalarField3D<T>& scalar, plint whichParameter, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> >
+   computeDynamicParameter(MultiBlockLattice3D<T,Descriptor>& lattice, plint whichParameter, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> >
+    computeDynamicParameter(MultiBlockLattice3D<T,Descriptor>& lattice, plint whichParameter);
+
+
+/* *************** DynamicViscosity ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeDynamicViscosity( MultiBlockLattice3D<T,Descriptor>& lattice,
+                              MultiScalarField3D<T>& scalar, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> >
+   computeDynamicViscosity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> >
+    computeDynamicViscosity(MultiBlockLattice3D<T,Descriptor>& lattice);
+
+
 /* ******************************************************************* */
 /* *************** PART V. Multi-block wrappers: Scalar-Field ******** */
 /* ******************************************************************* */
@@ -1021,13 +1088,11 @@ T computeAverage(MultiScalarField3D<T>& scalarField, Box3D domain);
 template<typename T>
 T computeAverage(MultiScalarField3D<T>& scalarField);
 
-
 template<typename T>
 T computeAverage(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain);
 
 template<typename T>
 T computeAverage(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag);
-
 
 template<typename T>
 T computeMin(MultiScalarField3D<T>& scalarField, Box3D domain);
@@ -1364,6 +1429,61 @@ template<typename T>
 void uniformlyBoundScalarField(MultiScalarField3D<T>& data, T bound);
 
 
+/* *************** LBMsmoothen3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
+
+template<typename T, template<typename U> class Descriptor>
+void lbmSmoothen(MultiScalarField3D<T>& data, MultiScalarField3D<T>& result, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data);
+
+
+/* *************** Smoothen3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
+
+template<typename T>
+void smoothen(MultiScalarField3D<T>& data, MultiScalarField3D<T>& result, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > smoothen(MultiScalarField3D<T>& data, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > smoothen(MultiScalarField3D<T>& data);
+
+
+/* *************** MollifyScalar3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
+
+template<typename T>
+void mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
+        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag, MultiScalarField3D<T>& result, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
+        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
+        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag);
+
+
+/* *************** LBMcomputeGradient3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
+
+template<typename T, template<typename U> class Descriptor>
+void lbmComputeGradient(MultiScalarField3D<T>& scalarField, MultiTensorField3D<T,3>& gradient, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,3> > lbmComputeGradient(MultiScalarField3D<T>& scalarField, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,3> > lbmComputeGradient(MultiScalarField3D<T>& scalarField);
+
+
 /* ******************************************************************* */
 /* *************** PART VI. Multi-block wrappers: Tensor-field ******* */
 /* ******************************************************************* */
@@ -1375,6 +1495,18 @@ plint count(MultiTensorField3D<T,nDim>& field, Box3D domain, BoolMask boolMask);
 
 template<typename T, int nDim, class BoolMask> 
 plint count(MultiTensorField3D<T,nDim>& field, BoolMask boolMask);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(MultiTensorField3D<T,nDim>& tensorField, Box3D domain);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(MultiTensorField3D<T,nDim>& tensorField);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(MultiTensorField3D<T,nDim>& tensorField, MultiScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T, int nDim>
+Array<T,nDim> computeAverage(MultiTensorField3D<T,nDim>& tensorField, MultiScalarField3D<int>& mask, int flag);
 
 
 /* *************** Copy-convert a tensor-field *************** */
@@ -1450,7 +1582,7 @@ template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > computeSymmetricTensorNorm(MultiTensorField3D<T,6>& tensorField);
 
 
-/* *************** Squared Tensor-norm of each symmetric tensor of a field*/
+/* *************** Squared Tensor-norm of each symmetric tensor of a field **************** */
 
 template<typename T>
 void computeSymmetricTensorNormSqr(MultiTensorField3D<T,6>& tensorField, MultiScalarField3D<T>& normSqr, Box3D domain);
@@ -1486,7 +1618,7 @@ template<typename T>
 std::auto_ptr<MultiTensorField3D<T,3> > computeGradient(MultiScalarField3D<T>& phi);
 
 
-/* *************** Gradient, witout boundary treatment, from scalar field  */
+/* *************** Gradient, witout boundary treatment, from scalar field **************** */
 
 template<typename T>
 void computeBulkGradient(MultiScalarField3D<T>& phi, MultiTensorField3D<T,3>& gradient, Box3D domain);
@@ -1510,7 +1642,7 @@ template<typename T>
 std::auto_ptr<MultiTensorField3D<T,3> > computeVorticity(MultiTensorField3D<T,3>& velocity);
 
 
-/* *************** Vorticity, witout boundary treatment, from Velocity field  */
+/* *************** Vorticity, witout boundary treatment, from Velocity field ************** */
 
 template<typename T>
 void computeBulkVorticity(MultiTensorField3D<T,3>& velocity, MultiTensorField3D<T,3>& vorticity, Box3D domain);
@@ -1522,7 +1654,7 @@ template<typename T>
 std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticity(MultiTensorField3D<T,3>& velocity);
 
 
-/* *************** Divergence, witout boundary treatment, from Velocity field  */
+/* *************** Divergence, witout boundary treatment, from Velocity field *************** */
 
 template<typename T>
 void computeBulkDivergence(MultiTensorField3D<T,3>& velocity, MultiScalarField3D<T>& divergence, Box3D domain);
@@ -1546,7 +1678,7 @@ template<typename T>
 std::auto_ptr<MultiTensorField3D<T,6> > computeStrainRate(MultiTensorField3D<T,3>& velocity);
 
 
-/* *************** Str. rate, witout boundary treatment, from Velocity field  */
+/* *************** Strain rate, witout boundary treatment, from Velocity field *************** */
 
 template<typename T>
 void computeBulkStrainRate(MultiTensorField3D<T,3>& velocity, MultiTensorField3D<T,6>& S, Box3D domain);
@@ -1557,7 +1689,8 @@ std::auto_ptr<MultiTensorField3D<T,6> > computeBulkStrainRate(MultiTensorField3D
 template<typename T>
 std::auto_ptr<MultiTensorField3D<T,6> > computeBulkStrainRate(MultiTensorField3D<T,3>& velocity);
 
-/* *************** Q-criterion from vorticity and strain rate fields  */
+/* *************** Q-criterion from vorticity and strain rate fields ******************** */
+// This is useful for vortex identification. Vortex regions are where Q > 0.
 
 template<typename T>
 void computeQcriterion(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S, MultiScalarField3D<T> &qCriterion, Box3D domain);
@@ -1567,6 +1700,28 @@ std::auto_ptr<MultiScalarField3D<T> > computeQcriterion(MultiTensorField3D<T,3>&
 
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > computeQcriterion(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S);
+
+/* *************** Instantaneous reynolds stress computation from avg vel and vel ******************** */
+template<typename T>
+void computeInstantaneousReynoldsStress(MultiTensorField3D<T,3>& vel, MultiTensorField3D<T,3>& avgVel, MultiTensorField3D<T,6>& tau, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,6> > computeInstantaneousReynoldsStress(MultiTensorField3D<T,3>& vel, MultiTensorField3D<T,3>& avgVel, Box3D domain);;
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,6> > computeInstantaneousReynoldsStress(MultiTensorField3D<T,3>& vel, MultiTensorField3D<T,3>& avgVel);
+
+/* *************** lambda2-criterion from vorticity and strain rate fields ******************** */
+// This is useful for vortex identification. Vortex regions are where lambda2 < 0.
+
+template<typename T>
+void computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S, MultiScalarField3D<T>& lambda2, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S);
 
 
 /* *************** MultiTensorField - MultiTensorField operations *************** */
@@ -1729,31 +1884,8 @@ template<typename T, int nDim>
 void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Precision precision = DBL);
 
 
-/* *************** LBMsmoothen3D ******************************************* */
-
-template<typename T, template<typename U> class Descriptor>
-void lbmSmoothen(MultiScalarField3D<T>& data, MultiScalarField3D<T>& result, Box3D domain);
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data, Box3D domain);
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data);
-
-
-/* *************** Smoothen3D ******************************************* */
-
-template<typename T>
-void smoothen(MultiScalarField3D<T>& data, MultiScalarField3D<T>& result, Box3D domain);
-
-template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > smoothen(MultiScalarField3D<T>& data, Box3D domain);
-
-template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > smoothen(MultiScalarField3D<T>& data);
-
-
 /* *************** LBMsmoothenTensor3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
 
 template<typename T, int nDim, template<typename U> class Descriptor>
 void lbmSmoothenTensor(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain);
@@ -1766,6 +1898,7 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > lbmSmoothenTensor(MultiTensorField3D<
 
 
 /* *************** SmoothenTensor3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
 
 template<typename T, int nDim>
 void smoothenTensor(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain);
@@ -1777,22 +1910,8 @@ template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > smoothenTensor(MultiTensorField3D<T,nDim>& data);
 
 
-/* *************** MollifyScalar3D ******************************************* */
-
-template<typename T>
-void mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
-        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag, MultiScalarField3D<T>& result, Box3D domain);
-
-template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
-        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag, Box3D domain);
-
-template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > mollifyScalar(T l, plint d, Box3D globalDomain, int exclusionFlag,
-        MultiScalarField3D<T>& data, MultiScalarField3D<int>& flag);
-
-
 /* *************** MollifyTensor3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
 
 template<typename T, int nDim>
 void mollifyTensor(T l, plint d, Box3D globalDomain, int exclusionFlag,
@@ -1807,19 +1926,8 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > mollifyTensor(T l, plint d, Box3D glo
         MultiTensorField3D<T,nDim>& data, MultiScalarField3D<int>& flag);
 
 
-/* *************** LBMcomputeGradient3D ******************************************* */
-
-template<typename T, template<typename U> class Descriptor>
-void lbmComputeGradient(MultiScalarField3D<T>& scalarField, MultiTensorField3D<T,3>& gradient, Box3D domain);
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiTensorField3D<T,3> > lbmComputeGradient(MultiScalarField3D<T>& scalarField, Box3D domain);
-
-template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiTensorField3D<T,3> > lbmComputeGradient(MultiScalarField3D<T>& scalarField);
-
-
 /* *************** LBMcomputeDivergence3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
 
 template<typename T, template<typename U> class Descriptor>
 void lbmComputeDivergence(MultiScalarField3D<T>& divergence, MultiTensorField3D<T,3>& vectorField, Box3D domain);

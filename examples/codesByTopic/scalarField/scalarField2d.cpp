@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,12 +40,12 @@ int main(int argc, char* argv[]) {
     ImageWriter<T> imageWriter("leeloo");
 
     MultiScalarField2D<T> field1(N+1,N+1);
-    setToConstant(field1, Box2D(0,N/2, 0,N), 1.);
-    setToConstant(field1, Box2D(N/2+1,N, 0,N), 2.);
+    setToConstant(field1, Box2D(0,N/2, 0,N), (T)1.);
+    setToConstant(field1, Box2D(N/2+1,N, 0,N), (T)2.);
 
     MultiScalarField2D<T> field2(N+1,N+1);
-    setToConstant(field2, Box2D(0,N, 0,N/2), 1.);
-    setToConstant(field2, Box2D(0,N, N/2+1,N), 2.);
+    setToConstant(field2, Box2D(0,N, 0,N/2), (T)1.);
+    setToConstant(field2, Box2D(0,N, N/2+1,N), (T)2.);
 
     MultiScalarField2D<T> field3(N+1,N+1);
     setToCoordinate(field3, field3.getBoundingBox(), 0);
@@ -54,9 +54,9 @@ int main(int argc, char* argv[]) {
     imageWriter.writeScaledGif("field2", field2);
     imageWriter.writeScaledGif("field3", field3);
     imageWriter.writeScaledGif("field1+field2", *add(field1, field2));
-    imageWriter.writeScaledGif("300*field1+field3", *add(*multiply(300.,field1), field3));
+    imageWriter.writeScaledGif("300*field1+field3", *add(*multiply((T)300.,field1), field3));
 
-    const T pi = 4.*std::atan(1.);
+    const T pi = (T)4.*std::atan((T)1.);
     T(*Tsin)(T) = std::sin;  // Explicit reference to the overloaded "sin" is required for automatic template instantiation.
-    imageWriter.writeScaledGif("sine", *evaluate(Tsin , *multiply(2.*pi/(T)N, field3)));
+    imageWriter.writeScaledGif("sine", *evaluate(Tsin , *multiply((T)2.*pi/(T)N, field3)));
 }

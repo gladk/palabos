@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,7 @@ public:
     /// Execute velocity-particle interaction for all particles contained in the domain.
     virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.) =0;
     /// Execute fluid-particle interaction for all particles contained in the domain.
-    virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice) =0;
+    virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice, T scaling=0. ) =0;
     /// Advance all particles contained in the domain. When the speed of a particle drops
     ///   below sqrt(cutOffValue), the particle is eliminated. Negative cutOffValue means
     ///   no cutoff.
@@ -67,7 +67,7 @@ public:
     virtual identifiers::BlockId getBlockId() const { return identifiers::ParticleId; }
 public:
     /// Helper function: returns if a given particle is situated in the indicated domain.
-    static bool isContained(Array<T,2> const& particlePos, Box2D box);
+    bool isContained(Array<T,2> const& particlePos, Box2D box) const;
     void computeGridPosition (
             Array<T,2> const& position,
             plint& iX, plint& iY ) const;
@@ -119,7 +119,7 @@ public:
                                std::vector<Particle2D<T,Descriptor> const*>& found) const;
     virtual void velocityToParticleCoupling(Box2D domain, TensorField2D<T,2>& velocity, T scaling=0.);
     virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
-    virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice);
+    virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice, T scaling);
     virtual void advanceParticles(Box2D domain, T cutOffValue=-1.);
 public:
     virtual DenseParticleDataTransfer2D<T,Descriptor>& getDataTransfer();
@@ -132,6 +132,65 @@ private:
     DenseParticleDataTransfer2D<T,Descriptor> dataTransfer;
 };
 
+
+template<typename T, template<typename U> class Descriptor> class LightParticleField2D;
+
+template<typename T, template<typename U> class Descriptor>
+class LightParticleDataTransfer2D : public BlockDataTransfer2D {
+public:
+    LightParticleDataTransfer2D(LightParticleField2D<T,Descriptor>& particleField_);
+    virtual plint staticCellSize() const;
+    virtual void send(Box2D domain, std::vector<char>& buffer, modif::ModifT kind) const;
+    virtual void receive(Box2D domain, std::vector<char> const& buffer, modif::ModifT kind);
+    virtual void receive(Box2D domain, std::vector<char> const& buffer, modif::ModifT kind, Dot2D absoluteOffset);
+    virtual void receive( Box2D domain, std::vector<char> const& buffer,
+                          modif::ModifT kind, std::map<int,std::string> const& foreignIds )
+    {
+        receive(domain, buffer, kind);
+    }
+    virtual void attribute(Box2D toDomain, plint deltaX, plint deltaY,
+                           AtomicBlock2D const& from, modif::ModifT kind);
+    virtual void attribute(Box2D toDomain, plint deltaX, plint deltaY,
+                           AtomicBlock2D const& from, modif::ModifT kind, Dot2D absoluteOffset);
+private:
+    LightParticleField2D<T,Descriptor>& particleField;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class LightParticleField2D : public ParticleField2D<T,Descriptor> {
+public:
+    typedef Particle2D<T,Descriptor> ParticleT;
+public:
+    LightParticleField2D(plint nx, plint ny);
+    virtual ~LightParticleField2D();
+    LightParticleField2D(LightParticleField2D<T,Descriptor> const& rhs);
+    LightParticleField2D<T,Descriptor>& operator=(LightParticleField2D<T,Descriptor> const& rhs);
+    LightParticleField2D<T,Descriptor>* clone() const;
+    void swap(LightParticleField2D<T,Descriptor>& rhs);
+public:
+    virtual void addParticle(Box2D domain, Particle2D<T,Descriptor>* particle);
+    virtual void removeParticles(Box2D domain);
+    virtual void removeParticles(Box2D domain, plint tag);
+    virtual void findParticles(Box2D domain,
+                               std::vector<Particle2D<T,Descriptor>*>& found);
+    virtual void findParticles(Box2D domain,
+                               std::vector<Particle2D<T,Descriptor> const*>& found) const;
+    virtual void velocityToParticleCoupling(Box2D domain, TensorField2D<T,2>& velocity, T scaling=0.);
+    virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
+    virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice, T scaling=0.);
+    virtual void advanceParticles(Box2D domain, T cutOffValue=-1.);
+public:
+    virtual LightParticleDataTransfer2D<T,Descriptor>& getDataTransfer();
+    virtual LightParticleDataTransfer2D<T,Descriptor> const& getDataTransfer() const;
+    static std::string getBlockName();
+    static std::string basicType();
+    static std::string descriptorType();
+private:
+    std::vector<Particle2D<T,Descriptor>*> particles;
+    LightParticleDataTransfer2D<T,Descriptor> dataTransfer;
+};
+
 }  // namespace plb
 
 #endif  // PARTICLE_FIELD_2D_H
+

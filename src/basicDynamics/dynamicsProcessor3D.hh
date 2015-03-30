@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,9 +22,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/** \file
- * Functionals for domain initialization -- generic implementation.
- */
 #ifndef DYNAMICS_PROCESSOR_3D_HH
 #define DYNAMICS_PROCESSOR_3D_HH
 
@@ -118,10 +115,7 @@ void ExternalRhoJcollideAndStream3D<T,Descriptor>::processGenericBlocks (
     TensorField3D<T,3> const& jField =
         dynamic_cast<TensorField3D<T,3> const&>(*atomicBlocks[2]);
 
-    BlockStatistics stat;
-    stat.subscribeAverage();
-    stat.subscribeAverage();
-    stat.subscribeMax();
+    BlockStatistics& stat = lattice.getInternalStatistics();
 
     static const plint vicinity = Descriptor<T>::vicinity;
     Box3D extDomain(domain.enlarge(vicinity));
@@ -298,10 +292,7 @@ void PackedExternalRhoJcollideAndStream3D<T,Descriptor>::process (
 
     PLB_ASSERT( rhoBarJfield.getNdim()==4 );
 
-    BlockStatistics stat;
-    stat.subscribeAverage();
-    stat.subscribeAverage();
-    stat.subscribeMax();
+    BlockStatistics& stat = lattice.getInternalStatistics();
 
     static const plint vicinity = Descriptor<T>::vicinity;
     Box3D extDomain(domain.enlarge(vicinity));
@@ -409,7 +400,7 @@ void OnLinkExternalRhoJcollideAndStream3D<T,Descriptor>::collide (
                 Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
                 T rhoBar            = rhoBarField.get(iX+offset1.x, iY+offset1.y, iZ+offset1.z);
                 Array<T,3> const& j = jField.get(iX+offset2.x, iY+offset2.y, iZ+offset2.z);
-                cell.getDynamics().collide(cell, rhoBar, j, T(), stat);
+                cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
                 cell.revert();
             }
         }
@@ -452,7 +443,7 @@ void OnLinkExternalRhoJcollideAndStream3D<T,Descriptor>::bulkCollideAndStream (
                 Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
                 T rhoBar            = rhoBarField.get(iX+offset1.x, iY+offset1.y, iZ+offset1.z);
                 Array<T,3> const& j = jField.get(iX+offset2.x, iY+offset2.y, iZ+offset2.z);
-                cell.getDynamics().collide(cell, rhoBar, j, T(), stat);
+                cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
                 onLinkSwapAndStream3D<T,Descriptor>(lattice.grid, iX, iY, iZ);
             }
         }
@@ -503,10 +494,7 @@ void OnLinkExternalRhoJcollideAndStream3D<T,Descriptor>::processGenericBlocks (
     TensorField3D<T,3> const& jField =
         dynamic_cast<TensorField3D<T,3> const&>(*atomicBlocks[2]);
 
-    BlockStatistics stat;
-    stat.subscribeAverage();
-    stat.subscribeAverage();
-    stat.subscribeMax();
+    BlockStatistics& stat = lattice.getInternalStatistics();
 
     static const plint vicinity = Descriptor<T>::vicinity;
     Box3D extDomain(domain.enlarge(vicinity));

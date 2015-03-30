@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,7 +57,7 @@ bool convectiveScaling = false;
 
 T kinematicViscosity       = 0.;
 T averageInletVelocity     = 0.;
-plint referenceResolution  = 0.;
+plint referenceResolution  = 0;
 T nuLB                     = 0.;
 T fluidDensity             = 0.;
 T volume                   = 0.;
@@ -93,7 +93,7 @@ void iniLattice( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     //   boundary layer, and keep the rest as BGKdynamics.
     defineDynamics(lattice, voxelizedDomain.getVoxelMatrix(), lattice.getBoundingBox(),
                    new NoDynamics<T,DESCRIPTOR>, voxelFlag::outside);
-    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), 1., Array<T,3>(0.,0.,0.));
+    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), (T) 1., Array<T,3>((T) 0.,(T) 0.,(T) 0.));
     lattice.initialize();
 }
 
@@ -184,7 +184,7 @@ void writeImages (
     VtkImageOutput3D<T> vtkOut(fname, dx, location);
     vtkOut.writeData<float>(*boundaryCondition.computePressure(vtkDomain), "p", util::sqr(dx/dt)*fluidDensity);
     vtkOut.writeData<float>(*boundaryCondition.computeVelocityNorm(vtkDomain), "u", dx/dt);
-    vtkOut.writeData<float>(*copyConvert<int,double>(*extractSubDomain(boundaryCondition.getVoxelizedDomain().getVoxelMatrix(),vtkDomain)), "voxel", 1.);
+    vtkOut.writeData<float>(*copyConvert<int,T>(*extractSubDomain(boundaryCondition.getVoxelizedDomain().getVoxelMatrix(),vtkDomain)), "voxel", 1.);
 
     ImageWriter<T> imageWriter("leeloo");
     imageWriter.writeScaledPpm(fname, *boundaryCondition.computeVelocityNorm(imageDomain));
@@ -392,7 +392,7 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
     delete rhoBarJfield;
 
     Box3D measureBox(lattice->getBoundingBox());
-    measureBox.z0=measureBox.z1=inletZpos;
+    measureBox.z0=measureBox.z1=(plint)inletZpos;
     T inletPressure = DESCRIPTOR<T>::cs2*(boundaryCondition.computeAverageDensity(measureBox)-1.);
 
     // Image output.

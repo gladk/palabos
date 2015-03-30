@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,6 +36,18 @@ template<class ParticleFieldT>
 void copy (                                                                   
         MultiParticleField3D<ParticleFieldT> const& from, Box3D const& fromDomain,
         MultiParticleField3D<ParticleFieldT>& to, Box3D const& toDomain );
+
+/// Gather particles from a particle-field into a vector of particles,
+/// on the main processor only.
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void gatherParticles( MultiParticleField3D<ParticleFieldT>& particleField,
+                      std::vector<Particle3D<T,Descriptor>*>& particles, Box3D domain );
+
+/// Inject particle which are only provided on the main processor into
+/// a particle-field.
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void injectParticlesAtMainProc( std::vector<Particle3D<T,Descriptor>*>& particles,
+                                MultiParticleField3D<ParticleFieldT>& particleField, Box3D domain );
 
 } // namespace plb
 

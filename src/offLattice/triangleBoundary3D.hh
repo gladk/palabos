@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,10 +22,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef INNER_FLOW_BOUNDARY_3D_HH
-#define INNER_FLOW_BOUNDARY_3D_HH
+#ifndef TRIANGLE_BOUNDARY_3D_HH
+#define TRIANGLE_BOUNDARY_3D_HH
 
 #include "core/globalDefs.h"
+#include "core/geometry3D.h"
 #include "offLattice/triangleBoundary3D.h"
 #include "offLattice/triangularSurfaceMesh.h"
 #include "offLattice/offLatticeBoundaryProfiles3D.h"
@@ -270,6 +271,8 @@ void DEFscaledMesh<T>::initialize (
         TriangleSet<T> const& triangleSet_, plint resolution_,
         plint referenceDirection_, Dot3D location )
 {
+    //T eps = 0.5 * triangleSet_.getMinEdgeLength();
+    // OR:
     T eps = getEpsilon<T>(triangleSet_.getPrecision());
 
     constructSurfaceMesh<T> (
@@ -448,8 +451,6 @@ template<typename T>
 TriangleBoundary3D<T>::TriangleBoundary3D (
         TriangleBoundary3D<T> const& rhs )
     : vertexLists(rhs.vertexLists),
-      emanatingEdgeLists(rhs.emanatingEdgeLists),
-      edgeLists(rhs.edgeLists),
       triangleTagList(rhs.triangleTagList),
       currentTagNum(rhs.currentTagNum),
       vertexTagList(rhs.vertexTagList),
@@ -459,6 +460,11 @@ TriangleBoundary3D<T>::TriangleBoundary3D (
       topology(rhs.topology),
       vertexSet(rhs.vertexSet)
 {
+    emanatingEdgeLists[0] = rhs.emanatingEdgeLists[0];
+    emanatingEdgeLists[1] = rhs.emanatingEdgeLists[1];
+    edgeLists[0] = rhs.edgeLists[0];
+    edgeLists[1] = rhs.edgeLists[1];
+
     defineMeshes();
     for (pluint iProp=0; iProp<vertexProperties.size(); ++iProp) {
         vertexProperties[iProp] = rhs.vertexProperties[iProp]->clone();
@@ -652,6 +658,8 @@ std::vector<plint> TriangleBoundary3D<T>::getInletOutletIds(plint sortDirection)
     std::vector<plint> ids(tmpLids.size());
     for (pluint iLid=0; iLid<tmpLids.size(); ++iLid) {
         plint originalId = triangleToOriginalLid[tmpLids[iLid].firstTriangle];
+        // It is assumed that the ID of the original wall is 0,
+        // while the lids have continuous IDs starting at 1.
         ids[iLid] = originalId+1;
     }
     return ids;
@@ -740,12 +748,34 @@ plint TriangleBoundary3D<T>::tagDomain(DomainFunctional functional, Array<T,3> n
             }
             if (isInside) {
                 Array<T,3> triangleNormal = getMesh().computeTriangleNormal(iTriangle);
-                if (fabs(angleBetweenVectors(normal,triangleNormal)<angleTolerance)) {
+                if (std::fabs(angleBetweenVectors(normal,triangleNormal)<angleTolerance)) {
                     triangleTagList[iTriangle] = newTag;
                 }
             }
         }
     }
+    return newTag;
+}
+
+template<typename T>
+plint TriangleBoundary3D<T>::tagLids(Cuboid<T> const& c)
+{
+    // Make sure we're working with the closed mesh.
+    PLB_PRECONDITION( topology.top()==1 );
+    ++currentTagNum;
+    plint newTag = currentTagNum;
+
+    for (pluint iLid = 0; iLid < lids.size(); iLid++) {
+        Array<T,3> const& bc = getMesh().getVertex(lids[iLid].centerVertex);
+        if (contained(bc, c)) {
+            plint firstTriangle = lids[iLid].firstTriangle;
+            plint numTriangles = lids[iLid].numTriangles;
+            for (plint iTriangle = firstTriangle; iTriangle<firstTriangle+numTriangles; ++iTriangle) {
+                triangleTagList[iTriangle] = newTag;
+            }
+        }
+    }
+
     return newTag;
 }
 
@@ -828,7 +858,7 @@ bool TriangleFlowShape3D<T,SurfaceData>::pointOnSurface (
     PLB_PRECONDITION( hashContainer ); // Make sure these arguments have
     PLB_PRECONDITION( boundaryArg );   //   been provided by the user through
                                        //   the clone function.
-    static const T maxDistance = sqrt(3);
+    static const T maxDistance = std::sqrt((T)3);
     Array<T,2> xRange(fromPoint[0]-maxDistance, fromPoint[0]+maxDistance);
     Array<T,2> yRange(fromPoint[1]-maxDistance, fromPoint[1]+maxDistance);
     Array<T,2> zRange(fromPoint[2]-maxDistance, fromPoint[2]+maxDistance);
@@ -888,7 +918,7 @@ bool TriangleFlowShape3D<T,SurfaceData>::intersectsSurface (
     PLB_PRECONDITION( hashContainer ); // Make sure these arguments have
     PLB_PRECONDITION( boundaryArg );   //   been provided by the user through
                                        //   the clone function.
-    static const T maxDistance = sqrt(3);
+    static const T maxDistance = std::sqrt((T)3);
     Array<T,2> xRange(p1[0]-maxDistance, p1[0]+maxDistance);
     Array<T,2> yRange(p1[1]-maxDistance, p1[1]+maxDistance);
     Array<T,2> zRange(p1[2]-maxDistance, p1[2]+maxDistance);
@@ -940,7 +970,7 @@ bool TriangleFlowShape3D<T,SurfaceData>::distanceToSurface (
     PLB_PRECONDITION( hashContainer ); // Make sure these arguments have
     PLB_PRECONDITION( boundaryArg );   //   been provided by the user through
                                        //   the clone function.
-    T maxDistance = sqrt(3);
+    T maxDistance = std::sqrt((T)3);
     Array<T,2> xRange(point[0]-maxDistance, point[0]+maxDistance);
     Array<T,2> yRange(point[1]-maxDistance, point[1]+maxDistance);
     Array<T,2> zRange(point[2]-maxDistance, point[2]+maxDistance);
@@ -1028,7 +1058,7 @@ VoxelizedDomain3D<T>::VoxelizedDomain3D (
       boundary(boundary_)
 {
     PLB_ASSERT( flowType==voxelFlag::inside || flowType==voxelFlag::outside );
-    PLB_ASSERT( boundary.getMargin() >= borderWidth );
+    //PLB_ASSERT( boundary.getMargin() >= borderWidth );
     if (dynamicMesh_) {
         boundary.pushSelect(1,1); // Closed, Dynamic.
     }
@@ -1053,7 +1083,7 @@ VoxelizedDomain3D<T>::VoxelizedDomain3D (
       boundary(boundary_)
 {
     PLB_ASSERT( flowType==voxelFlag::inside || flowType==voxelFlag::outside );
-    PLB_ASSERT( boundary.getMargin() >= borderWidth );
+    //PLB_ASSERT( boundary.getMargin() >= borderWidth );
     if (dynamicMesh_) {
         boundary.pushSelect(1,1); // Closed, Dynamic.
     }
@@ -1302,4 +1332,4 @@ BlockDomain::DomainT AddLayerFunctional3D<T>::appliesTo() const {
 
 }  // namespace plb
 
-#endif  // INNER_FLOW_BOUNDARY_3D_HH
+#endif  // TRIANGLE_BOUNDARY_3D_HH

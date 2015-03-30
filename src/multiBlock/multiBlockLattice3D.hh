@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -508,6 +508,15 @@ void MultiBlockLattice3D<T,Descriptor>::copyReceive (
 /////////// Free Functions //////////////////////////////
 
 template<typename T, template<typename U> class Descriptor>
+MultiBlockLattice3D<T,Descriptor>& findMultiBlockLattice3D(id_t id) {
+    MultiBlock3D* multiBlock = multiBlockRegistration3D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiBlockLattice3D<T,Descriptor>::staticId) {
+        throw PlbLogicException("Trying to access a multi block lattice that is not registered.");
+    }
+    return (MultiBlockLattice3D<T,Descriptor>&)(*multiBlock);
+}
+
+template<typename T, template<typename U> class Descriptor>
 double getStoredAverageDensity(MultiBlockLattice3D<T,Descriptor> const& blockLattice) {
     return Descriptor<T>::fullRho (
                blockLattice.getInternalStatistics().getAverage (
@@ -529,3 +538,4 @@ double getStoredMaxVelocity(MultiBlockLattice3D<T,Descriptor> const& blockLattic
 }  // namespace plb
 
 #endif  // MULTI_BLOCK_LATTICE_3D_HH
+

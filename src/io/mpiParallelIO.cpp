@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -113,7 +113,7 @@ void writeRawData_posix( FileName fName, std::vector<plint> const& myBlockIds,
                     PLB_ASSERT( offset[blockId]-offset[blockId-1] == (plint)data[iBlock].size() );
                     nextOffset = offset[blockId-1];
                 }
-#ifdef PLB_MAC_OS_X
+#if defined PLB_MAC_OS_X || defined PLB_BSD
                 int fSeekVal = fseek(fp, (long int)nextOffset, SEEK_SET);
 #else
                 int fSeekVal = fseeko64(fp, nextOffset, SEEK_SET);
@@ -226,7 +226,7 @@ void loadRawData_posix( FileName fName, std::vector<plint> const& myBlockIds,
                     nextOffset = offset[blockId-1];
                 }
                 data[iBlock].resize(nextSize);
-#ifdef PLB_MAC_OS_X
+#if defined PLB_MAC_OS_X || defined PLB_BSD
                 int fSeekVal = fseek(fp, (long int)nextOffset, SEEK_SET);
 #else
                 int fSeekVal = fseeko64(fp, nextOffset, SEEK_SET);

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,9 +25,11 @@
 /** \file
  * Data processors for data analysis -- header file.
  */
+
 #ifndef DATA_ANALYSIS_FUNCTIONAL_3D_HH
 #define DATA_ANALYSIS_FUNCTIONAL_3D_HH
 
+#include "core/globalDefs.h"
 #include "dataProcessors/dataAnalysisFunctional3D.h"
 #include "core/plbDebug.h"
 #include "core/util.h"
@@ -38,8 +40,10 @@
 #include "atomicBlock/atomicBlock3D.h"
 #include "atomicBlock/blockLattice3D.h"
 #include "atomicBlock/dataField3D.h"
+#include "algorithm/linearAlgebra.h"
 #include <cmath>
 #include <limits>
+#include <Eigen/Eigenvalues>
 
 namespace plb {
 
@@ -524,6 +528,7 @@ template<typename T, template<typename U> class Descriptor>
 void BoxRhoBarJfunctional3D<T,Descriptor>::processGenericBlocks (
         Box3D domain, std::vector<AtomicBlock3D*> fields )
 {
+    PLB_ASSERT(fields.size() == 3);
     BlockLattice3D<T,Descriptor>& lattice = *dynamic_cast<BlockLattice3D<T,Descriptor>*>(fields[0]);
     ScalarField3D<T>& rhoBarField = *dynamic_cast<ScalarField3D<T>*>(fields[1]);
     TensorField3D<T,3>& jField = *dynamic_cast<TensorField3D<T,3>*>(fields[2]);
@@ -533,8 +538,8 @@ void BoxRhoBarJfunctional3D<T,Descriptor>::processGenericBlocks (
        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 Cell<T,Descriptor> const& cell = lattice.get(iX,iY,iZ);
-                momentTemplates<T,Descriptor>::get_rhoBar_j (
-                        cell,
+                cell.getDynamics().computeRhoBarJ (
+                        cell, 
                         rhoBarField.get(iX+offset1.x,iY+offset1.y,iZ+offset1.z),
                         jField.get(iX+offset2.x,iY+offset2.y,iZ+offset2.z) );
             }
@@ -693,8 +698,6 @@ BlockDomain::DomainT BoxKineticEnergyFunctional3D<T,Descriptor>::appliesTo() con
     return BlockDomain::bulkAndEnvelope;
 }
 
-
-
 template<typename T, template<typename U> class Descriptor> 
 void BoxVelocityNormFunctional3D<T,Descriptor>::process (
         Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<T>& scalarField)
@@ -705,8 +708,11 @@ void BoxVelocityNormFunctional3D<T,Descriptor>::process (
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 Array<T,Descriptor<T>::d> velocity;
                 lattice.get(iX,iY,iZ).computeVelocity(velocity);
+                // The type cast converts the result of normSqr to type U in case T is of type Complex<U>.
+                // Otherwise, the call to std::sqrt would fail, because std::sqrt is overloaded, but not
+                // for Palabos' Complex type.
                 scalarField.get(iX+offset.x,iY+offset.y,iZ+offset.z)
-                    = sqrt( VectorTemplate<T,Descriptor>::normSqr(velocity) );
+                    = std::sqrt( (typename PlbTraits<T>::BaseType) VectorTemplate<T,Descriptor>::normSqr(velocity) );
             }
         }
     }
@@ -947,6 +953,7 @@ BlockDomain::DomainT BoxStrainRateFromStressFunctional3D<T,Descriptor>::appliesT
 
 template<typename T>
 void BoxQcriterionFunctional3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields) {
+    PLB_ASSERT(fields.size() == 3);
     TensorField3D<T,3>& vorticity = *dynamic_cast<TensorField3D<T,3>*>(fields[0]);
     TensorField3D<T,6>& strain = *dynamic_cast<TensorField3D<T,6>*>(fields[1]);
     ScalarField3D<T>& qCriterion = *dynamic_cast<ScalarField3D<T>*>(fields[2]);
@@ -985,6 +992,191 @@ void BoxQcriterionFunctional3D<T>::getTypeOfModification(std::vector<modif::Modi
 
 template<typename T>
 BlockDomain::DomainT BoxQcriterionFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
+
+template<typename T>
+void BoxComputeInstantaneousReynoldsStressFunctional3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields) {
+    PLB_ASSERT(fields.size() == 3);
+    TensorField3D<T,3>& vel = *dynamic_cast<TensorField3D<T,3>*>(fields[0]);
+    TensorField3D<T,3>& avgVel = *dynamic_cast<TensorField3D<T,3>*>(fields[1]);
+    TensorField3D<T,6>& reynoldsStress = *dynamic_cast<TensorField3D<T,6>*>(fields[2]);
+
+    Dot3D offset1 = computeRelativeDisplacement(vel, avgVel);
+    Dot3D offset2 = computeRelativeDisplacement(vel, reynoldsStress);
+
+    typedef SymmetricTensorImpl<T,3> S;
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX1 = iX + offset1.x;
+        plint oX2 = iX + offset2.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY1 = iY + offset1.y;
+            plint oY2 = iY + offset2.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ1 = iZ + offset1.z;
+                plint oZ2 = iZ + offset2.z;
+
+                Array<T,3> diffVel = vel.get(iX,iY,iZ)-avgVel.get(oX1, oY1, oZ1);
+                
+                reynoldsStress.get(oX2,oY2,oZ2)[S::xx] = diffVel[0]*diffVel[0];
+                reynoldsStress.get(oX2,oY2,oZ2)[S::xy] = diffVel[0]*diffVel[1];
+                reynoldsStress.get(oX2,oY2,oZ2)[S::xz] = diffVel[0]*diffVel[2];
+                reynoldsStress.get(oX2,oY2,oZ2)[S::yy] = diffVel[1]*diffVel[1];
+                reynoldsStress.get(oX2,oY2,oZ2)[S::yz] = diffVel[1]*diffVel[2];
+                reynoldsStress.get(oX2,oY2,oZ2)[S::zz] = diffVel[2]*diffVel[2];
+            }
+        }
+    }
+}
+
+template<typename T>
+BoxComputeInstantaneousReynoldsStressFunctional3D<T>* BoxComputeInstantaneousReynoldsStressFunctional3D<T>::clone() const {
+    return new BoxComputeInstantaneousReynoldsStressFunctional3D<T>(*this);
+}
+
+template<typename T>
+void BoxComputeInstantaneousReynoldsStressFunctional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::nothing;
+    modified[2] = modif::staticVariables;
+}
+
+template<typename T>
+BlockDomain::DomainT BoxComputeInstantaneousReynoldsStressFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
+
+template<typename T>
+void BoxLambda2Functional3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields)
+{
+    PLB_PRECONDITION(fields.size() == 3);
+
+    TensorField3D<T,3>* vorticity = dynamic_cast<TensorField3D<T,3>*>(fields[0]);
+    TensorField3D<T,6>* strain = dynamic_cast<TensorField3D<T,6>*>(fields[1]);
+    ScalarField3D<T>* lambda2 = dynamic_cast<ScalarField3D<T>*>(fields[2]);
+    PLB_ASSERT(vorticity);
+    PLB_ASSERT(strain);
+    PLB_ASSERT(lambda2);
+
+    Dot3D offset1 = computeRelativeDisplacement(*vorticity, *strain);
+    Dot3D offset2 = computeRelativeDisplacement(*vorticity, *lambda2);
+
+    static plint xx = SymmetricTensorImpl<T,3>::xx;
+    static plint xy = SymmetricTensorImpl<T,3>::xy;
+    static plint xz = SymmetricTensorImpl<T,3>::xz;
+    static plint yy = SymmetricTensorImpl<T,3>::yy;
+    static plint yz = SymmetricTensorImpl<T,3>::yz;
+    static plint zz = SymmetricTensorImpl<T,3>::zz;
+    static plint yx = xy;
+    static plint zx = xz;
+    static plint zy = yz;
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX1 = iX + offset1.x;
+        plint oX2 = iX + offset2.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY1 = iY + offset1.y;
+            plint oY2 = iY + offset2.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ1 = iZ + offset1.z;
+                plint oZ2 = iZ + offset2.z;
+
+                Array<T,3> const& v = vorticity->get(iX, iY, iZ);
+                Array<T,6> const& s = strain->get(oX1, oY1, oZ1);
+
+                Array<Array<T,3>,3> S;  // Strain-rate tensor (symmetric).
+                S[0][0] = s[xx];
+                S[0][1] = s[xy];
+                S[0][2] = s[xz];
+                
+                S[1][0] = s[yx];
+                S[1][1] = s[yy];
+                S[1][2] = s[yz];
+
+                S[2][0] = s[zx];
+                S[2][1] = s[zy];
+                S[2][2] = s[zz];
+
+                Array<Array<T,3>,3> V;  // Vorticity tensor (anti-symmetric).
+                V[0][0] = (T) 0;
+                V[0][1] = -v[2];
+                V[0][2] =  v[1];
+                
+                V[1][0] =  v[2];
+                V[1][1] = (T) 0;
+                V[1][2] = -v[0];
+
+                V[2][0] = -v[1];
+                V[2][1] =  v[0];
+                V[2][2] = (T) 0;
+
+                Array<Array<T,3>,3> S2V2;   // S^2 + V^2 matrix (symmetric).
+                for (plint i = 0; i < 3; i++) {
+                    for (plint j = 0; j < 3; j++) {
+                        T S2 = (T) 0;
+                        T V2 = (T) 0;
+                        for (plint k = 0; k < 3; k++) {
+                            S2 += S[i][k] * S[k][j];
+                            V2 += V[i][k] * V[k][j];
+                        }
+                        S2V2[i][j] = S2 + V2;
+                    }
+                }
+
+                /*
+                Array<Array<T,3>,3> x;  // Eigenvectors of S2V2.
+                Array<T,3> d;           // Eigenvalues of S2V2.
+                eigenDecomposition(S2V2, x, d);
+                std::vector<T> lambda(3);
+                lambda[0] = d[0];
+                lambda[1] = d[1];
+                lambda[2] = d[2];
+                std::sort(lambda.begin(), lambda.end());
+
+                lambda2->get(oX2, oY2, oZ2) = lambda[1];
+                */
+
+                Eigen::Matrix<T,3,3> A;
+                for (plint i = 0; i < 3; i++) {
+                    for (plint j = 0; j < 3; j++) {
+                        A(i, j) = S2V2[i][j];
+                    }
+                }
+
+                bool computeEigenvectors = false;
+                Eigen::EigenSolver<Eigen::Matrix<T,3,3> > es(A, computeEigenvectors);
+                std::vector<T> lambda(3);
+                lambda[0] = std::real(es.eigenvalues()[0]);
+                lambda[1] = std::real(es.eigenvalues()[1]);
+                lambda[2] = std::real(es.eigenvalues()[2]);
+                std::sort(lambda.begin(), lambda.end());
+
+                lambda2->get(oX2, oY2, oZ2) = lambda[1];
+            }
+        }
+    }
+}
+
+template<typename T>
+BoxLambda2Functional3D<T>* BoxLambda2Functional3D<T>::clone() const
+{
+    return new BoxLambda2Functional3D<T>(*this);
+}
+
+template<typename T>
+void BoxLambda2Functional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Vorticity.
+    modified[1] = modif::nothing;           // Strain-rate.
+    modified[2] = modif::staticVariables;   // lambda2.
+}
+
+template<typename T>
+BlockDomain::DomainT BoxLambda2Functional3D<T>::appliesTo() const
+{
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1146,6 +1338,49 @@ template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT BoxAllEquilibriumFunctional3D<T,Descriptor>::appliesTo() const {
     return BlockDomain::bulkAndEnvelope;
 }
+
+
+// ========================== BoxAllNonEquilibriumFunctional3D ====================
+
+template<typename T, template<typename U> class Descriptor> 
+void BoxAllNonEquilibriumFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::q>& nonEquilibrium)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, nonEquilibrium);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                T rhoBar;
+                Array<T,Descriptor<T>::d> j;
+                Cell<T,Descriptor> const& cell = lattice.get(iX,iY,iZ);
+                cell.getDynamics().computeRhoBarJ(cell, rhoBar, j);
+                T jSqr = normSqr(j);
+                for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+                    nonEquilibrium.get(iX+offset.x,iY+offset.y,iZ+offset.z)[iPop] =
+                        cell[iPop] - cell.computeEquilibrium(iPop, rhoBar, j, jSqr);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor> 
+BoxAllNonEquilibriumFunctional3D<T,Descriptor>* BoxAllNonEquilibriumFunctional3D<T,Descriptor>::clone() const
+{
+    return new BoxAllNonEquilibriumFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor> 
+void BoxAllNonEquilibriumFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor> 
+BlockDomain::DomainT BoxAllNonEquilibriumFunctional3D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
 
 template<typename T, template<typename U> class Descriptor> 
 BoxAllPopulationsToLatticeFunctional3D<T,Descriptor>::BoxAllPopulationsToLatticeFunctional3D()
@@ -1311,6 +1546,117 @@ BoxExternalScalarFunctional3D<T,Descriptor>* BoxExternalScalarFunctional3D<T,Des
 
 template<typename T, template<typename U> class Descriptor>
 void BoxExternalScalarFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalVectorFunctional3D<T,Descriptor>::BoxExternalVectorFunctional3D(int vectorBeginsAt_)
+    : vectorBeginsAt(vectorBeginsAt_)
+{
+    PLB_ASSERT( vectorBeginsAt+Descriptor<T>::d <= Descriptor<T>::ExternalField::numScalars );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalVectorFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& tensorField)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, tensorField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                T *tensor = lattice.get(iX,iY,iZ).getExternal(vectorBeginsAt);
+                tensorField.get(oX,oY,iZ+offset.z).from_cArray(tensor);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalVectorFunctional3D<T,Descriptor>* BoxExternalVectorFunctional3D<T,Descriptor>::clone() const
+{
+    return new BoxExternalVectorFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalVectorFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor> 
+BlockDomain::DomainT BoxExternalVectorFunctional3D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+BoxDynamicParameterFunctional3D<T,Descriptor>::BoxDynamicParameterFunctional3D(plint whichParameter_)
+    : whichParameter(whichParameter_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void BoxDynamicParameterFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<T>& scalarField)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, scalarField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                scalarField.get(oX,oY,iZ+offset.z)
+                    = cell.getDynamics().getDynamicParameter(whichParameter, cell);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxDynamicParameterFunctional3D<T,Descriptor>* BoxDynamicParameterFunctional3D<T,Descriptor>::clone() const
+{
+    return new BoxDynamicParameterFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxDynamicParameterFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+
+
+template<typename T, template<typename U> class Descriptor>
+void BoxDynamicViscosityFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<T>& scalarField)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, scalarField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                T omega = cell.getDynamics().getDynamicParameter(dynamicParams::dynamicOmega, cell);
+                T nu = Descriptor<T>::cs2*((T)1./omega-(T)0.5);
+                scalarField.get(oX,oY,iZ+offset.z) = nu;
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxDynamicViscosityFunctional3D<T,Descriptor>* BoxDynamicViscosityFunctional3D<T,Descriptor>::clone() const
+{
+    return new BoxDynamicViscosityFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxDynamicViscosityFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
     modified[0] = modif::nothing;
     modified[1] = modif::staticVariables;
 }
@@ -1672,7 +2018,7 @@ BlockDomain::DomainT ComputeScalarSqrtFunctional3D<T>::appliesTo() const {
 }
 
 
-/* ******** compute sqrt functional 3D ************************************* */
+/* ******** compute fabs functional 3D ************************************* */
 
 template<typename T>
 void ComputeAbsoluteValueFunctional3D<T>::process (
@@ -1683,7 +2029,7 @@ void ComputeAbsoluteValueFunctional3D<T>::process (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                B.get(iX+offset.x,iY+offset.y,iZ+offset.z) = fabs( A.get(iX,iY,iZ) );
+                B.get(iX+offset.x,iY+offset.y,iZ+offset.z) = std::fabs( A.get(iX,iY,iZ) );
             }
         }
     }
@@ -2575,7 +2921,7 @@ void UniformlyBoundScalarField3D<T>::process (
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 T& val = data.get(iX,iY,iZ);
-                if (fabs(val) > bound)
+                if (std::fabs(val) > bound)
                     val = val > T() ? bound : -bound;
             }
         }
@@ -2583,9 +2929,548 @@ void UniformlyBoundScalarField3D<T>::process (
 }
 
 
+/* ************* Class LBMsmoothen3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+void LBMsmoothen3D<T,Descriptor>::process (
+        Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result )
+{
+    typedef Descriptor<T> D;
+    Dot3D offset = computeRelativeDisplacement(data, result);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                result.get(iX+offset.x,iY+offset.y,iZ+offset.z) = (T)0;
+                T sum = (T) 0;
+                for (plint iPop=1; iPop<D::q; ++iPop) {
+                    plint nextX = iX+D::c[iPop][0];
+                    plint nextY = iY+D::c[iPop][1];
+                    plint nextZ = iZ+D::c[iPop][2];
+                    sum += D::t[iPop];
+                    result.get(iX+offset.x,iY+offset.y,iZ+offset.z) +=
+                        D::t[iPop] * data.get(nextX,nextY,nextZ);
+                }
+                result.get(iX+offset.x,iY+offset.y,iZ+offset.z) /= sum;
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+LBMsmoothen3D<T,Descriptor>*
+    LBMsmoothen3D<T,Descriptor>::clone() const
+{
+    return new LBMsmoothen3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void LBMsmoothen3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+
+/* ************* Class Smoothen3D ******************* */
+
+template<typename T>
+void Smoothen3D<T>::process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result)
+{
+    Dot3D offset = computeRelativeDisplacement(data, result);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                T *res = &result.get(iX+offset.x, iY+offset.y, iZ+offset.z);
+                *res = (T) 0;
+                int n = 0;
+                for (int i = -1; i < 2; i++) {
+                    plint nextX = iX + i;
+                    for (int j = -1; j < 2; j++) {
+                        plint nextY = iY + j;
+                        for (int k = -1; k < 2; k++) {
+                            plint nextZ = iZ + k;
+                            if (!(i == 0 && j == 0 && k == 0)) {
+                                n++;
+                                *res += data.get(nextX, nextY, nextZ);
+                            }
+                        }
+                    }
+                }
+                *res /= (T) n;
+            }
+        }
+    }
+}
+
+template<typename T>
+Smoothen3D<T>* Smoothen3D<T>::clone() const
+{
+    return new Smoothen3D<T>(*this);
+}
+
+template<typename T>
+void Smoothen3D<T>::getTypeOfModification (std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+
+/* ************* Class MollifyScalar3D ******************* */
+
+template<typename T>
+MollifyScalar3D<T>::MollifyScalar3D(T l_, plint d_, Box3D globalDomain_, int exclusionFlag_)
+    : l(l_),
+      d(d_),
+      globalDomain(globalDomain_),
+      exclusionFlag(exclusionFlag_)
+{ }
+
+template<typename T>
+void MollifyScalar3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields)
+{
+    PLB_ASSERT(fields.size() == 3);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(fields[0]);
+    PLB_ASSERT(scalar);
+    ScalarField3D<int> *flag = dynamic_cast<ScalarField3D<int>*>(fields[1]);
+    PLB_ASSERT(flag);
+    ScalarField3D<T> *result = dynamic_cast<ScalarField3D<T>*>(fields[2]);
+    PLB_ASSERT(result);
+
+    Dot3D absOfs = scalar->getLocation();
+
+    Dot3D ofsF = computeRelativeDisplacement(*scalar, *flag);
+    Dot3D ofsR = computeRelativeDisplacement(*scalar, *result);
+
+    static T pi = std::acos((T) -1);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (flag->get(iX + ofsF.x, iY + ofsF.y, iZ + ofsF.z) == exclusionFlag) {
+                    result->get(iX + ofsR.x, iY + ofsR.y, iZ + ofsR.z) = scalar->get(iX, iY, iZ);
+                    continue;
+                }
+
+                T sum = 0.0;
+                for (plint dx = -d; dx <= d; dx++) {
+                    plint i = iX + dx;
+                    for (plint dy = -d; dy <= d; dy++) {
+                        plint j = iY + dy;
+                        for (plint dz = -d; dz <= d; dz++) {
+                            plint k = iZ + dz;
+                            if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain)) {
+                                if (flag->get(i + ofsF.x, j + ofsF.y, k + ofsF.z) != exclusionFlag) {
+                                    T r = std::sqrt((T) dx * dx + (T) dy * dy + (T) dz * dz);
+                                    T integrand = scalar->get(i, j, k);
+                                    T mollifier = 0.0;
+                                    if (r < l) {
+                                        mollifier = (1.0 + std::cos(pi * r / l));
+                                    }
+                                    sum += integrand * mollifier;
+                                }
+                            }
+                        }
+                    }
+                }
+                sum *= (1.0 / (2.0 * l));
+                result->get(iX + ofsR.x, iY + ofsR.y, iZ + ofsR.z) = sum;
+            }
+        }
+    }
+}
+
+template<typename T>
+MollifyScalar3D<T>* MollifyScalar3D<T>::clone() const
+{
+    return new MollifyScalar3D<T>(*this);
+}
+
+template<typename T>
+void MollifyScalar3D<T>::getTypeOfModification (std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;         // Data.
+    modified[1] = modif::nothing;         // Flags.
+    modified[2] = modif::staticVariables; // Result.
+}
+
+
+/* ************* Class LBMcomputeGradient3D ******************* */
+
+template<typename T,template<typename U> class Descriptor>
+void LBMcomputeGradient3D<T,Descriptor>::process (
+        Box3D domain, ScalarField3D<T>& scalarField, TensorField3D<T,3>& gradient )
+{
+    typedef Descriptor<T> D;
+    Dot3D ofs = computeRelativeDisplacement(scalarField, gradient);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,3>& gradientOfScalar = gradient.get(iX+ofs.x,iY+ofs.y,iZ+ofs.z);                    
+                gradientOfScalar.resetToZero();
+                // Compute the gradient of a scalar function "the lattice Boltzmann way".
+                for (plint iPop=1; iPop < D::q; ++iPop ) {
+                    plint nextX = iX + D::c[iPop][0];
+                    plint nextY = iY + D::c[iPop][1];
+                    plint nextZ = iZ + D::c[iPop][2];
+
+                    gradientOfScalar[0] += D::t[iPop]*D::c[iPop][0]*scalarField.get(nextX,nextY,nextZ);
+                    gradientOfScalar[1] += D::t[iPop]*D::c[iPop][1]*scalarField.get(nextX,nextY,nextZ);
+                    gradientOfScalar[2] += D::t[iPop]*D::c[iPop][2]*scalarField.get(nextX,nextY,nextZ);
+                }
+                gradientOfScalar *= D::invCs2;                     
+            }
+        }
+    }
+}
+
+/* ************* Class UpdateMinScalarTransientStatistics3D ******************* */
+
+template<typename T>
+void UpdateMinScalarTransientStatistics3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    ScalarField3D<T> *statistics = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    PLB_ASSERT(scalar);
+    PLB_ASSERT(statistics);
+
+    Dot3D offset = computeRelativeDisplacement(*scalar, *statistics);
+
+    for (plint iX = domain.x0; iX <= domain.x1; iX++) {
+        for (plint iY = domain.y0; iY <= domain.y1; iY++) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; iZ++) {
+                statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z) =
+                    std::min(statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z), scalar->get(iX, iY, iZ));
+            }
+        }
+    }
+}
+
+template<typename T>
+UpdateMinScalarTransientStatistics3D<T>* UpdateMinScalarTransientStatistics3D<T>::clone() const
+{
+    return new UpdateMinScalarTransientStatistics3D<T>(*this);
+}
+
+template<typename T>
+void UpdateMinScalarTransientStatistics3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Scalar field.
+    modified[1] = modif::staticVariables;   // Statistics field.
+}
+
+template<typename T>
+BlockDomain::DomainT UpdateMinScalarTransientStatistics3D<T>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+/* ************* Class UpdateMaxScalarTransientStatistics3D ******************* */
+
+template<typename T>
+void UpdateMaxScalarTransientStatistics3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    ScalarField3D<T> *statistics = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    PLB_ASSERT(scalar);
+    PLB_ASSERT(statistics);
+
+    Dot3D offset = computeRelativeDisplacement(*scalar, *statistics);
+
+    for (plint iX = domain.x0; iX <= domain.x1; iX++) {
+        for (plint iY = domain.y0; iY <= domain.y1; iY++) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; iZ++) {
+                statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z) =
+                    std::max(statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z), scalar->get(iX, iY, iZ));
+            }
+        }
+    }
+}
+
+template<typename T>
+UpdateMaxScalarTransientStatistics3D<T>* UpdateMaxScalarTransientStatistics3D<T>::clone() const
+{
+    return new UpdateMaxScalarTransientStatistics3D<T>(*this);
+}
+
+template<typename T>
+void UpdateMaxScalarTransientStatistics3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Scalar field.
+    modified[1] = modif::staticVariables;   // Statistics field.
+}
+
+template<typename T>
+BlockDomain::DomainT UpdateMaxScalarTransientStatistics3D<T>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+/* ************* Class UpdateAveScalarTransientStatistics3D ******************* */
+
+template<typename T>
+UpdateAveScalarTransientStatistics3D<T>::UpdateAveScalarTransientStatistics3D(plint n_)
+    : n(n_)
+{ }
+
+template<typename T>
+void UpdateAveScalarTransientStatistics3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    ScalarField3D<T> *statistics = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    PLB_ASSERT(scalar);
+    PLB_ASSERT(statistics);
+
+    Dot3D offset = computeRelativeDisplacement(*scalar, *statistics);
+
+    T nMinusOne = (T) n - (T) 1;
+    T oneOverN = (T) 1 / (T) n;
+
+    for (plint iX = domain.x0; iX <= domain.x1; iX++) {
+        for (plint iY = domain.y0; iY <= domain.y1; iY++) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; iZ++) {
+                statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z) = oneOverN *
+                    (nMinusOne * statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z) + scalar->get(iX, iY, iZ));
+            }
+        }
+    }
+}
+
+template<typename T>
+UpdateAveScalarTransientStatistics3D<T>* UpdateAveScalarTransientStatistics3D<T>::clone() const
+{
+    return new UpdateAveScalarTransientStatistics3D<T>(*this);
+}
+
+template<typename T>
+void UpdateAveScalarTransientStatistics3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Scalar field.
+    modified[1] = modif::staticVariables;   // Statistics field.
+}
+
+template<typename T>
+BlockDomain::DomainT UpdateAveScalarTransientStatistics3D<T>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+/* ************* Class UpdateRmsScalarTransientStatistics3D ******************* */
+
+template<typename T>
+UpdateRmsScalarTransientStatistics3D<T>::UpdateRmsScalarTransientStatistics3D(plint n_)
+    : n(n_)
+{ }
+
+template<typename T>
+void UpdateRmsScalarTransientStatistics3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    ScalarField3D<T> *statistics = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    PLB_ASSERT(scalar);
+    PLB_ASSERT(statistics);
+
+    Dot3D offset = computeRelativeDisplacement(*scalar, *statistics);
+
+    T nMinusOne = (T) n - (T) 1;
+    T oneOverN = (T) 1 / (T) n;
+
+    for (plint iX = domain.x0; iX <= domain.x1; iX++) {
+        for (plint iY = domain.y0; iY <= domain.y1; iY++) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; iZ++) {
+                T oldRms = statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z);
+                T newData = scalar->get(iX, iY, iZ);
+                statistics->get(iX + offset.x, iY + offset.y, iZ + offset.z) = std::sqrt(oneOverN *
+                    (nMinusOne * oldRms * oldRms + newData * newData));
+            }
+        }
+    }
+}
+
+template<typename T>
+UpdateRmsScalarTransientStatistics3D<T>* UpdateRmsScalarTransientStatistics3D<T>::clone() const
+{
+    return new UpdateRmsScalarTransientStatistics3D<T>(*this);
+}
+
+template<typename T>
+void UpdateRmsScalarTransientStatistics3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Scalar field.
+    modified[1] = modif::staticVariables;   // Statistics field.
+}
+
+template<typename T>
+BlockDomain::DomainT UpdateRmsScalarTransientStatistics3D<T>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+/* ************* Class UpdateDevScalarTransientStatistics3D ******************* */
+
+template<typename T>
+UpdateDevScalarTransientStatistics3D<T>::UpdateDevScalarTransientStatistics3D(plint n_)
+    : n(n_)
+{ }
+
+template<typename T>
+void UpdateDevScalarTransientStatistics3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() == 3);
+    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    ScalarField3D<T> *average = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    ScalarField3D<T> *statistics = dynamic_cast<ScalarField3D<T>*>(blocks[2]);
+    PLB_ASSERT(scalar);
+    PLB_ASSERT(average);
+    PLB_ASSERT(statistics);
+
+    Dot3D ofsA = computeRelativeDisplacement(*scalar, *average);
+    Dot3D ofsS = computeRelativeDisplacement(*scalar, *statistics);
+
+    T nMinusOne = (T) n - (T) 1;
+    T oneOverN = (T) 1 / (T) n;
+
+    for (plint iX = domain.x0; iX <= domain.x1; iX++) {
+        for (plint iY = domain.y0; iY <= domain.y1; iY++) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; iZ++) {
+                T oldDev = statistics->get(iX + ofsS.x, iY + ofsS.y, iZ + ofsS.z);
+                T newData = scalar->get(iX, iY, iZ) - average->get(iX + ofsA.x, iY + ofsA.y, iZ + ofsA.z);
+                statistics->get(iX + ofsS.x, iY + ofsS.y, iZ + ofsS.z) = std::sqrt(oneOverN *
+                    (nMinusOne * oldDev * oldDev + newData * newData));
+            }
+        }
+    }
+}
+
+template<typename T>
+UpdateDevScalarTransientStatistics3D<T>* UpdateDevScalarTransientStatistics3D<T>::clone() const
+{
+    return new UpdateDevScalarTransientStatistics3D<T>(*this);
+}
+
+template<typename T>
+void UpdateDevScalarTransientStatistics3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;           // Scalar field.
+    modified[1] = modif::nothing;           // Mean value field.
+    modified[2] = modif::staticVariables;   // Statistics field.
+}
+
+template<typename T>
+BlockDomain::DomainT UpdateDevScalarTransientStatistics3D<T>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+
 /* *************** PART III ****************************************** */
 /* *************** Analysis of the tensor-field ********************** */
 /* ******************************************************************* */
+
+template<typename T, int nDim>
+BoxTensorSumFunctional3D<T,nDim>::BoxTensorSumFunctional3D()
+{
+    for (plint i = 0; i < nDim; i++) {
+        sumTensorId[i] = this->getStatistics().subscribeSum();
+    }
+}
+
+template<typename T, int nDim>
+void BoxTensorSumFunctional3D<T,nDim>::process (
+        Box3D domain, TensorField3D<T,nDim>& tensorField )
+{
+    BlockStatistics& statistics = this->getStatistics();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                for (plint i = 0; i < nDim; i++) {
+                    statistics.gatherSum(sumTensorId[i], (double) tensorField.get(iX,iY,iZ)[i]);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, int nDim>
+BoxTensorSumFunctional3D<T,nDim>* BoxTensorSumFunctional3D<T,nDim>::clone() const
+{
+    return new BoxTensorSumFunctional3D<T,nDim>(*this);
+}
+
+template<typename T, int nDim>
+Array<T,nDim> BoxTensorSumFunctional3D<T,nDim>::getSumTensor() const
+{
+    Array<T,nDim> sum;
+    for (plint i = 0; i < nDim; i++) {
+        double doubleSum = this->getStatistics().getSum(sumTensorId[i]);
+        // The sum is internally computed on floating-point values. If T is
+        //   integer, the value must be rounded at the end.
+        if (std::numeric_limits<T>::is_integer) {
+            doubleSum = util::roundToInt(doubleSum);
+        }
+        sum[i] = doubleSum;
+    }
+    return sum;
+}
+
+template<typename T, int nDim>
+MaskedBoxTensorAverageFunctional3D<T,nDim>::MaskedBoxTensorAverageFunctional3D(int flag_)
+    : flag(flag_)
+{
+    for (plint i = 0; i < nDim; i++) {
+        averageTensorId[i] = this->getStatistics().subscribeAverage();
+    }
+}
+
+template<typename T, int nDim>
+void MaskedBoxTensorAverageFunctional3D<T,nDim>::process (
+        Box3D domain,
+        ScalarField3D<int>& mask,
+        TensorField3D<T,nDim>& tensorField )
+{
+    Dot3D offset = computeRelativeDisplacement(mask, tensorField);
+    BlockStatistics& statistics = this->getStatistics();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask.get(iX, iY, iZ)==flag) {
+                    for (plint i = 0; i < nDim; i++) {
+                        statistics.gatherAverage(averageTensorId[i],
+                                (double) tensorField.get(iX+offset.x, iY+offset.y, iZ+offset.z)[i]);
+                    }
+                    statistics.incrementStats();
+                }
+            }
+        }
+    }
+}
+
+template<typename T, int nDim>
+MaskedBoxTensorAverageFunctional3D<T,nDim>* MaskedBoxTensorAverageFunctional3D<T,nDim>::clone() const
+{
+    return new MaskedBoxTensorAverageFunctional3D<T,nDim>(*this);
+}
+
+template<typename T, int nDim>
+Array<T,nDim> MaskedBoxTensorAverageFunctional3D<T,nDim>::getAverageTensor() const
+{
+    Array<T,nDim> average;
+    for (plint i = 0; i < nDim; i++) {
+        double doubleAverage = this->getStatistics().getAverage(averageTensorId[i]);
+        // The average is internally computed on floating-point values. If T is
+        //   integer, the value must be rounded at the end.
+        if (std::numeric_limits<T>::is_integer) {
+            doubleAverage = util::roundToInt(doubleAverage);
+        }
+    }
+    return average;
+}
 
 template<typename T1, typename T2, int nDim>
 void CopyConvertTensorFunctional3D<T1,T2,nDim>::process (
@@ -3926,7 +4811,7 @@ void Normalize_Tensor_functional3D<T,nDim>::process (
                 T norm = T();
                 for (int i = 0; i < nDim; norm += a[i]*a[i], i++)
                     ;
-                norm = sqrt(norm);
+                norm = std::sqrt(norm);
                 if (norm <= eps)
                     result.get(iX+offset.x,iY+offset.y,iZ+offset.z).resetToZero();
                 else
@@ -3962,7 +4847,7 @@ void Normalize_Tensor_inplace_functional3D<T,nDim>::process (
                 T norm = T();
                 for (int i = 0; i < nDim; norm += a[i]*a[i], i++)
                     ;
-                norm = sqrt(norm);
+                norm = std::sqrt(norm);
                 if (norm <= eps)
                     a.resetToZero();
                 else
@@ -3984,96 +4869,6 @@ void Normalize_Tensor_inplace_functional3D<T,nDim>::
     getTypeOfModification(std::vector<modif::ModifT>& modified) const
 {
     modified[0] = modif::staticVariables;
-}
-
-
-/* ************* Class LBMsmoothen3D ******************* */
-
-template<typename T, template<typename U> class Descriptor>
-void LBMsmoothen3D<T,Descriptor>::process (
-        Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result )
-{
-    typedef Descriptor<T> D;
-    Dot3D offset = computeRelativeDisplacement(data, result);
-    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                result.get(iX+offset.x,iY+offset.y,iZ+offset.z) = (T)0;
-                T sum = (T) 0;
-                for (plint iPop=1; iPop<D::q; ++iPop) {
-                    plint nextX = iX+D::c[iPop][0];
-                    plint nextY = iY+D::c[iPop][1];
-                    plint nextZ = iZ+D::c[iPop][2];
-                    sum += D::t[iPop];
-                    result.get(iX+offset.x,iY+offset.y,iZ+offset.z) +=
-                        D::t[iPop] * data.get(nextX,nextY,nextZ);
-                }
-                result.get(iX+offset.x,iY+offset.y,iZ+offset.z) /= sum;
-            }
-        }
-    }
-}
-
-template<typename T, template<typename U> class Descriptor>
-LBMsmoothen3D<T,Descriptor>*
-    LBMsmoothen3D<T,Descriptor>::clone() const
-{
-    return new LBMsmoothen3D<T,Descriptor>(*this);
-}
-
-template<typename T, template<typename U> class Descriptor>
-void LBMsmoothen3D<T,Descriptor>::getTypeOfModification (
-        std::vector<modif::ModifT>& modified) const
-{
-    modified[0] = modif::nothing;
-    modified[1] = modif::staticVariables;
-}
-
-
-/* ************* Class Smoothen3D ******************* */
-
-template<typename T>
-void Smoothen3D<T>::process(Box3D domain, ScalarField3D<T>& data, ScalarField3D<T>& result)
-{
-    Dot3D offset = computeRelativeDisplacement(data, result);
-
-    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                T *res = &result.get(iX+offset.x, iY+offset.y, iZ+offset.z);
-                *res = (T) 0;
-                int n = 0;
-                for (int i = -1; i < 2; i++) {
-                    plint nextX = iX + i;
-                    for (int j = -1; j < 2; j++) {
-                        plint nextY = iY + j;
-                        for (int k = -1; k < 2; k++) {
-                            plint nextZ = iZ + k;
-                            if (!(i == 0 && j == 0 && k == 0)) {
-                                n++;
-                                *res += data.get(nextX, nextY, nextZ);
-                            }
-                        }
-                    }
-                }
-                *res /= (T) n;
-            }
-        }
-    }
-}
-
-template<typename T>
-Smoothen3D<T>* Smoothen3D<T>::clone() const
-{
-    return new Smoothen3D<T>(*this);
-}
-
-template<typename T>
-void Smoothen3D<T>::getTypeOfModification (std::vector<modif::ModifT>& modified) const
-{
-    modified[0] = modif::nothing;         // Data.
-    modified[1] = modif::nothing;         // Flags.
-    modified[2] = modif::staticVariables; // Result.
 }
 
 
@@ -4164,88 +4959,8 @@ template<typename T, int nDim>
 void SmoothenTensor3D<T,nDim>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::nothing;         // Data.
-    modified[1] = modif::nothing;         // Flags.
-    modified[2] = modif::staticVariables; // Result.
-}
-
-
-/* ************* Class MollifyScalar3D ******************* */
-
-template<typename T>
-MollifyScalar3D<T>::MollifyScalar3D(T l_, plint d_, Box3D globalDomain_, int exclusionFlag_)
-    : l(l_),
-      d(d_),
-      globalDomain(globalDomain_),
-      exclusionFlag(exclusionFlag_)
-{ }
-
-template<typename T>
-void MollifyScalar3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields)
-{
-    PLB_ASSERT(fields.size() == 3);
-    ScalarField3D<T> *scalar = dynamic_cast<ScalarField3D<T>*>(fields[0]);
-    PLB_ASSERT(scalar);
-    ScalarField3D<int> *flag = dynamic_cast<ScalarField3D<int>*>(fields[1]);
-    PLB_ASSERT(flag);
-    ScalarField3D<T> *result = dynamic_cast<ScalarField3D<T>*>(fields[2]);
-    PLB_ASSERT(result);
-
-    Dot3D absOfs = scalar->getLocation();
-
-    Dot3D ofsF = computeRelativeDisplacement(*scalar, *flag);
-    Dot3D ofsR = computeRelativeDisplacement(*scalar, *result);
-
-    static T pi = acos((T) -1);
-
-    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                if (flag->get(iX + ofsF.x, iY + ofsF.y, iZ + ofsF.z) == exclusionFlag) {
-                    result->get(iX + ofsR.x, iY + ofsR.y, iZ + ofsR.z) = scalar->get(iX, iY, iZ);
-                    continue;
-                }
-
-                T sum = 0.0;
-                for (plint dx = -d; dx <= d; dx++) {
-                    plint i = iX + dx;
-                    for (plint dy = -d; dy <= d; dy++) {
-                        plint j = iY + dy;
-                        for (plint dz = -d; dz <= d; dz++) {
-                            plint k = iZ + dz;
-                            if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain)) {
-                                if (flag->get(i + ofsF.x, j + ofsF.y, k + ofsF.z) != exclusionFlag) {
-                                    T r = sqrt(dx * dx + dy * dy + dz * dz);
-                                    T integrand = scalar->get(i, j, k);
-                                    T mollifier = 0.0;
-                                    if (r < l) {
-                                        mollifier = (1.0 + cos(pi * r / l));
-                                    }
-                                    sum += integrand * mollifier;
-                                }
-                            }
-                        }
-                    }
-                }
-                sum *= (1.0 / (2.0 * l));
-                result->get(iX + ofsR.x, iY + ofsR.y, iZ + ofsR.z) = sum;
-            }
-        }
-    }
-}
-
-template<typename T>
-MollifyScalar3D<T>* MollifyScalar3D<T>::clone() const
-{
-    return new MollifyScalar3D<T>(*this);
-}
-
-template<typename T>
-void MollifyScalar3D<T>::getTypeOfModification (std::vector<modif::ModifT>& modified) const
-{
-    modified[0] = modif::nothing;         // Data.
-    modified[1] = modif::nothing;         // Flags.
-    modified[2] = modif::staticVariables; // Result.
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
 }
 
 
@@ -4275,7 +4990,7 @@ void MollifyTensor3D<T,nDim>::processGenericBlocks(Box3D domain, std::vector<Ato
     Dot3D ofsF = computeRelativeDisplacement(*tensor, *flag);
     Dot3D ofsR = computeRelativeDisplacement(*tensor, *result);
 
-    static T pi = acos((T) -1);
+    static T pi = std::acos((T) -1);
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -4295,11 +5010,11 @@ void MollifyTensor3D<T,nDim>::processGenericBlocks(Box3D domain, std::vector<Ato
                             plint k = iZ + dz;
                             if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain)) {
                                 if (flag->get(i + ofsF.x, j + ofsF.y, k + ofsF.z) != exclusionFlag) {
-                                    T r = sqrt(dx * dx + dy * dy + dz * dz);
+                                    T r = std::sqrt((T) dx * dx + (T) dy * dy + (T) dz * dz);
                                     Array<T,nDim> integrand = tensor->get(i, j, k);
                                     T mollifier = 0.0;
                                     if (r < l) {
-                                        mollifier = (1.0 + cos(pi * r / l));
+                                        mollifier = (1.0 + std::cos(pi * r / l));
                                     }
                                     sum += integrand * mollifier;
                                 }
@@ -4326,36 +5041,6 @@ void MollifyTensor3D<T,nDim>::getTypeOfModification (std::vector<modif::ModifT>&
     modified[0] = modif::nothing;         // Data.
     modified[1] = modif::nothing;         // Flags.
     modified[2] = modif::staticVariables; // Result.
-}
-
-
-/* ************* Class LBMcomputeGradient3D ******************* */
-
-template<typename T,template<typename U> class Descriptor>
-void LBMcomputeGradient3D<T,Descriptor>::process (
-        Box3D domain, ScalarField3D<T>& scalarField, TensorField3D<T,3>& gradient )
-{
-    typedef Descriptor<T> D;
-    Dot3D ofs = computeRelativeDisplacement(scalarField, gradient);
-    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                Array<T,3>& gradientOfScalar = gradient.get(iX+ofs.x,iY+ofs.y,iZ+ofs.z);                    
-                gradientOfScalar.resetToZero();
-                // Compute the gradient of a scalar function "the lattice Boltzmann way".
-                for (plint iPop=1; iPop < D::q; ++iPop ) {
-                    plint nextX = iX + D::c[iPop][0];
-                    plint nextY = iY + D::c[iPop][1];
-                    plint nextZ = iZ + D::c[iPop][2];
-
-                    gradientOfScalar[0] += D::t[iPop]*D::c[iPop][0]*scalarField.get(nextX,nextY,nextZ);
-                    gradientOfScalar[1] += D::t[iPop]*D::c[iPop][1]*scalarField.get(nextX,nextY,nextZ);
-                    gradientOfScalar[2] += D::t[iPop]*D::c[iPop][2]*scalarField.get(nextX,nextY,nextZ);
-                }
-                gradientOfScalar *= D::invCs2;                     
-            }
-        }
-    }
 }
 
 

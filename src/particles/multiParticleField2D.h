@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -67,8 +67,12 @@ private:
     void deAllocateBlocks();
 private:
     BlockMap blocks;
+public:
     static const int staticId;
 };
+
+template<class ParticleFieldT>
+MultiParticleField2D<ParticleFieldT>& findMultiParticleField2D(id_t id);
 
 }  // namespace plb
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,7 +29,9 @@
 #define NEUMANN_CONDITION_3D_HH
 
 #include "boundaryCondition/neumannCondition3D.h"
+#include "boundaryCondition/bounceBackModels.h"
 #include "latticeBoltzmann/indexTemplates.h"
+#include "core/dynamicsIdentifiers.h"
 
 namespace plb {
 
@@ -355,17 +357,29 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
     Dot3D ofsRB = computeRelativeDisplacement(*lattice, *rhoBar);
     Dot3D ofsJ = computeRelativeDisplacement(*lattice, *j);
 
+    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+    static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+    static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
+    static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
     if (type == 0) {
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     Cell<T,Descriptor>& cell = lattice->get(iX, iY, iZ);
+                    const int dynamicsId = cell.getDynamics().getId();
+                    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+                        continue;
+                    }
                     for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
                         plint prevX = iX - Descriptor<T>::c[iPop][0];
                         plint prevY = iY - Descriptor<T>::c[iPop][1];
                         plint prevZ = iZ - Descriptor<T>::c[iPop][2];
+
+                        const int prevDynamicsId = lattice->get(prevX, prevY, prevZ).getDynamics().getId();
                         
-                        if (!contained(prevX + absOfs.x, prevY + absOfs.y, prevZ + absOfs.z, globalDomain)) {
+                        if (!contained(prevX + absOfs.x, prevY + absOfs.y, prevZ + absOfs.z, globalDomain) ||
+                            prevDynamicsId == noDynamicsId) {
                             plint opp = indexTemplates::opposite<Descriptor<T> >(iPop);
                             T savedPop = lattice->get(prevX, prevY, prevZ)[opp];
 
@@ -387,12 +401,19 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     Cell<T,Descriptor>& cell = lattice->get(iX, iY, iZ);
+                    int dynamicsId = cell.getDynamics().getId();
+                    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+                        continue;
+                    }
                     for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
                         plint prevX = iX - Descriptor<T>::c[iPop][0];
                         plint prevY = iY - Descriptor<T>::c[iPop][1];
                         plint prevZ = iZ - Descriptor<T>::c[iPop][2];
+
+                        int prevDynamicsId = lattice->get(prevX, prevY, prevZ).getDynamics().getId();
                         
-                        if (!contained(prevX + absOfs.x, prevY + absOfs.y, prevZ + absOfs.z, globalDomain)) {
+                        if (!contained(prevX + absOfs.x, prevY + absOfs.y, prevZ + absOfs.z, globalDomain) ||
+                            prevDynamicsId == noDynamicsId) {
                             plint opp = indexTemplates::opposite<Descriptor<T> >(iPop);
                             T savedPop = lattice->get(prevX, prevY, prevZ)[opp];
 
@@ -414,7 +435,10 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
                                     for (plint dz = -1; dz <= 1; dz++) {
                                         plint k = iZ + dz;
                                         if (!(dx == 0 && dy == 0 && dz == 0)) {
-                                            if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain)) {
+                                            int nextDynamicsId = lattice->get(i, j, k).getDynamics().getId();
+                                            if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain) &&
+                                                nextDynamicsId != bounceBackId && nextDynamicsId != noDynamicsId  &&
+                                                nextDynamicsId != mEBounceBackId) {
                                                 RhoBar += rhoBar->get(i + ofsRB.x, j + ofsRB.y, k +ofsRB.z);
                                                 n++;
                                             }
@@ -444,6 +468,110 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
     }
 }
 
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int VirtualOutletDynamics<T,Descriptor,direction,orientation>::id =
+    meta::registerGeneralDynamics<T,Descriptor, VirtualOutletDynamics<T,Descriptor,direction,orientation> >
+            ( std::string("Boundary_VirtualOutlet_")+util::val2str(direction) +
+              std::string("_")+util::val2str(orientation) );
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+VirtualOutletDynamics<T,Descriptor,direction,orientation>::VirtualOutletDynamics (
+        Dynamics<T,Descriptor>* baseDynamics, bool automaticPrepareCollision)
+    : BoundaryCompositeDynamics<T,Descriptor>(baseDynamics, automaticPrepareCollision)
+{ }
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+VirtualOutletDynamics<T,Descriptor,direction,orientation>::
+    VirtualOutletDynamics(HierarchicUnserializer& unserializer)
+        : BoundaryCompositeDynamics<T,Descriptor>(0, false)
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+VirtualOutletDynamics<T,Descriptor,direction,orientation>*
+    VirtualOutletDynamics<T,Descriptor, direction, orientation>::clone() const
+{
+    return new VirtualOutletDynamics<T,Descriptor,direction,orientation>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+void VirtualOutletDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
+{
+    int numPop = (int)savedFneq.size();
+    serializer.addValue(numPop);
+    serializer.addValues(savedFneq);
+    for (int i=0; i<Descriptor<T>::d; ++i) {
+        serializer.addValue(savedJ[i]);
+    }
+    serializer.addValue(savedRhoBar);
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+void VirtualOutletDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
+{
+    int numPop = unserializer.readValue<int>();
+    savedFneq.resize(numPop);
+    unserializer.readValues(savedFneq);
+    for (int i=0; i<Descriptor<T>::d; ++i) {
+        savedJ[i] = unserializer.readValue<T>();
+    }
+    unserializer.readValue(savedRhoBar);
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+ 
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int VirtualOutletDynamics<T,Descriptor,direction,orientation>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+void VirtualOutletDynamics<T,Descriptor,direction,orientation>::saveData(Cell<T,Descriptor>& cell) const
+{
+    std::vector<plint> unknownInd = indexTemplates::subIndexOutgoing<Descriptor<T>, direction, orientation>();
+    cell.getDynamics().computeRhoBarJ(cell, savedRhoBar, savedJ);
+    T savedJsqr = normSqr(savedJ);
+    for (pluint i=0; i<unknownInd.size(); ++i) {
+        plint iPop = unknownInd[i];
+        savedFneq[i] = cell[iPop] - cell.computeEquilibrium(iPop, savedRhoBar, savedJ, savedJsqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+void VirtualOutletDynamics<T,Descriptor,direction,orientation>::completePopulations(Cell<T,Descriptor>& cell) const
+{
+    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+    static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+    static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
+    static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
+    int dynamicsId = this->getBaseDynamics().getId();
+    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+        return;
+    }
+    std::vector<plint> unknownInd = indexTemplates::subIndexOutgoing<Descriptor<T>, direction, orientation>();
+    if (savedFneq.size() != unknownInd.size()) {
+        PLB_ASSERT( savedFneq.empty() );
+        savedFneq.resize( unknownInd.size() );
+        saveData(cell);
+    }
+    T savedJsqr = normSqr(savedJ);
+    for (pluint i=0; i<unknownInd.size(); ++i) {
+        plint iPop = unknownInd[i];
+        cell[iPop] = cell.computeEquilibrium(iPop, savedRhoBar, savedJ, savedJsqr) + savedFneq[i];
+    }
+    saveData(cell);
+}
+
 }  // namespace plb
 
 #endif  // NEUMANN_CONDITION_3D_HH
+

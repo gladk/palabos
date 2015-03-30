@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -185,6 +185,14 @@ T BoundaryCompositeDynamics<T,Descriptor>::computeEbar(Cell<T,Descriptor> const&
 template<typename T, template<typename U> class Descriptor>
 void BoundaryCompositeDynamics<T,Descriptor>::completePopulations(Cell<T,Descriptor>& cell) const
 { }
+
+template<typename T, template<typename U> class Descriptor>
+void BoundaryCompositeDynamics<T,Descriptor>::decompose(Cell<T,Descriptor> const& cell, std::vector<T>& rawData, plint order) const
+{
+    Cell<T,Descriptor> tmpCell(cell);
+    this -> completePopulations(tmpCell);
+    this->getBaseDynamics().decompose(tmpCell, rawData, order);
+}
 
 
 /* *************** Class StoreDensityDynamics *********************** */

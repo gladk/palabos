@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,12 +57,12 @@ void cavitySetup( MultiBlockLattice2D<T,DESCRIPTOR>& lattice,
 
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    setBoundaryVelocity(lattice, lattice.getBoundingBox(), Array<T,2>(0.,0.) );
-    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), 1., Array<T,2>(0.,0.) );
+    setBoundaryVelocity(lattice, lattice.getBoundingBox(), Array<T,2>((T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), (T)1., Array<T,2>((T)0.,(T)0.) );
 
     T u = parameters.getLatticeU();
-    setBoundaryVelocity(lattice, Box2D(1, nx-2, ny-1, ny-1), Array<T,2>(u,0.) );
-    initializeAtEquilibrium(lattice, Box2D(1, nx-2, ny-1, ny-1), 1., Array<T,2>(u,0.) );
+    setBoundaryVelocity(lattice, Box2D(1, nx-2, ny-1, ny-1), Array<T,2>(u,(T)0.) );
+    initializeAtEquilibrium(lattice, Box2D(1, nx-2, ny-1, ny-1), (T)1., Array<T,2>(u,(T)0.) );
 
     lattice.initialize();
 }
@@ -104,10 +104,10 @@ int main(int argc, char* argv[]) {
             1.,        // lx
             1.         // ly
     );
-    const T logT     = (T)0.1;
-    const T imSave   = (T)0.2;
-    const T vtkSave  = (T)1.;
-    const T maxT     = (T)10.1;
+    //const T logT     = (T)0.1;
+    //const T imSave   = (T)0.2;
+    //const T vtkSave  = (T)1.;
+    //const T maxT     = (T)10.1;
 
     writeLogFile(parameters, "2D cavity");
 
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
     cavitySetup(lattice, parameters, *boundaryCondition);
     cavitySetup(lattice2, parameters, *boundaryCondition);
 
-    T previousIterationTime = T();
+    //T previousIterationTime = T();
 
     MultiScalarField2D<T> rhoBar(lattice2);
     MultiTensorField2D<T,2> j(lattice2);
@@ -151,10 +151,13 @@ int main(int argc, char* argv[]) {
             pcout << "Energy 1: " << computeAverageEnergy(lattice) << std::endl;
             pcout << "Energy 2: " << computeAverageEnergy(lattice2) << std::endl;
             pcout << global::timer("iterations").getTime()/(iT+1) << std::endl;
-            //ImageWriter<T> imageWriter("leeloo");
-            //imageWriter.writeScaledGif(createFileName("diff", iT, 6),
-            //        //*computeVelocityNorm(lattice2) );
-            //        *subtract(*computeVelocityNorm(lattice),*computeVelocityNorm(lattice2)) );
+
+            T dx = parameters.getDeltaX();
+            T dt = parameters.getDeltaT();
+            VtkImageOutput2D<T> vtkOut(createFileName("diff_", iT, 6), dx);
+            vtkOut.writeData<float>(
+                    *subtract(*computeVelocityNorm(lattice),*computeVelocityNorm(lattice2)), 
+                    "velocityNormDiff", dx/dt);
         }
 
     }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -81,6 +81,12 @@ OnLatticeAdvectionDiffusionBoundaryCondition2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 OnLatticeAdvectionDiffusionBoundaryCondition2D<T,Descriptor>*
     createLocalRegularizedAdvectionDiffusionBoundaryCondition2D();
+    
+//////  Factory function for Complete Regularized Thermal BC
+    
+template<typename T, template<typename U> class Descriptor>
+OnLatticeAdvectionDiffusionBoundaryCondition2D<T,Descriptor>*
+    createLocalCompleteRegularizedAdvectionDiffusionBoundaryCondition2D();
 
 } //namespace plb
 

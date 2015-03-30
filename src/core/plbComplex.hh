@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,7 +31,7 @@
 namespace plb {
 
 template<typename T>
-T Complex<T>::pi = (T)4*atan((T)1);
+T Complex<T>::pi = (T)4*std::atan((T)1);
 
 template<typename T>
 Complex<T>::Complex()
@@ -66,7 +66,7 @@ T Complex<T>::imaginary() const {
 
 template<typename T>
 T Complex<T>::modulus() const {
-    return sqrt(sqrModulus);
+    return std::sqrt(sqrModulus());
 }
 
 template<typename T>
@@ -82,10 +82,10 @@ Complex<T> Complex<T>::conjugate() const {
 template<typename T>
 T Complex<T>::argument() const {
     if (Re>T()) {
-        return atan(Imag/Re);
+        return std::atan(Imag/Re);
     }
     else if (Re<T()) {
-        return pi + atan(Imag/Re);
+        return pi + std::atan(Imag/Re);
     }
     else {
         return pi/(T)2;
@@ -94,11 +94,11 @@ T Complex<T>::argument() const {
 
 template<typename T>
 Complex<T> Complex<T>::intpow(int n) const {
-    T r_pow_n = pow(modulus(),n);
+    T r_pow_n = std::pow((T)modulus(), (T)n);
     T phi = argument();
     return Complex<T> (
-             r_pow_n*(cos(n*phi)),
-             r_pow_n*(sin(n*phi)) );
+             r_pow_n*(std::cos(n*phi)),
+             r_pow_n*(std::sin(n*phi)) );
 }
 
 template<typename T>

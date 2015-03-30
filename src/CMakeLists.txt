@@ -22,6 +22,5 @@ FOREACH(subdir ${SUBDIRS})
   FILE(GLOB SRC_FILES_HHEAD_${subdir} "${subdir}/*.hh")
   INSTALL(FILES ${SRC_FILES_HEAD_${subdir}} ${SRC_FILES_HHEAD_${subdir}} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/palabos/${subdir}/")
 ENDFOREACH()
-
 #=======================================
 

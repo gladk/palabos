@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -62,7 +62,6 @@ std::vector<MultiBlockLattice2D<T,Descriptor>*> generateLattices(
             plint mpiProcess = mpiProcesses.size() > 0 ? mpiProcesses[iLevel][iBlock] : 0;
             plint blockId = geometry.nextIncrementalId();
             Box2D bulk = bulks[iLevel][iBlock];
-            Box2D bb = bulk;
             geometry.addBlock(bulk, bulk, blockId);
             threadAttribution->addBlock(blockId, mpiProcess);
         }
@@ -210,9 +209,6 @@ void LinearInterpolationFineGridInterfaceInstantiator<T,Descriptor>::instantiate
     // Number of time steps executed by the fine grid during a coarse iteration.
     plint numTimeSteps = 2; 
     plint executionTime = numTimeSteps-1;
-    
-    // Instantiate specific time-interpolation dynamics on the interface of the fine grid.
-    Box2D bb = fineGridInterface.multiply(2);
 
     setCompositeDynamics (
             fineLattice,
@@ -297,9 +293,6 @@ void CubicInterpolationFineGridInterfaceInstantiator<T,Descriptor>::instantiateD
     // Number of time steps executed by the fine grid during a coarse iteration.
     plint numTimeSteps = 2; 
     plint executionTime = numTimeSteps-1;
-    
-    // Instantiate specific time-interpolation dynamics on the interface of the fine grid.
-    Box2D bb = fineGridInterface.multiply(2);
 
     setCompositeDynamics (
             fineLattice,

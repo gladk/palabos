@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,6 +30,7 @@
 #include "core/globalDefs.h"
 #include "core/geometry3D.h"
 #include "core/array.h"
+#include "offLattice/triangleSet.h"
 #include <string>
 #include <vector>
 
@@ -223,10 +224,15 @@ public:
     ///   two triangles incident to the specific edge.
     T computeEdgeTileSpan(plint iVertex, plint jVertex) const;
 
+    /// Export the surface mesh as a TriangleSet.
+    TriangleSet<T> toTriangleSet(Precision precision) const;
+
     /// Export the surface mesh as an ASCII STL file.
-    void writeAsciiSTL(std::string fname) const;
+    void writeAsciiSTL(std::string fname, T dx = 1.0) const;
+    void writeAsciiSTL(std::string fname, T dx, Array<T,3> location) const;
     /// Export the surface mesh as an binary STL file.
-    void writeBinarySTL(std::string fname) const;
+    void writeBinarySTL(std::string fname, T dx = 1.0) const;
+    void writeBinarySTL(std::string fname, T dx, Array<T,3> location) const;
 
     /// Return true if the vertex belongs to the boundary
     ///   or false if the vertex belongs to the interior
@@ -341,6 +347,8 @@ public:
     /// Export the surface mesh as an HTML file.
     void writeHTML(std::string fname);
     void writeHTML(std::string fname, std::string title, T phys_dx, Array<T,3> phys_location);
+    void writeX3D(std::string fname);
+    void writeX3D(std::string fname, std::string title, T phys_dx, Array<T,3> phys_location);
 private:
     /// Ensure the fact that a vertex is in a valid range by an assertion,
     ///   if STL vertices are bounded by IOpolicy().

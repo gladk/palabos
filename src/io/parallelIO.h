@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -155,6 +155,7 @@ public:
     bool is_open();
     void open(const char* filename, std::istream::openmode mode = std::ostream::in);
     void close();
+    bool good();
 private:
     plb_ifstream(plb_ifstream const& rhs);
     plb_ifstream& operator=(plb_ifstream const& rhs);

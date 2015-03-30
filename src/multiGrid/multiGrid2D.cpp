@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,9 +24,6 @@
 
 /* Main author: Daniel Lagrava
  **/
-
-#ifndef MULTI_GRID_2D_CPP
-#define MULTI_GRID_2D_CPP
 
 #include "multiGrid/multiGrid2D.h"
 #include "multiGrid/multiGridUtil.h"
@@ -479,4 +476,3 @@ void loadBinaryGrid(MultiGrid2D& block, std::string fName, bool enforceUint){
 
 } // namespace plb
 
-#endif  // MULTI_GRID_2D_CPP

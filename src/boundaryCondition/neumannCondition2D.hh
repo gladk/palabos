@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,6 +30,7 @@
 
 #include "boundaryCondition/neumannCondition2D.h"
 #include "latticeBoltzmann/indexTemplates.h"
+#include "core/dynamicsIdentifiers.h"
 
 namespace plb {
 

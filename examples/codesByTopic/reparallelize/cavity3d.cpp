@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,10 +55,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     // All walls implement a Dirichlet velocity condition.
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,u/3.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,u/(T)3.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -71,7 +71,7 @@ void writeGifs(BlockLatticeT& lattice,
     const plint nx = lattice.getNx();
     const plint ny = lattice.getNy();
     const plint nz = lattice.getNz();
-    const plint zComponent = 2;
+    //const plint zComponent = 2;
 
     Box3D slice(0, nx-1, 0, ny-1, nz/2, nz/2);
     ImageWriter<T> imageWriter("leeloo");
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
             1.         // lz
     );
     const T logT     = (T)1/(T)100;
-    const T imSave   = (T)1/(T)40;
+    //const T imSave   = (T)1/(T)40;
     const T vtkSave  = (T)1;
     const T maxT     = (T)10.1;
 

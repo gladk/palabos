@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -109,7 +109,10 @@ void EntropicDynamics<T,Descriptor>::collide (
     //==============================================================================//
 
     T alpha = (T)2;
-    bool converged = getAlpha(alpha,f,fNeq);
+#ifdef PLB_DEBUG
+    bool converged =
+#endif
+        getAlpha(alpha,f,fNeq);
     
     PLB_ASSERT(converged);
     
@@ -133,7 +136,7 @@ T EntropicDynamics<T,Descriptor>::computeEntropy(Array<T,Descriptor<T>::q> const
     for (plint iPop = 0; iPop < L::q; ++iPop)
     {
         PLB_ASSERT(f[iPop] > T());
-        entropy += f[iPop]*log(f[iPop]/L::t[iPop]);
+        entropy += f[iPop]*std::log(f[iPop]/L::t[iPop]);
     }
 
     return entropy;
@@ -163,7 +166,7 @@ T EntropicDynamics<T,Descriptor>::computeEntropyGrowthDerivative(Array<T,Descrip
     {
         T tmp = f[iPop] - alpha*fNeq[iPop];
         PLB_ASSERT(tmp > T());
-        entropyGrowthDerivative += fNeq[iPop]*((T)1+log(tmp/L::t[iPop]));
+        entropyGrowthDerivative += fNeq[iPop]*((T)1+std::log(tmp/L::t[iPop]));
     }
 
     return entropyGrowthDerivative;
@@ -183,12 +186,12 @@ bool EntropicDynamics<T,Descriptor>::getAlpha(T &alpha, Array<T,Descriptor<T>::q
     {
         T entGrowth = computeEntropyGrowth(f,fNeq,alpha);
         T entGrowthDerivative = computeEntropyGrowthDerivative(f,fNeq,alpha);
-        if ((error < errorMax) || (fabs(entGrowth) < var*epsilon))
+        if ((error < errorMax) || (std::fabs(entGrowth) < var*epsilon))
         {
             return true;
         }
         alphaGuess = alpha - entGrowth / entGrowthDerivative;
-        error = fabs(alpha-alphaGuess);
+        error = std::fabs(alpha-alphaGuess);
         alpha = alphaGuess;
     }
     return false;
@@ -258,7 +261,10 @@ void ForcedEntropicDynamics<T,Descriptor>::collide (
     //==============================================================================//
 
     T alpha = (T)2;
-    bool converged = getAlpha(alpha,f,fNeq);
+#ifdef PLB_DEBUG
+    bool converged =
+#endif
+        getAlpha(alpha,f,fNeq);
 
     PLB_ASSERT(converged);
     
@@ -290,7 +296,7 @@ T ForcedEntropicDynamics<T,Descriptor>::computeEntropy(Array<T,Descriptor<T>::q>
     for (plint iPop = 0; iPop < L::q; ++iPop)
     {
         PLB_ASSERT(f[iPop] > T());
-        entropy += f[iPop]*log(f[iPop]/L::t[iPop]);
+        entropy += f[iPop]*std::log(f[iPop]/L::t[iPop]);
     }
 
     return entropy;
@@ -320,7 +326,7 @@ T ForcedEntropicDynamics<T,Descriptor>::computeEntropyGrowthDerivative(Array<T,D
     {
         T tmp = f[iPop] - alpha*fNeq[iPop];
         PLB_ASSERT(tmp > T());
-        entropyGrowthDerivative += fNeq[iPop]*((T)1+log(tmp/L::t[iPop]));
+        entropyGrowthDerivative += fNeq[iPop]*((T)1+std::log(tmp/L::t[iPop]));
     }
 
     return entropyGrowthDerivative;
@@ -340,12 +346,12 @@ bool ForcedEntropicDynamics<T,Descriptor>::getAlpha(T& alpha, Array<T,Descriptor
     {
         T entGrowth = computeEntropyGrowth(f,fNeq,alpha);
         T entGrowthDerivative = computeEntropyGrowthDerivative(f,fNeq,alpha);
-        if ((error < errorMax) || (fabs(entGrowth) < var*epsilon))
+        if ((error < errorMax) || (std::fabs(entGrowth) < var*epsilon))
         {
             return true;
         }
         alphaGuess = alpha - entGrowth / entGrowthDerivative;
-        error = fabs(alpha-alphaGuess);
+        error = std::fabs(alpha-alphaGuess);
         alpha = alphaGuess;
     }
     return false;

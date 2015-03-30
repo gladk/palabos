@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,6 +36,18 @@ namespace plb {
 //   have a non-unitary vector v1, you should provide v1/norm(v1) as argument.
 template<typename T>
 void gramSchmidt(Array<T,3> const& v1Unit, Array<T,3>& v2Unit, Array<T,3>& v3Unit);
+
+// Computation of eigen-vectors and eigen-values for symmetric 3x3 matrices.
+/**Symmetric matrix A => eigenvectors in columns of V, corresponding
+   eigenvalues in d.
+   Public domain, copied from the public domain Java library JAMA.
+   Original code at http://barnesc.blogspot.com/2007/02/eigenvectors-of-3x3-symmetric-matrix.html
+**/
+//\TODO:
+// (1) Switch the Array<Array<T,3>,3> type to SymmetricTensor, as used in Palabos.
+// (2) Change the "eps = pow(2.0,-52.0)" line in the code to something that's type-specific.
+template<typename T>
+void eigenDecomposition(Array<Array<T,3>,3> const& A, Array<Array<T,3>,3>& V, Array<T,3>& d);
 
 } // namespace plb
 

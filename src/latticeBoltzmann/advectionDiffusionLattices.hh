@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -78,7 +78,7 @@ namespace descriptors {
 
     template<typename T>
     const char AdvectionDiffusionD2Q5Descriptor<T>::name[] = "AdvectionDiffusionD2Q5";
-    
+
     template<typename T>
     const char AdvectionDiffusionWithSourceD2Q5Descriptor<T>::name[] = "AdvectionDiffusionWithSourceD2Q5";
 

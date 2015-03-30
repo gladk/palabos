@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -552,6 +552,84 @@ DynamicsFromIntMaskFunctional3D<T,Descriptor>*
     return new DynamicsFromIntMaskFunctional3D<T,Descriptor>(*this);
 }
 
+/* ************* Class RecomposeFromOrderZeroVariablesFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+void RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    BlockLattice3D<T,Descriptor>& lattice =
+        dynamic_cast<BlockLattice3D<T,Descriptor>&>(*atomicBlocks[0]);
+    ScalarField3D<T> const& rhoField =
+        dynamic_cast<ScalarField3D<T> const&>(*atomicBlocks[1]);
+    TensorField3D<T,3> const& uField =
+        dynamic_cast<TensorField3D<T,3> const&>(*atomicBlocks[2]);
+    TensorField3D<T,Descriptor<T>::q> const& fNeqField =
+        dynamic_cast<TensorField3D<T,Descriptor<T>::q> const&>(*atomicBlocks[3]);
+
+    Dot3D offset1 = computeRelativeDisplacement(lattice, rhoField);
+    Dot3D offset2 = computeRelativeDisplacement(lattice, uField);
+    Dot3D offset3 = computeRelativeDisplacement(lattice, fNeqField);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                T rho               = rhoField.get(iX+offset1.x, iY+offset1.y, iZ+offset1.z);
+                Array<T,3> const& u = uField.get(iX+offset2.x, iY+offset2.y, iZ+offset2.z);
+                Array<T,Descriptor<T>::q> const& fNeq = fNeqField.get(iX+offset3.x, iY+offset3.y, iZ+offset3.z);
+
+                plint recomposeOrder = 0;
+                std::vector<T> rawData(cell.getDynamics().numDecomposedVariables(recomposeOrder));
+
+                // Convert rho --> rhoBar.
+                rawData[0] = Descriptor<T>::rhoBar(rho);
+
+                // Convert u --> j
+                rawData[1] = rho*u[0];
+                rawData[2] = rho*u[1];
+                rawData[3] = rho*u[2];
+                
+                for (pluint iPop = 1+Descriptor<T>::d; iPop < 1+Descriptor<T>::d+Descriptor<T>::q; ++iPop) {
+                    rawData[iPop] = fNeq[iPop-(1+Descriptor<T>::d)];
+                }
+                
+                for (pluint iPop = 1+Descriptor<T>::d+Descriptor<T>::q; iPop < rawData.size(); ++iPop) {
+                    rawData[iPop] = *cell.getExternal(iPop-(1+Descriptor<T>::d+Descriptor<T>::q));
+                }
+
+                // Recompose the cell.
+                cell.getDynamics().recompose(cell, rawData, recomposeOrder);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>*
+    RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>::clone() const
+{
+    return new RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>::appliesTo() const
+{
+    // We could directly apply to the envelope too, but let's keep it
+    //   bulk-only for future compatibility.
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;
+    modified[1] = modif::nothing;
+    modified[2] = modif::nothing;
+    modified[3] = modif::nothing;
+}
+
 /* ************* Class RecomposeFromFlowVariablesFunctional3D ******************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -571,7 +649,7 @@ void RecomposeFromFlowVariablesFunctional3D<T,Descriptor>::processGenericBlocks 
     Dot3D offset2 = computeRelativeDisplacement(lattice, uField);
     Dot3D offset3 = computeRelativeDisplacement(lattice, SField);
 
-    std::vector<T> rawData(10);
+    std::vector<T> rawData(10+Descriptor<T>::ExternalField::numScalars);
 
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -996,7 +1074,6 @@ InstantiateCompositeDynamicsFunctional3D<T,Descriptor>*
 }
 
 
-
 /* ************* Class SetExternalScalarFunctional3D ******************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1042,6 +1119,107 @@ SetExternalScalarFunctional3D<T,Descriptor>*
 }
 
 
+/* ************* Class SetExternalScalarFromScalarFieldFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>::SetExternalScalarFromScalarFieldFunctional3D (
+        int whichScalar_)
+    : whichScalar(whichScalar_)
+{
+    PLB_ASSERT(whichScalar < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<T> &scalar)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, scalar);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ = iZ + offset.z;
+                *lattice.get(iX,iY,iZ).getExternal(whichScalar) = scalar.get(oX,oY,oZ);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor>
+SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>*
+    SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>::clone() const 
+{
+    return new SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>(*this);
+}
+
+
+/* ************* Class MaskedSetExternalScalarFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedSetExternalScalarFunctional3D<T,Descriptor>::MaskedSetExternalScalarFunctional3D (
+        int flag_, int whichScalar_, T externalScalar_)
+    : flag(flag_),
+      whichScalar(whichScalar_),
+      externalScalar(externalScalar_)
+{
+    PLB_ASSERT(whichScalar < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedSetExternalScalarFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ = iZ + offset.z;
+                if (mask.get(oX,oY,oZ) == flag) {
+                    *lattice.get(iX,iY,iZ).getExternal(whichScalar) = externalScalar;
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT MaskedSetExternalScalarFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedSetExternalScalarFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;   // Lattice
+    modified[1] = modif::nothing;   // Mask
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedSetExternalScalarFunctional3D<T,Descriptor>*
+    MaskedSetExternalScalarFunctional3D<T,Descriptor>::clone() const 
+{
+    return new MaskedSetExternalScalarFunctional3D<T,Descriptor>(*this);
+}
+
+
 /* ************* Class SetGenericExternalScalarFunctional3D ******************* */
 
 template<typename T, template<typename U> class Descriptor, class Functional>
@@ -1080,6 +1258,57 @@ SetGenericExternalScalarFunctional3D<T,Descriptor,Functional>*
     SetGenericExternalScalarFunctional3D<T,Descriptor,Functional>::clone() const 
 {
     return new SetGenericExternalScalarFunctional3D<T,Descriptor,Functional>(*this);
+}
+
+
+/* ************* Class MaskedSetGenericExternalScalarFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>::MaskedSetGenericExternalScalarFunctional3D (
+        int flag_, int whichScalar_, Functional const& functional_)
+    : flag(flag_),
+      whichScalar(whichScalar_),
+      functional(functional_)
+{
+    PLB_ASSERT(whichScalar < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+    Dot3D absOffset = lattice.getLocation();
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ = iZ + offset.z;
+
+                if (mask.get(oX,oY,oZ) == flag) {
+                    *lattice.get(iX,iY,iZ).getExternal(whichScalar)
+                        = functional(iX+absOffset.x,iY+absOffset.y,iZ+absOffset.z);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>*
+    MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>::clone() const 
+{
+    return new MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>(*this);
 }
 
 
@@ -1171,6 +1400,148 @@ SetExternalVectorFunctional3D<T,Descriptor>*
     SetExternalVectorFunctional3D<T,Descriptor>::clone() const 
 {
     return new SetExternalVectorFunctional3D<T,Descriptor>(*this);
+}
+
+
+/* ************* Class MaskedSetExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedSetExternalVectorFunctional3D<T,Descriptor>::MaskedSetExternalVectorFunctional3D (
+        int flag_, int vectorStartsAt_, Array<T,Descriptor<T>::d> & externalVector_)
+    : flag(flag_),
+      vectorStartsAt(vectorStartsAt_),
+      externalVector(externalVector_)
+{
+    PLB_ASSERT( vectorStartsAt+Descriptor<T>::d <=
+                Descriptor<T>::ExternalField::numScalars );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedSetExternalVectorFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ = iZ + offset.z;
+                if (mask.get(oX,oY,oZ) == flag) {
+                    externalVector.to_cArray(lattice.get(iX,iY,iZ).getExternal(vectorStartsAt));
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedSetExternalVectorFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedSetExternalVectorFunctional3D<T,Descriptor>*
+    MaskedSetExternalVectorFunctional3D<T,Descriptor>::clone() const 
+{
+    return new MaskedSetExternalVectorFunctional3D<T,Descriptor>(*this);
+}
+
+
+/* ************* Class SetGenericExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::SetGenericExternalVectorFunctional3D (
+        int vectorBeginsAt_, Functional const& functional_)
+    : vectorBeginsAt(vectorBeginsAt_),
+      functional(functional_)
+{
+    PLB_ASSERT(vectorBeginsAt < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    Dot3D absOffset = lattice.getLocation();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,Descriptor<T>::d> u;
+                functional(iX+absOffset.x,iY+absOffset.y,iZ+absOffset.z,u);
+                u.to_cArray(lattice.get(iX,iY,iZ).getExternal(vectorBeginsAt));
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>*
+    SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::clone() const 
+{
+    return new SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>(*this);
+}
+
+
+/* ************* Class MaskedSetGenericExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::MaskedSetGenericExternalVectorFunctional3D (
+        int flag_, int vectorBeginsAt_, Functional const& functional_)
+    : flag(flag_),
+      vectorBeginsAt(vectorBeginsAt_),
+      functional(functional_)
+{
+    PLB_ASSERT(vectorBeginsAt < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+    Dot3D absOffset = lattice.getLocation();
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint oZ = iZ + offset.z;
+
+                if (mask.get(oX,oY,oZ) == flag) {
+                    Array<T,Descriptor<T>::d> u;
+                    functional(iX+absOffset.x,iY+absOffset.y,iZ+absOffset.z,u);
+                    u.to_cArray(lattice.get(iX,iY,iZ).getExternal(vectorBeginsAt));
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>*
+    MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>::clone() const 
+{
+    return new MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>(*this);
 }
 
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,7 +50,7 @@ void ParallelCombinedStatistics::reduceStatistics (
         double globalAverage, globalWeight;
         global::mpi().reduce(averageObservables[iAverage]*sumWeights[iAverage], globalAverage, MPI_SUM);
         global::mpi().reduce(sumWeights[iAverage], globalWeight, MPI_SUM);
-        if (global::mpi().isMainProcessor() && fabs(globalWeight) > 0.5) {
+        if (global::mpi().isMainProcessor() && std::fabs(globalWeight) > 0.5) {
             globalAverage /= globalWeight;
         }
         global::mpi().bCast(&globalAverage, 1);

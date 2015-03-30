@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -78,6 +78,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Yields 0
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,

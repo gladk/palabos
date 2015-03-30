@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -251,7 +251,7 @@ void ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor>::cellCompletion (
         T delta = (T)1. - wallDistance * invDistanceToNeighbor;
         Array<T,3> normalFluidDirection((T)fluidDirection.x, (T)fluidDirection.y, (T)fluidDirection.z);
         normalFluidDirection *= invDistanceToNeighbor;
-        weights[iDirection] = fabs ( dot(normalFluidDirection, wallNormal) );
+        weights[iDirection] = std::fabs ( dot(normalFluidDirection, wallNormal) );
         sumWeights += weights[iDirection];
 
         computeVelocity(
@@ -344,16 +344,16 @@ void ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor>::computeVelocity (
             u = wall_u;
         }
         else {
-            u = 1./delta * (wall_u+(delta-1.)*u1);
+            u = (T)1./delta * (wall_u+(delta-(T)1.)*u1);
         }
     }
     else {  // depth >= 2
         if (delta < (T)0.75) {
-            u = wall_u + (delta-1.)*u1 +
-                (1.-delta)/(1.+delta)*(2.*wall_u+(delta-1.)*u2);
+            u = wall_u + (delta-(T)1.)*u1 +
+                ((T)1.-delta)/((T)1.+delta)*((T)2.*wall_u+(delta-(T)1.)*u2);
         }
         else {
-            u = 1./delta * (wall_u+(delta-1.)*u1);
+            u = (T)1./delta * (wall_u+(delta-(T)1.)*u1);
         }
     }
     if ( bdType==OffBoundary::neumann )
@@ -415,10 +415,8 @@ void InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor>::prepareCell (
         std::vector<int> wetNodeFluidDirections;
         std::vector<plint> ids;
         for (int iNeighbor=0; iNeighbor<NextNeighbor<T>::numNeighbors; ++iNeighbor) {
-//             pcout << "iNeighbor = " << iNeighbor << std::endl;
             int const* c = NextNeighbor<T>::c[iNeighbor];
             Dot3D neighbor(cellLocation.x+c[0], cellLocation.y+c[1], cellLocation.z+c[2]);
-            
             // TODO use only depth two if possible (add a check for only depth 
             // two selection or depth one if depth two not possible.
             
@@ -428,18 +426,16 @@ void InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor>::prepareCell (
                 // in the direction opposite to the solid.
                 int depth = 0;
                 for (int iDepth=1; iDepth<=getNumNeighbors(); ++iDepth) {
-//                     pcout << "depth = " << depth << std::endl;
                     Dot3D nextNeighbor(cellLocation.x-iDepth*c[0],
                                        cellLocation.y-iDepth*c[1],
                                        cellLocation.z-iDepth*c[2]);
                     
                     bool solidNeighbor = false;
                     for (int iPop=1; iPop<Descriptor<T>::q; ++iPop) {
-//                         pcout << "iPop = " << iPop << std::endl;
                         Dot3D nextNeighbor_neighbor(nextNeighbor.x+Descriptor<T>::c[iPop][0],
                                                     nextNeighbor.y+Descriptor<T>::c[iPop][1],
                                                     nextNeighbor.z+Descriptor<T>::c[iPop][2]);
-//                         pcout << (nextNeighbor_neighbor+offset).x << " , " << (nextNeighbor_neighbor+offset).y << " , " << (nextNeighbor_neighbor+offset).z << std::endl;
+
                         if (!(this->isFluid(nextNeighbor_neighbor+offset))) {
                             solidNeighbor = true;
                             break;
@@ -601,7 +597,7 @@ void InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor>::cellCompletion (
         
         Array<T,3> normalFluidDirection((T)solidDirection.x, (T)solidDirection.y, (T)solidDirection.z);
         normalFluidDirection *= invDistanceToNeighbor;
-        weights[iDirection] = fabs ( dot(normalFluidDirection, wallNormal) );
+        weights[iDirection] = std::fabs ( dot(normalFluidDirection, wallNormal) );
         sumWeights += weights[iDirection];
 
         computeVelocity (

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -301,7 +301,35 @@ std::auto_ptr<MultiScalarField3D<T> >
 {
     return computeVelocityNorm(lattice.getBoundingBox());
 }
-    
+
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+std::auto_ptr<MultiScalarField3D<T> >
+    OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeVorticityNorm(Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > vorticityNorm (
+            plb::computeNorm (
+                *plb::computeBulkVorticity(*plb::computeVelocity(lattice,domain), domain), domain ) );
+    int flowType = voxelizedDomain.getFlowType();
+    int solidFlag = voxelFlag::invert(flowType);
+    int solidBorderFlag = voxelFlag::borderFlag(solidFlag);
+    setToConstant<T>(*vorticityNorm, voxelizedDomain.getVoxelMatrix(), solidFlag, domain, T());
+    setToConstant<T>(*vorticityNorm, voxelizedDomain.getVoxelMatrix(), solidBorderFlag, domain, T());
+    return vorticityNorm;
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+std::auto_ptr<MultiScalarField3D<T> >
+    OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeVorticityNorm()
+{
+    return computeVorticityNorm(lattice.getBoundingBox());
+}
+
+
 template< typename T,
           template<typename U> class Descriptor,
           class BoundaryType >
@@ -520,6 +548,23 @@ T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeAverageVeloci
 template< typename T,
           template<typename U> class Descriptor,
           class BoundaryType >
+Array<T,3> OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeAverageVelocity(Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,3> > velocity (
+            plb::computeVelocity(lattice,domain) );
+    MultiScalarField3D<int> flagMatrix((MultiBlock3D&)voxelizedDomain.getVoxelMatrix());
+    int flowType = voxelizedDomain.getFlowType();
+    int fluidBorderFlag = voxelFlag::borderFlag(flowType);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  flowType, domain, 1);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  fluidBorderFlag, domain, 1);
+    return computeAverage<T,3>(*velocity, flagMatrix, 1, domain);
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
 T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeAverageDensity()
 {
     return computeAverageDensity(voxelizedDomain.getVoxelMatrix().getBoundingBox());
@@ -591,7 +636,60 @@ T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeRMSvorticity(
                   flowType, domain, 1);
     setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
                   fluidBorderFlag, domain, 1);
-    return sqrt(computeAverage(*vorticityNormSqr, flagMatrix, 1, domain));
+    return std::sqrt(computeAverage(*vorticityNormSqr, flagMatrix, 1, domain));
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeAverageShearStressNorm()
+{
+    return computeAverageShearStressNorm(voxelizedDomain.getVoxelMatrix().getBoundingBox());
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeAverageShearStressNorm(Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > shearStress (
+            plb::computeSymmetricTensorNorm(*plb::computeShearStress(lattice,domain)) );
+    MultiScalarField3D<int> flagMatrix((MultiBlock3D&)voxelizedDomain.getVoxelMatrix());
+    int flowType = voxelizedDomain.getFlowType();
+    int fluidBorderFlag = voxelFlag::borderFlag(flowType);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  flowType, domain, 1);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  fluidBorderFlag, domain, 1);
+    return computeAverage(*shearStress, flagMatrix, 1, domain);
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeRMSshearStressNorm()
+{
+    return computeRMSshearStressNorm(voxelizedDomain.getVoxelMatrix().getBoundingBox());
+}
+
+template< typename T,
+          template<typename U> class Descriptor,
+          class BoundaryType >
+T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeRMSshearStressNorm(Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > shearStressNorm (
+            plb::computeSymmetricTensorNorm(*plb::computeShearStress(lattice,domain)) );
+    T avgShearStress = computeAverageShearStressNorm(domain);
+    
+    MultiScalarField3D<int> flagMatrix((MultiBlock3D&)voxelizedDomain.getVoxelMatrix());
+    int flowType = voxelizedDomain.getFlowType();
+    int fluidBorderFlag = voxelFlag::borderFlag(flowType);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  flowType, domain, 1);
+    setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
+                  fluidBorderFlag, domain, 1);
+    shearStressNorm = subtract(*shearStressNorm,avgShearStress);
+    return std::sqrt(computeAverage(*multiply(*shearStressNorm, *shearStressNorm), flagMatrix, 1, domain));
 }
     
 }  // namespace plb

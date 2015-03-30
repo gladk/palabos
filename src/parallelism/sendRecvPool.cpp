@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,9 +25,6 @@
 /** \file
  * Wrapper functions that simplify the use of MPI
  */
-
-#ifndef SEND_RECV_POOL_HH
-#define SEND_RECV_POOL_HH
 
 #include "parallelism/mpiManager.h"
 #include "parallelism/sendRecvPool.h"
@@ -247,4 +244,3 @@ void RecvPoolCommunicator::finalizeStatic(int fromProc)
 
 }  // namespace plb
 
-#endif  // SEND_RECV_POOL_HH

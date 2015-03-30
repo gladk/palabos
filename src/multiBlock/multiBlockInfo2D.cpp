@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,13 +42,14 @@ bool getMultiBlockInfo(MultiBlock2D const& multiBlock,
     if (sparseBlock.getNumBlocks()==0) {
         return false;
     }
-    plint maxNumCells = management.getBulk(0).nCells();
-    plint largestBlock = 0;
-    plint minNumCells = management.getBulk(0).nCells();
-    plint smallestBlock = 0;
-    numAllocatedCells = 0;
+    plint firstBulk = sparseBlock.getBulks().begin()->first;
+    plint maxNumCells = management.getBulk(firstBulk).nCells();
+    plint minNumCells = management.getBulk(firstBulk).nCells();
     numBlocks = sparseBlock.getNumBlocks();
     std::map<plint,Box2D>::const_iterator it = sparseBlock.getBulks().begin();
+    plint largestBlock = it->first;
+    plint smallestBlock = it->first;
+    numAllocatedCells = 0;
     for (; it != sparseBlock.getBulks().end(); ++it) {
         plint numCells = it->second.nCells();
         numAllocatedCells += numCells;

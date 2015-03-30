@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -419,6 +419,20 @@ public:
 private:
     int whichScalar;
     T externalScalar;
+};
+
+/* ************* Class SetGenericExternalScalarFunctional2D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+class SetGenericExternalScalarFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor> {
+public:
+    SetGenericExternalScalarFunctional2D(int whichScalar_, Functional const& functional_);
+    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>* clone() const;
+private:
+    int whichScalar;
+    Functional functional;
 };
 
 /* ************* Class AddToExternalScalarFunctional2D ******************* */

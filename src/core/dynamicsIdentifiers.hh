@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,6 +45,12 @@ void createIdIndirection (
         int foreignId = it->first;
         std::string dynamicsName = it->second;
         int id = dynamicsRegistration<T,Descriptor>().getId(dynamicsName);
+        if (id==0) {
+            // You are trying to unserialize a dynamics object which has not been
+            // compiled into your current object code. Try to explicitly instantiate
+            // a dynamics object for all kinds which are going to be unserialized.
+            PLB_ASSERT( false );
+        }
         idIndirect.insert(std::pair<int,int>(foreignId,id));
     }
 }

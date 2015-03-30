@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -51,8 +51,9 @@ public:
     void transition(BubbleMatch3D& bubbleMatch, plint iterationStep, T newBubbleVolumeCorrection);
     // Based on the bubble information (original volume, current volume), update the pressure field
     // for all bubbles.
-    void updateBubblePressure(MultiScalarField3D<T>& outsideDensity, T rhoEmpty);
+    void updateBubblePressure(MultiScalarField3D<T>& outsideDensity, T rhoEmpty, T alpha = (T) -1, T beta = (T) -1, T gamma = (T) 1);
     void freeze();
+    void freezeLargestBubble();
     void timeHistoryLog(std::string fName);
     void fullBubbleLog(std::string fName);
     std::map<plint,BubbleInfo3D> const& getBubbles() const { return bubbles; }
@@ -84,6 +85,7 @@ private:
     static void computeBubbleTransitions (
             std::vector<std::vector<plint> > const& newToAllOldMap, std::map<plint,std::vector<plint> > const& oldToAllNewMap,
             std::vector<BubbleTransition3D>& bubbleTransitions );
+    static T getCutoffVolume() { return 2.0; }
 private:
     BubbleHistory3D(BubbleHistory3D<T> const& rhs) { PLB_ASSERT( false ); }
     BubbleHistory3D<T>& operator=(BubbleHistory3D<T> const& rhs) { PLB_ASSERT( false ); return *this; }
@@ -96,6 +98,14 @@ private:
     //    <Iteration>   <IDs of created bubbles>,<IDs of vanished bubbles>
     std::map<plint, std::pair<std::vector<plint>,std::vector<plint> > > timeHistory;
     std::vector<FullBubbleRecord> fullBubbleRecord;
+    /// IMPORTANT ///
+    // Checkpointing needs to be implemented for this code. To checkpoint, you need
+    // to save
+    // - bubbles
+    // - fullBubbleRecord
+    // - timeHistory (optional)
+    // - oldTagMatrix
+    // - nextBubbleID
 };
 
 struct BubbleCorrelationData3D : public ContainerBlockData {
@@ -123,18 +133,14 @@ public:
     { }
     void freeze() { frozen=true; }
     void setVolume(double newVolume) {
-        if (!frozen) {
-            currentVolume = newVolume;
-        }
+        currentVolume = newVolume;
     }
     void setReferenceVolume(double newReferenceVolume) {
-        if (!frozen) {
-            referenceVolume = newReferenceVolume;
-        }
+        referenceVolume = newReferenceVolume;
     }
     double getVolumeRatio() const {
         static const double epsilon = std::numeric_limits<double>::epsilon()*1.e4;
-        if (fabs(currentVolume)>epsilon) {
+        if (std::fabs(currentVolume)>epsilon) {
             return referenceVolume/currentVolume;
         }
         else {
@@ -169,14 +175,14 @@ struct BubbleTransition3D {
         }
         else if (oldIDs.size()==1) {
             if (newIDs.size()==1) {
-                sstream << "Sraight transition from ID "
+                sstream << "Straight transition from ID "
                         << *oldIDs.begin() << " to ID "
                         << *newIDs.begin();
             }
             else {
                 sstream << "Splitting from ID "
                         << *oldIDs.begin() << " to IDs";
-                std::set<plint,plint>::const_iterator it = newIDs.begin();
+                std::set<plint>::const_iterator it = newIDs.begin();
                 for (; it!=newIDs.end(); ++it) {
                     sstream << " " << *it;
                 }
@@ -184,7 +190,7 @@ struct BubbleTransition3D {
         }
         else if (newIDs.size()==1) {
             sstream << "Merging IDs";
-            std::set<plint,plint>::const_iterator it = oldIDs.begin();
+            std::set<plint>::const_iterator it = oldIDs.begin();
             for(; it!=oldIDs.end(); ++it) {
                 sstream << " " << *it;
             }
@@ -192,12 +198,12 @@ struct BubbleTransition3D {
         }
         else {
             sstream << "Transition from IDs";
-            std::set<plint,plint>::const_iterator it1 = oldIDs.begin();
+            std::set<plint>::const_iterator it1 = oldIDs.begin();
             for(; it1!=oldIDs.end(); ++it1) {
                 sstream << " " << *it1;
             }
             sstream << " into IDs ";
-            std::set<plint,plint>::const_iterator it2 = newIDs.begin();
+            std::set<plint>::const_iterator it2 = newIDs.begin();
             for (; it2!=newIDs.end(); ++it2) {
                 sstream << " " << *it2;
             }
@@ -258,7 +264,7 @@ template<typename T>
 class UpdateBubblePressure3D : public BoxProcessingFunctional3D_SS<plint,T>
 {
 public:
-    UpdateBubblePressure3D(std::map<plint,BubbleInfo3D> const& bubbles_, T rho0_);
+    UpdateBubblePressure3D(std::map<plint,BubbleInfo3D> const& bubbles_, T rho0_, T alpha_, T beta_, T gamma_);
     virtual void process(Box3D domain, ScalarField3D<plint>& tags,
                                        ScalarField3D<T>& density);
     virtual UpdateBubblePressure3D* clone() const;
@@ -269,6 +275,9 @@ public:
 private:
     std::map<plint,BubbleInfo3D> bubbles;
     T rho0;
+    T alpha;
+    T beta;
+    T gamma;
 };
 
 }  // namespace plb

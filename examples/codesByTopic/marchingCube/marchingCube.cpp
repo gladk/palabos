@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,6 +38,7 @@ typedef double T;
 #define DESCRIPTOR descriptors::D3Q19Descriptor
 
 
+// To define the surface as an iso-level of a height function.
 template<typename T>
 class ShapeFunction {
 public:
@@ -45,11 +46,30 @@ public:
         : c1(c1_), c2(c2_)
     { }
     T operator()(plint iX, plint iY, plint iZ) {
-        return std::min( sqrt(util::sqr(iX-c1[0])+util::sqr(iY-c1[1])+util::sqr(iZ-c1[2])),
-                         sqrt(util::sqr(iX-c2[0])+util::sqr(iY-c2[1])+util::sqr(iZ-c2[2])) );
+        return std::min( std::sqrt((T)util::sqr(iX-c1[0])+(T)util::sqr(iY-c1[1])+(T)util::sqr(iZ-c1[2])),
+                         std::sqrt((T)util::sqr(iX-c2[0])+(T)util::sqr(iY-c2[1])+(T)util::sqr(iZ-c2[2])) );
     }
 private:
     Array<plint,3> c1, c2;
+};
+
+
+// To define the surface from a boolean inside-vs-outside function.
+class SphereFunction {
+public:
+    SphereFunction(Array<plint,3> const& center_,  plint radius_)
+        : center(center_),
+          radius(radius_)
+    { }
+    bool intIsInside(Array<plint,3> const& pos) const {
+        return normSqr(pos-center) < radius*radius;
+    }
+    bool floatIsInside(Array<T,3> const& pos) const {
+        return normSqr(Array<T,3>(pos[0]-center[0],pos[1]-center[1],pos[2]-center[2])) < radius*radius;
+    }
+private:
+    Array<plint,3> center;
+    plint radius;
 };
 
 
@@ -65,10 +85,17 @@ int main(int argc, char* argv[]) {
     MultiScalarField3D<T> scalarField(nx,ny,nz);
     setToFunction(scalarField, scalarField.getBoundingBox(), ShapeFunction<T>(Array<plint,3>(40,40,40),Array<plint,3>(140,140,140)));
 
+    // Alternative way to get the first application: through an analytical description.
     typedef TriangleSet<T>::Triangle Triangle;
     std::vector<Triangle> triangles;
     isoSurfaceMarchingCube(triangles, scalarField, isoLevels, scalarField.getBoundingBox().enlarge(-1));
     TriangleSet<T>(triangles).writeAsciiSTL("iso.stl");
+
+    std::vector<Triangle> triangles2;
+    isoSurfaceMarchingCube<T,SphereFunction>(triangles2, scalarField, SphereFunction(Array<plint,3>(40,40,40), 50),
+                                             scalarField.getBoundingBox().enlarge(-1));
+    TriangleSet<T>(triangles2).writeAsciiSTL("iso2.stl");
+
 
     // Second application: Revoxelize an STL file.
     TriangleSet<T> artery("aneurysm.stl", DBL);

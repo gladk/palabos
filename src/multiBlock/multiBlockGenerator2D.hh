@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,6 +24,12 @@
 
 /** \file
  * Copy 2D multiblocks on a new parallel distribution -- generic implementation.
+ */
+
+/*
+ * All functions that take as an argument a Box2D, or compute intersections, or join,
+ * or crop, do not adjust periodicity of the newly created blocks by default. The user
+ * is responsible to take care of this matter explicitly.
  */
 
 #ifndef MULTI_BLOCK_GENERATOR_2D_HH
@@ -110,14 +116,14 @@ std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
 
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > defaultGenerateMultiScalarField2D (
-        MultiBlockManagement2D const& management, plint nDim )
+        MultiBlockManagement2D const& management, T iniVal )
 {
     return std::auto_ptr<MultiScalarField2D<T> > (
         new MultiScalarField2D<T> (
             management,
             defaultMultiBlockPolicy2D().getBlockCommunicator(),
             defaultMultiBlockPolicy2D().getCombinedStatistics(),
-            defaultMultiBlockPolicy2D().getMultiScalarAccess<T>(), T() )
+            defaultMultiBlockPolicy2D().getMultiScalarAccess<T>(), iniVal )
     );
 }
 
@@ -241,18 +247,25 @@ std::auto_ptr<MultiScalarField2D<T> > except (
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > redistribute (
         MultiScalarField2D<T> const& originalField,
-        SparseBlockStructure2D const& newBlockStructure )
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiScalarField2D<T> > newField (
         new MultiScalarField2D<T> (
             MultiBlockManagement2D (
                 newBlockStructure,
                 originalField.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalField.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalField.getMultiBlockManagement().getEnvelopeWidth(),
+                originalField.getMultiBlockManagement().getRefinementLevel() ),
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiScalarAccess<T>() )
     );
+
+    if (adjustPeriodicity) {
+        newField->periodicity().toggle(0, originalField.periodicity().get(0));
+        newField->periodicity().toggle(1, originalField.periodicity().get(1));
+    }
 
     transferScalarFieldNonLocal(originalField, *newField, originalField.getBoundingBox());
 
@@ -265,7 +278,8 @@ std::auto_ptr<MultiScalarField2D<T> > redistribute (
         SparseBlockStructure2D const& newBlockStructure,
         Box2D const& intersection, bool crop )
 {
-    return redistribute(originalField, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalField, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 template<typename T>
@@ -281,6 +295,9 @@ std::auto_ptr<MultiScalarField2D<T> > align (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiScalarAccess<T>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferScalarFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -309,6 +326,9 @@ std::auto_ptr<MultiScalarField2D<T> > reparallelize (
             defaultMultiBlockPolicy2D().getMultiScalarAccess<T>() )
     );
 
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+
     transferScalarFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
 
@@ -327,7 +347,6 @@ std::auto_ptr<MultiNTensorField2D<T> > defaultGenerateMultiNTensorField2D (
         defaultMultiBlockPolicy2D().getBlockCommunicator(),
         defaultMultiBlockPolicy2D().getCombinedStatistics(),
         defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    field->periodicity().toggleAll(true);
     return std::auto_ptr<MultiNTensorField2D<T> >(field);
 }
 
@@ -341,7 +360,6 @@ MultiNTensorField2D<T>* generateMultiNTensorField2D(Box2D const& domain, plint n
         defaultMultiBlockPolicy2D().getBlockCommunicator(),
         defaultMultiBlockPolicy2D().getCombinedStatistics(),
         defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    field->periodicity().toggleAll(true);
     return field;
 }
 
@@ -374,7 +392,6 @@ MultiNTensorField2D<T>* clone (
 {
     MultiNTensorField2D<T>* clonedField =
             generateMultiNTensorField<T>(originalField, subDomain, crop);
-    clonedField->periodicity()=originalField.periodicity();
 
     transferNTensorFieldLocal( originalField, *clonedField,
                                originalField.getBoundingBox() );
@@ -393,7 +410,6 @@ MultiNTensorField2D<T>* generateMultiNTensorField (
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField.periodicity();
     return newField;
 }
 
@@ -404,7 +420,6 @@ MultiNTensorField2D<T2>*
             Box2D const& intersection, plint nDim )
 {
     MultiNTensorField2D<T2>* newField = generateMultiNTensorField<T2>(field, intersection, nDim);
-    newField->periodicity() = field.periodicity();
     return newField;
 }
 
@@ -415,7 +430,6 @@ MultiNTensorField2D<T1>*
             Box2D const& intersection, plint nDim )
 {
     MultiNTensorField2D<T1>* newField = generateMultiNTensorField<T1>(lattice, intersection, nDim);
-    newField->periodicity() = lattice.periodicity();
     return newField;
 }
 
@@ -432,7 +446,6 @@ MultiNTensorField2D<T>* generateIntersectMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -453,7 +466,6 @@ MultiNTensorField2D<T>* generateIntersectMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -470,7 +482,6 @@ MultiNTensorField2D<T>* generateJoinMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -485,7 +496,6 @@ MultiNTensorField2D<T>* extend (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
 
     transferNTensorFieldLocal( originalBlock, *newBlock,
                                originalBlock.getBoundingBox() );
@@ -505,7 +515,6 @@ MultiNTensorField2D<T>* except (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
 
     transferNTensorFieldLocal( originalBlock, *newBlock,
                                originalBlock.getBoundingBox() );
@@ -526,7 +535,9 @@ MultiNTensorField2D<T>* align (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferNTensorFieldNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -545,7 +556,9 @@ MultiNTensorField2D<T>* reparallelize (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferNTensorFieldNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -736,18 +749,26 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > except (
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField2D<T,nDim> > redistribute (
         MultiTensorField2D<T,nDim> const& originalField,
-        SparseBlockStructure2D const& newBlockStructure )
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiTensorField2D<T,nDim> > newField (
         new MultiTensorField2D<T,nDim> (
             MultiBlockManagement2D (
                 newBlockStructure,
                 originalField.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalField.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalField.getMultiBlockManagement().getEnvelopeWidth(),
+                originalField.getMultiBlockManagement().getRefinementLevel() ),
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiTensorAccess<T,nDim>() )
     );
+
+    if (adjustPeriodicity) {
+        newField->periodicity().toggle(0, originalField.periodicity().get(0));
+        newField->periodicity().toggle(1, originalField.periodicity().get(1));
+    }
+
     transferTensorFieldNonLocal(originalField, *newField, originalField.getBoundingBox());
 
     return newField;
@@ -759,7 +780,8 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > redistribute (
         SparseBlockStructure2D const& newBlockStructure,
         Box2D const& intersection, bool crop  )
 {
-    return redistribute(originalField, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalField, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 
@@ -776,6 +798,9 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > align (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiTensorAccess<T,nDim>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferTensorFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -803,6 +828,9 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > reparallelize (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiTensorAccess<T,nDim>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferTensorFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -991,19 +1019,26 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > except (
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > redistribute (
         MultiBlockLattice2D<T,Descriptor> const& originalBlock,
-        SparseBlockStructure2D const& newBlockStructure )
+        SparseBlockStructure2D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > newBlock (
         new MultiBlockLattice2D<T,Descriptor> (
             MultiBlockManagement2D (
                 newBlockStructure,
                 originalBlock.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalBlock.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalBlock.getMultiBlockManagement().getEnvelopeWidth(),
+                originalBlock.getMultiBlockManagement().getRefinementLevel() ),
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy2D().getMultiCellAccess<T,Descriptor>(),
             originalBlock.getBackgroundDynamics().clone() )
     );
+
+    if (adjustPeriodicity) {
+        newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+        newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    }
 
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -1017,7 +1052,8 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > redistribute (
         SparseBlockStructure2D const& newBlockStructure,
         Box2D const& intersection, bool crop )
 {
-    return redistribute(originalBlock, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalBlock, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1034,6 +1070,9 @@ std::auto_ptr<MultiBlockLattice2D<T, Descriptor> > align (
             defaultMultiBlockPolicy2D().getMultiCellAccess<T,Descriptor>(),
             originalBlock.getBackgroundDynamics().clone() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -1062,6 +1101,9 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > reparallelize (
             defaultMultiBlockPolicy2D().getMultiCellAccess<T,Descriptor>(),
             originalBlock.getBackgroundDynamics().clone() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
 
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );

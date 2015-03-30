@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,13 +45,13 @@ public:
         sampleFunction();
     }
     T rawValue(T r) const {
-        T rabs = fabs(r);
+        T rabs = std::fabs(r);
         T rsqr = r*r;
         if (rabs<1.) {
-            return 0.125*(3.-2.*rabs+sqrt(1.+4.*rabs-4.*rsqr));
+            return 0.125*(3.-2.*rabs+std::sqrt(1.+4.*rabs-4.*rsqr));
         }
         else if (rabs<2.) {
-            return 0.125*(5.-2.*rabs-sqrt(-7.+12.*rabs-4.*rsqr));
+            return 0.125*(5.-2.*rabs-std::sqrt(-7.+12.*rabs-4.*rsqr));
         }
         else {
             return 0.;
@@ -211,7 +211,7 @@ template<typename T, class VelFunction>
 class InamuroIteration3D : public BoxProcessingFunctional3D
 {
 public:
-    InamuroIteration3D(VelFunction velFunction_, T tau_);
+    InamuroIteration3D(VelFunction velFunction_, T tau_, bool incompressibleModel_);
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual InamuroIteration3D<T,VelFunction>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
@@ -219,6 +219,7 @@ public:
 private:
     VelFunction velFunction;
     T tau;
+    bool incompressibleModel;
 };
 
 template<typename T, class VelFunction>
@@ -226,14 +227,15 @@ void inamuroIteration (
     VelFunction velFunction,
     MultiScalarField3D<T>& rhoBar,
     MultiTensorField3D<T,3>& j,
-    MultiContainerBlock3D& container, T tau )
+    MultiContainerBlock3D& container, T tau,
+    bool incompressibleModel )
 {
     std::vector<MultiBlock3D*> args;
     args.push_back(&rhoBar);
     args.push_back(&j);
     args.push_back(&container);
     applyProcessingFunctional (
-        new InamuroIteration3D<T,VelFunction>(velFunction, tau), rhoBar.getBoundingBox(), args );
+        new InamuroIteration3D<T,VelFunction>(velFunction, tau, incompressibleModel), rhoBar.getBoundingBox(), args );
 }
 
 /* ******** IndexedInamuroIteration3D ************************************ */
@@ -245,7 +247,7 @@ template<typename T, class VelFunction>
 class IndexedInamuroIteration3D : public BoxProcessingFunctional3D
 {
 public:
-    IndexedInamuroIteration3D(VelFunction velFunction_, T tau_);
+    IndexedInamuroIteration3D(VelFunction velFunction_, T tau_, bool incompressibleModel_);
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual IndexedInamuroIteration3D<T,VelFunction>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
@@ -253,6 +255,7 @@ public:
 private:
     VelFunction velFunction;
     T tau;
+    bool incompressibleModel;
 };
 
 template<typename T, class VelFunction>
@@ -260,14 +263,15 @@ void indexedInamuroIteration (
     VelFunction velFunction,
     MultiScalarField3D<T>& rhoBar,
     MultiTensorField3D<T,3>& j,
-    MultiContainerBlock3D& container, T tau )
+    MultiContainerBlock3D& container, T tau,
+    bool incompressibleModel )
 {
     std::vector<MultiBlock3D*> args;
     args.push_back(&rhoBar);
     args.push_back(&j);
     args.push_back(&container);
     applyProcessingFunctional (
-        new IndexedInamuroIteration3D<T,VelFunction>(velFunction, tau), rhoBar.getBoundingBox(), args );
+        new IndexedInamuroIteration3D<T,VelFunction>(velFunction, tau, incompressibleModel), rhoBar.getBoundingBox(), args );
 }
 
 /* ******** ConstVelInamuroIteration3D ************************************ */
@@ -276,7 +280,7 @@ template<typename T>
 class ConstVelInamuroIteration3D : public BoxProcessingFunctional3D
 {
 public:
-    ConstVelInamuroIteration3D(Array<T,3> const& wallVelocity_, T tau_);
+    ConstVelInamuroIteration3D(Array<T,3> const& wallVelocity_, T tau_, bool incompressibleModel_);
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual ConstVelInamuroIteration3D<T>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
@@ -284,6 +288,7 @@ public:
 private:
     Array<T,3> wallVelocity;
     T tau;
+    bool incompressibleModel;
 };
 
 template<typename T>
@@ -291,14 +296,15 @@ void constVelInamuroIteration (
     Array<T,3> const& wallVelocity,
     MultiScalarField3D<T>& rhoBar,
     MultiTensorField3D<T,3>& j,
-    MultiContainerBlock3D& container, T tau )
+    MultiContainerBlock3D& container, T tau,
+    bool incompressibleModel )
 {
     std::vector<MultiBlock3D*> args;
     args.push_back(&rhoBar);
     args.push_back(&j);
     args.push_back(&container);
     applyProcessingFunctional (
-        new ConstVelInamuroIteration3D<T>(wallVelocity, tau), rhoBar.getBoundingBox(), args );
+        new ConstVelInamuroIteration3D<T>(wallVelocity, tau, incompressibleModel), rhoBar.getBoundingBox(), args );
 }
 
 
@@ -307,7 +313,7 @@ void constVelInamuroIteration (
 
 // This functional computes the immersed boundary force on the lattice and
 // stores it in a provided tensor field. This data processor must be called
-// after all the immersed boundary iteretions have completed.
+// after all the immersed boundary iterations have completed.
 template<typename T>
 class ComputeImmersedBoundaryForce3D : public BoxProcessingFunctional3D
 {
@@ -436,6 +442,109 @@ void instantiateImmersedWallDataWithIndexedTagging (
     applyProcessingFunctional (
             new InstantiateImmersedWallDataWithIndexedTagging3D<T>(vertices, areas, flags),
             container.getBoundingBox(), args );
+}
+
+/* ******** ResetForceStatistics3D ************************************ */
+
+// This data processor resets to zero the "per surface vertex" force vectors
+// which reside in the immersed data container field. This is used for
+// optimization purposes. Sometimes when the surface is not moving, the user
+// should instantiate the immersed wall data only once, and not at every
+// itaration. Doing so, would not work for the force computations, since the
+// forces are added up during the Inamuro iterations. This is why, before
+// measuring the forces, one must call this data processor, so that the force
+// variable in the container is set back to zero.
+template<typename T>
+class ResetForceStatistics3D : public BoxProcessingFunctional3D
+{
+public:
+    ResetForceStatistics3D()
+    { }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual ResetForceStatistics3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+void resetForceStatistics(MultiContainerBlock3D& container)
+{ 
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&container);
+    applyProcessingFunctional(new ResetForceStatistics3D<T>(), container.getBoundingBox(), args);
+}
+
+/* ******** RecomputeImmersedForce3D ************************************ */
+
+// This class recomputes the immersed force (variable "g" in the ImmersedWallData3D)
+// by using the classical stress tensor relation.
+// The normalFunction is a function:
+//   Array<T,3> normalFunction(plint id);
+// which takes a global vertex id and computes the unit normal at that point.
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+class RecomputeImmersedForce3D : public BoxProcessingFunctional3D
+{
+public:
+    RecomputeImmersedForce3D(NormalFunction normalFunction_, T omega_,
+            T densityOffset_, bool incompressibleModel_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual RecomputeImmersedForce3D<T,Descriptor,NormalFunction>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    NormalFunction normalFunction;
+    T omega;
+    T rho0;
+    bool incompressibleModel;
+};
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+void recomputeImmersedForce(NormalFunction normalFunction, T omega,
+        T densityOffset, MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiContainerBlock3D& container, plint envelopeWidth, Box3D domain,
+        bool incompressibleModel)
+{
+    // TODO: The next commented-out version is how it is supposed to work, but it doesn't because
+    // the BoxRhoBarFunctional3D and the BoxPiNeqFunctional3D are applied to bulkAndEnvelope instead
+    // of just bulk.
+    /*
+    std::auto_ptr<MultiScalarField3D<T> > rhoBar = generateMultiScalarField<T>(lattice, envelopeWidth);
+    computeRhoBar<T,Descriptor>(lattice, *rhoBar, domain);
+
+    std::auto_ptr<MultiTensorField3D<T,SymmetricTensorImpl<T,3>::n> > PiNeq =
+        generateMultiTensorField<T,SymmetricTensorImpl<T,3>::n>(lattice, envelopeWidth);
+    computePiNeq<T,Descriptor>(lattice, *PiNeq, domain);
+
+    std::vector<MultiBlock3D*> args;
+    args.push_back(rhoBar.get());
+    args.push_back(PiNeq.get());
+    args.push_back(&container);
+    applyProcessingFunctional(new RecomputeImmersedForce3D<T,Descriptor,NormalFunction>(
+            normalFunction, omega, densityOffset, incompressibleModel),
+            domain, args);
+            */
+
+    // TODO: The next is a temporary fix by using the "copy" function which is applied only to the bulk
+    // (and not to bulkAndEnvelope).
+    std::auto_ptr<MultiScalarField3D<T> > rhoBar = generateMultiScalarField<T>(lattice, envelopeWidth);
+    computeRhoBar<T,Descriptor>(lattice, *rhoBar, domain);
+    std::auto_ptr<MultiScalarField3D<T> > copiedRhoBar = generateMultiScalarField<T>(*rhoBar, envelopeWidth);
+    plb::copy(*rhoBar, *copiedRhoBar, rhoBar->getBoundingBox());
+
+    std::auto_ptr<MultiTensorField3D<T,SymmetricTensorImpl<T,3>::n> > PiNeq =
+        generateMultiTensorField<T,SymmetricTensorImpl<T,3>::n>(lattice, envelopeWidth);
+    computePiNeq<T,Descriptor>(lattice, *PiNeq, domain);
+    std::auto_ptr<MultiTensorField3D<T,SymmetricTensorImpl<T,3>::n> > copiedPiNeq =
+        generateMultiTensorField<T,SymmetricTensorImpl<T,3>::n>(*PiNeq, envelopeWidth);
+    plb::copy(*PiNeq, *copiedPiNeq, PiNeq->getBoundingBox());
+
+    std::vector<MultiBlock3D*> args;
+    args.push_back(copiedRhoBar.get());
+    args.push_back(copiedPiNeq.get());
+    args.push_back(&container);
+    applyProcessingFunctional(new RecomputeImmersedForce3D<T,Descriptor,NormalFunction>(
+                normalFunction, omega, densityOffset, incompressibleModel),
+            domain, args);
 }
 
 /* ******** TwoPhaseInamuroParam3D ************************************ */

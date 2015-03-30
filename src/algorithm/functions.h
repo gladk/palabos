@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,6 +69,38 @@ public:
 private:
     plint threshold;
 };
+
+// Smoothly increasing function from 0.0 to 1.0 using a sine.
+template<typename T>
+T sinIncreasingFunction(T t, T maxT)
+{
+    static T pi = std::acos((T) -1);
+
+    if (t >= maxT) {
+        return((T) 1);
+    }
+
+    if (t < 0) {
+        return((T) 0);
+    }
+
+    return(std::sin(pi * t / (2.0 * maxT)));
+}
+
+// Smoothly increasing function from 0.0 to 1.0 using the hyperbolic tangent function.
+template<typename T>
+T tanhIncreasingFunction(T t, T maxT)
+{
+    if (t >= maxT) {
+        return((T) 1);
+    }
+
+    if (t < 0) {
+        return((T) 0);
+    }
+
+    return(0.5 * (1.0 + std::tanh(6.0 / maxT * (t - maxT / 2.0))));
+}
 
 }  // namespace util
 

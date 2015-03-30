@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,9 +23,9 @@
 */
 
 /** \file
- * #include "core/globalDefs.h"
  * Groups all the 3D include files for the directory io.
  */
+
 #include "io/base64.h"
 #include "io/serializerIO.h"
 #include "io/serializerIO_3D.h"
@@ -38,3 +38,6 @@
 #include "io/plbFiles.h"
 #include "io/multiBlockReader3D.h"
 #include "io/multiBlockWriter3D.h"
+#include "io/utilIO_3D.h"
+#include "io/transientStatistics3D.h"
+

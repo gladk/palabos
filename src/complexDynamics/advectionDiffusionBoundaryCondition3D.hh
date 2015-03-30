@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -204,6 +204,93 @@ DataProcessorGenerator3D*
 }
 
 
+template<typename T, template<typename U> class Descriptor>
+class AdvectionDiffusionRegularizedBoundaryManager3D {
+public:
+
+    template<int direction, int orientation>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getTemperatureBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
+
+    template<int direction, int orientation>
+        static DataProcessorGenerator3D*
+            getTemperatureBoundaryProcessor(Box3D domain);
+
+    template<int plane, int normal1, int normal2>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getTemperatureEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics);
+
+    template<int plane, int normal1, int normal2>
+        static DataProcessorGenerator3D*
+            getTemperatureEdgeProcessor(Box3D domain);
+
+    template<int xNormal, int yNormal, int zNormal>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getTemperatureCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int xNormal, int yNormal, int zNormal>
+        static DataProcessorGenerator3D*
+            getTemperatureCornerProcessor(plint x, plint y, plint z);
+
+};
+
+
+////////// AdvectionDiffusionRegularizedBoundaryManager3D /////////////////////////////////////////
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoundaryCompositeDynamics<T,Descriptor>* AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+    getTemperatureBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new AdvectionDiffusionBoundaryDynamics
+                   <T,Descriptor,direction,orientation>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+DataProcessorGenerator3D*
+    AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+        getTemperatureBoundaryProcessor(Box3D domain)
+{
+    return 0;
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+BoundaryCompositeDynamics<T,Descriptor>*
+    AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+        getTemperatureEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new StoreDensityDynamics<T,Descriptor>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+DataProcessorGenerator3D*
+    AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+        getTemperatureEdgeProcessor(Box3D domain)
+{
+    return 0; // TODO build data processors
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+BoundaryCompositeDynamics<T,Descriptor>*
+    AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+        getTemperatureCornerDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new StoreDensityDynamics<T,Descriptor>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+DataProcessorGenerator3D*
+    AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor>::
+        getTemperatureCornerProcessor(plint x, plint y, plint z)
+{
+    return 0;
+}
+
+
 ////////// Factory functions //////////////////////////////////////////////////
 
 template<typename T, template<typename U> class Descriptor>
@@ -212,6 +299,14 @@ OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
 {
     return new AdvectionDiffusionBoundaryConditionInstantiator3D<T, Descriptor,
                        AdvectionDiffusionBoundaryManager3D<T,Descriptor> > ();
+}
+
+template<typename T, template<typename U> class Descriptor>
+OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>* 
+        createLocalRegularizedAdvectionDiffusionBoundaryCondition3D()
+{
+    return new AdvectionDiffusionBoundaryConditionInstantiator3D<T, Descriptor,
+                       AdvectionDiffusionRegularizedBoundaryManager3D<T,Descriptor> > ();
 }
 
 }  // namespace plb

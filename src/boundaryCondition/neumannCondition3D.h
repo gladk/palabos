@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,6 +32,7 @@
 #include "core/blockLatticeBase3D.h"
 #include "atomicBlock/blockLattice3D.h"
 #include "atomicBlock/dataProcessorWrapper3D.h"
+#include "boundaryCondition/boundaryDynamics.h"
 
 namespace plb {
 
@@ -158,6 +159,30 @@ private:
                         // If type = 1 some times gives the best results.
 };
 
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+class VirtualOutletDynamics : public BoundaryCompositeDynamics<T,Descriptor>
+{
+public:
+    /// Constructor
+    VirtualOutletDynamics(Dynamics<T,Descriptor>* baseDynamics, bool automaticPrepareCollision = true);
+    VirtualOutletDynamics(HierarchicUnserializer& unserializer);
+    /// Clone the object on its dynamic type.
+    virtual VirtualOutletDynamics<T, Descriptor, direction, orientation>* clone() const;
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    /// Execute completion scheme before base collision
+    virtual void completePopulations(Cell<T,Descriptor>& cell) const;
+    void saveData(Cell<T,Descriptor>& cell) const;
+private:
+    mutable std::vector<T> savedFneq;
+    mutable Array<T,Descriptor<T>::d> savedJ;
+    mutable T savedRhoBar;
+    static int id;
+};
+
 }  // namespace plb
 
 #endif  // NEUMANN_CONDITION_3D_H
+

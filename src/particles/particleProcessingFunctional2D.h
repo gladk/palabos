@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,6 +47,26 @@ public:
     plint getNumParticles() const;
 private:
     plint numParticlesId;
+};
+
+/// Count the number of particles, no matter which kind, found inside the domain.
+template<typename T, template<typename U> class Descriptor>
+class CountParticlesSelectiveFunctional2D : public PlainReductiveBoxProcessingFunctional2D
+{
+public:
+    CountParticlesSelectiveFunctional2D(util::SelectInt* tags_);
+    ~CountParticlesSelectiveFunctional2D();
+    CountParticlesSelectiveFunctional2D(CountParticlesSelectiveFunctional2D<T,Descriptor> const& rhs);
+    CountParticlesSelectiveFunctional2D<T,Descriptor>& operator=(CountParticlesSelectiveFunctional2D<T,Descriptor> const& rhs);
+    void swap(CountParticlesSelectiveFunctional2D<T,Descriptor>& rhs);
+    /// Argument: Particle-field.
+    virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
+    virtual CountParticlesSelectiveFunctional2D<T,Descriptor>* clone() const;
+    plint getNumParticles() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint numParticlesId;
+    util::SelectInt* tags;
 };
 
 /// Compute the average over all particle velocities.
@@ -101,21 +121,25 @@ private:
     T probabilityPerCell;
 };
 
-/// Generate a random number of particles inside the domain. Each cell generates
-///   at most one cell, with a given probability and at a random position inside
+/// Generate a random number of point-particles inside the domain. Each cell generates
+///   at most one particle, with a given probability and at a random position inside
 ///   the cell.
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-class AnalyticalInjectRandomPointParticlesFunctional2D : public BoxProcessingFunctional2D
+class AnalyticalInjectRandomParticlesFunctional2D : public BoxProcessingFunctional2D
 {
 public:
-    AnalyticalInjectRandomPointParticlesFunctional2D(plint tag_, T probabilityPerCell_, DomainFunctional functional_);
+    AnalyticalInjectRandomParticlesFunctional2D(Particle2D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, DomainFunctional functional_);
+    AnalyticalInjectRandomParticlesFunctional2D(AnalyticalInjectRandomParticlesFunctional2D<T,Descriptor,DomainFunctional> const& rhs);
+    AnalyticalInjectRandomParticlesFunctional2D<T,Descriptor,DomainFunctional>&
+        operator=(AnalyticalInjectRandomParticlesFunctional2D<T,Descriptor,DomainFunctional> const& rhs);
+    void swap(AnalyticalInjectRandomParticlesFunctional2D<T,Descriptor,DomainFunctional>& rhs);
+    ~AnalyticalInjectRandomParticlesFunctional2D();
     /// Argument: Particle-field.
     virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
-    virtual AnalyticalInjectRandomPointParticlesFunctional2D<T,Descriptor,DomainFunctional>* clone() const;
-    virtual BlockDomain::DomainT appliesTo() const;
+    virtual AnalyticalInjectRandomParticlesFunctional2D<T,Descriptor,DomainFunctional>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
-    plint tag;
+    Particle2D<T,Descriptor>* particleTemplate;
     T probabilityPerCell;
     DomainFunctional functional;
 };
@@ -138,11 +162,15 @@ template<typename T, template<typename U> class Descriptor>
 class FluidToParticleCoupling2D : public BoxProcessingFunctional2D
 {
 public:
+    /// Particle speed = scaling*fluid speed.
+    FluidToParticleCoupling2D(T scaling_);
     /// Arguments: [0] Particle-field; [1] Fluid.
     virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
     virtual FluidToParticleCoupling2D<T,Descriptor>* clone() const;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T scaling;
 };
 
 
@@ -259,6 +287,39 @@ public:
 private:
     plint tag;
 };
+
+
+/// Count the number of particles with given tags at each cell node and place the result to the scalar field.
+template<typename T, template<typename U> class Descriptor>
+class CountTaggedParticles2D : public BoxProcessingFunctional2D
+{
+public:
+    CountTaggedParticles2D(util::SelectInt* tags_);
+    ~CountTaggedParticles2D();
+    CountTaggedParticles2D(CountTaggedParticles2D<T,Descriptor> const& rhs);
+    CountTaggedParticles2D<T,Descriptor>& operator=(CountTaggedParticles2D<T,Descriptor> const& rhs);
+    void swap(CountTaggedParticles2D<T,Descriptor>& rhs);
+    /// Arguments: [0] Particle-field; [1] Number of particles (plint scalar-field).
+    virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
+    virtual CountTaggedParticles2D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    util::SelectInt* tags;
+};
+
+template< typename T, template<typename U> class Descriptor,
+          template<typename T_, template<typename U_> class Descriptor_> class ParticleFieldT >
+plint countParticles (
+                MultiParticleField2D<ParticleFieldT<T,Descriptor> >& particles, Box2D const& domain );
+
+template< typename T, template<typename U> class Descriptor,
+          template<typename T_, template<typename U_> class Descriptor_> class ParticleFieldT >
+plint countParticles (
+                MultiParticleField2D<ParticleFieldT<T,Descriptor> >& particles, Box2D const& domain, util::SelectInt* tags );
+
+template<typename T, template<typename U> class Descriptor>
+void injectParticles(std::vector<Particle2D<T,Descriptor>*>& injectedParticles,
+                     MultiParticleField2D<DenseParticleField2D<T,Descriptor> >& particles, Box2D domain);
 
 
 /* Iterations of a passive-scalar fluid-particle system:

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -96,6 +96,12 @@ namespace descriptors {
         static const char name[];
     };
     
+    template <typename T> struct RhoBarJPiNeqOmegaD2Q9Descriptor
+        : public D2Q9DescriptorBase<T>, public RhoBarJPiNeqOmegaDescriptorBase2D
+    {
+        static const char name[];
+    };
+    
     template <typename T> struct VelocityD2Q9Descriptor
         : public D2Q9DescriptorBase<T>, public Velocity2dDescriptorBase
     {
@@ -111,6 +117,12 @@ namespace descriptors {
 
     template <typename T> struct Tau1_D2Q9Descriptor
         : public Tau1_D2Q9DescriptorBase<T>, public RhoBarJdescriptorBase2D
+    {
+        static const char name[];
+    };
+
+    template <typename T> struct AbsorbingWaveD2Q9Descriptor
+        : public D2Q9DescriptorBase<T>, public AbsorbingWaveExternalField2dBase
     {
         static const char name[];
     };

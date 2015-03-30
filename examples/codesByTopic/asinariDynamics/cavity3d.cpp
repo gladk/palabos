@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,7 +69,7 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     const plint ny = parameters.getNy();
     const plint nz = parameters.getNz();
     Box3D topLid = Box3D(0, nx-1, ny-1, ny-1, 0, nz-1);
-    Box3D bottomLid = Box3D(0, nx-1, 0, 0, 0, nz-1);
+    //Box3D bottomLid = Box3D(0, nx-1, 0, 0, 0, nz-1);
     Box3D everythingButTopLid = Box3D(0, nx-1, 0, ny-2, 0, nz-1);
 
     /*
@@ -82,10 +82,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
 
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice, lattice.getBoundingBox(), boundary::dirichlet);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }

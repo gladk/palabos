@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -1579,7 +1579,6 @@ void NLD_AD_DirichletDynamics3D<T,Descriptor>::planeBoundaryCompletion (
             int direction, int orientation, plint iX, plint iY, plint iZ,
             BlockLattice3D<T,Descriptor>& lattice )
 {
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
     T rhoBar;
@@ -1642,7 +1641,6 @@ void NLD_AD_DirichletDynamics3D<T,Descriptor>::edgeBoundaryCompletion (
     }
 
     // 2. Implement general edge algorithm.
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     typedef Descriptor<T> D;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
@@ -1706,7 +1704,6 @@ void NLD_AD_DirichletDynamics3D<T,Descriptor>::cornerBoundaryCompletion (
     }
 
     // 2. Implement generic case.
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     typedef Descriptor<T> D;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
@@ -2014,7 +2011,6 @@ void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::planeBoundaryCompletion (
             int direction, int orientation, plint iX, plint iY, plint iZ,
             BlockLattice3D<T,Descriptor>& lattice )
 {
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
     T rhoBar;
@@ -2077,7 +2073,6 @@ void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::edgeBoundaryCompletion (
     }
 
     // 2. Implement general edge algorithm.
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     typedef Descriptor<T> D;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
@@ -2142,7 +2137,6 @@ void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::cornerBoundaryCompletion (
     }
 
     // 2. Implement generic case.
-    typedef advectionDiffusionMomentTemplates<T,Descriptor> momentTempl;
     typedef advectionDiffusionDynamicsTemplates<T,Descriptor> dynTempl;
     typedef Descriptor<T> D;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);

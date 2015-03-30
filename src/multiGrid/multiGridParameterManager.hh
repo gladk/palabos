@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -98,7 +98,7 @@ void ConvectiveRefinementParameters<T>::createParameters(){
                 referenceParameters.getLy(),
                 referenceParameters.getLz()
             );
-            putParameter(thisLevelParameters);
+            this->putParameter(thisLevelParameters);
             resolutionAtThisLevel = 2*resolutionAtThisLevel;
         
         }
@@ -137,7 +137,7 @@ void DiffusiveRefinementParameters<T>::createParameters(){
             referenceParameters.getLz()
         );
         
-        putParameter(thisLevelParameters);
+        this->putParameter(thisLevelParameters);
         resolutionAtThisLevel = 2*resolutionAtThisLevel;
     }
     }

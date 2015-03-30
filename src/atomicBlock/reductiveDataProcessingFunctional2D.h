@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -75,6 +75,9 @@ class PlainReductiveBoxProcessingFunctional2D : public ReductiveBoxProcessingFun
 public:
     virtual BlockStatistics const& getStatistics() const;
     virtual BlockStatistics& getStatistics();
+    void swap(PlainReductiveBoxProcessingFunctional2D& rhs) {
+        std::swap(statistics,rhs.statistics);
+    }
 private:
     BlockStatistics statistics;
 };

@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile for the Palabos example program copyData.
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which 
 ## you can select compilation options. Compilation dependencies
@@ -15,7 +15,7 @@
 #                optimFlags   = -O -finline-functions
 
 # Leading directory of the Palabos source code
-palabosRoot   = ../../..
+palabosRoot  = ../../..
 # Name of source files in current directory to compile and link with Palabos
 projectFiles = copyData.cpp
 
@@ -62,7 +62,7 @@ profileFlags = -pg
 # to SConstruct. It is recommended not to modify anything there.
 ##########################################################################
 
-SCons     = $(palabosRoot)/scons/scons.py -j 2 -f $(palabosRoot)/SConstruct
+SCons     = $(palabosRoot)/scons/scons.py -j 6 -f $(palabosRoot)/SConstruct
 
 SConsArgs = palabosRoot=$(palabosRoot) \
             projectFiles="$(projectFiles)" \
@@ -78,10 +78,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-	    profileFlags="$(profileFlags)" \
-	    libraryPaths="$(libraryPaths)" \
-	    includePaths="$(includePaths)" \
-	    libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

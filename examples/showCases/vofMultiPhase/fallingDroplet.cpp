@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -71,10 +71,10 @@ TwoPhaseModel model;
 
 void setupParameters()
 {
-    delta_x = radius / N;
+    delta_x = radius / (N - 1.0);
     nx = util::roundToInt(lx / delta_x);
     ny = util::roundToInt(ly / delta_x);
-    nz = util::roundToInt(lz / delta_x);
+    nz = util::roundToInt(lz / delta_x) + 1;
 
     radiusLB = util::roundToInt(radius / delta_x);
 
@@ -111,7 +111,7 @@ bool insideFluid(T x, T y, T z)
 void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
 {
     std::auto_ptr<MultiScalarField3D<T> > smoothVF(lbmSmoothen<T,DESCRIPTOR>(fields->volumeFraction,
-                fields->volumeFraction.getBoundingBox()));
+                fields->volumeFraction.getBoundingBox().enlarge(-1)));
 
     std::vector<T> isoLevels;
     isoLevels.push_back(0.5);

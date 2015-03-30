@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
     }
 
     T normNormedAxis = norm(normedAxis);
-    T eps = 100.0 * std::numeric_limits<T>::epsilon();
+    T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
     if (normNormedAxis <= eps) {
         pcout << "The normedAxis should be a vector of magnitude 1." << std::endl;
         return -1;
@@ -75,8 +75,8 @@ int main(int argc, char* argv[])
         return -1;
     }
     try {
-        T pi = acos((T) -1);
-        theta *= (pi/180.0);
+        T pi = std::acos((T) -1);
+        theta *= (pi/(T)180.0);
         triangleSet->rotateAtOrigin(normedAxis, theta);
         triangleSet->writeBinarySTL(outFileName);
     }

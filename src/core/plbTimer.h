@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,11 @@ private:
 #ifdef PLB_MPI_PARALLEL
     double startTime;
 #else
+#ifdef PLB_USE_POSIX
+    double startTime;
+#else
     clock_t startClock;
+#endif
 #endif
 friend PlbTimer& timer(std::string nameOfTimer);
 friend PlbTimer& plbTimer(std::string nameOfTimer);

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,7 @@
 #include "multiBlock/serialMultiBlockLattice2D.h"
 #include "parallelism/parallelMultiBlockLattice2D.h"
 #include "multiBlock/serialMultiDataField2D.h"
+#include "multiBlock/serialMultiDataField2D.hh"
 #include "parallelism/parallelMultiDataField2D.h"
 #include "multiBlock/threadAttribution.h"
 #include "multiBlock/staticRepartitions2D.h"

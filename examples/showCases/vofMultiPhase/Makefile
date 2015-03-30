@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which 
 ## you can select compilation options. Compilation dependencies
@@ -15,10 +15,10 @@
 #                optimFlags   = -O -finline-functions
 
 # Leading directory of the Palabos source code
-palabosRoot   = ../../..
+palabosRoot  = ../../..
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = damBreak3d.cpp
-#projectFiles = fallingDroplet.cpp
+#projectFiles = damBreak3d.cpp
+projectFiles = fallingDroplet.cpp
 
 # Set optimization flags on/off
 optimize     = true
@@ -79,10 +79,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-			profileFlags="$(profileFlags)" \
-			libraryPaths="$(libraryPaths)" \
-			includePaths="$(includePaths)" \
-			libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

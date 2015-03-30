@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -470,6 +470,15 @@ void MultiBlockLattice2D<T,Descriptor>::copyReceive (
 }
 
 /////////// Free Functions //////////////////////////////
+
+template<typename T, template<typename U> class Descriptor>
+MultiBlockLattice2D<T,Descriptor>& findMultiBlockLattice2D(id_t id) {
+    MultiBlock2D* multiBlock = multiBlockRegistration2D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiBlockLattice2D<T,Descriptor>::staticId) {
+        throw PlbLogicException("Trying to access a multi block lattice that is not registered.");
+    }
+    return (MultiBlockLattice2D<T,Descriptor>&)(*multiBlock);
+}
 
 template<typename T, template<typename U> class Descriptor>
 double getStoredAverageDensity(MultiBlockLattice2D<T,Descriptor> const& blockLattice) {

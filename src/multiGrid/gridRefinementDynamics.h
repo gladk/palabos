@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -73,6 +73,7 @@ public:
     std::vector<T>& getDecomposedValues(plint whichTime);
     std::vector<T> const& getDecomposedValues(plint whichTime) const;
 private:
+    TimeCounter defaultTimeCounter;
     TimeCounter const& timeCounter;
     plint numTimeSteps;
     plint orderOfDecomposition;

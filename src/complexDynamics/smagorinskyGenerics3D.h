@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,7 +47,7 @@ public:
                             iY+relativeOffset.y,
                             iZ+relativeOffset.z,
                             cSmago0 );
-                    T omega0 = lattice.get(iX,iY,iZ).getOmega();
+                    T omega0 = lattice.get(iX,iY,iZ).getDynamics().getOmega();
                     lattice.attributeDynamics ( iX,iY,iZ,
                             cloneAndInsertAtTopDynamics (
                                 lattice.get(iX,iY,iZ).getDynamics(),

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -96,8 +96,8 @@ bool ValueTracer<T>::hasConverged() const {
     else {
         T average = computeAverage();
         T stdDev = computeStdDev(average);
-        if (!isnan(stdDev/average))
-            return fabs(stdDev/average) < epsilon;
+        if (!std::isnan(stdDev/average))
+            return std::fabs(stdDev/average) < epsilon;
         else {
             pcout << "simulation diverged.\n";
             return true;
@@ -130,7 +130,7 @@ T ValueTracer<T>::computeStdDev(T average) const {
     for (plint i=0; i<n; ++i) {
         sqrDev += (values[i]-average)*(values[i]-average);
     }
-    return sqrt(sqrDev/(n-1));
+    return std::sqrt(sqrDev/(n-1));
 }
 
 template<typename T>

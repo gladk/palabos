@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -143,9 +143,9 @@ Array<T,3> ScalarFieldIsoSurface3D<T>::getSurfacePosition (
     T valp2 = scalar->get(p2[0]-location.x, p2[1]-location.y, p2[2]-location.z);
 
     T isolevel = isoValues[surfaceId];
-    if (fabs(isolevel-valp1) < epsilon) return(p1);
-    if (fabs(isolevel-valp2) < epsilon) return(p2);
-    if (fabs(valp1-valp2) < epsilon) return(p1);
+    if (std::fabs(isolevel-valp1) < epsilon) return(p1);
+    if (std::fabs(isolevel-valp2) < epsilon) return(p2);
+    if (std::fabs(valp1-valp2) < epsilon) return(p1);
     T mu = (isolevel - valp1) / (valp2 - valp1);
     return Array<T,3> ( 
                (T)p1[0] + mu * (p2[0] - p1[0]),
@@ -238,7 +238,15 @@ Array<T,3> BoundaryShapeIsoSurface3D<T,SurfaceData>::getSurfacePosition (
     bool ok =
         shape->pointOnSurface( realP1, realP2-realP1, surfacePosition,
                                distance, wallNormal, surfaceData, bdType, id );
-    PLB_ASSERT( ok );
+    //PLB_ASSERT( ok );
+    if (!ok) {
+        ok =
+            shape->pointOnSurface( realP1-(T)0.5*(realP2-realP1), (T)2.0*(realP2-realP1), surfacePosition,
+                                   distance, wallNormal, surfaceData, bdType, id );
+        if (!ok) {
+            surfacePosition = (T)0.5*(realP2+realP1);
+        }
+    }
     return surfacePosition;
 }
 
@@ -302,7 +310,8 @@ template<typename T>
 void MarchingCubeSurfaces3D<T>::processGenericBlocks (
                 Box3D domain, std::vector<AtomicBlock3D*> fields )
 {
-    PLB_PRECONDITION( (plint)fields.size() == 1 + isoSurface->getNumArgs() );
+    PLB_PRECONDITION( (plint)fields.size() >= 1 + isoSurface->getNumArgs() );
+
     AtomicContainerBlock3D* triangleContainer =
         dynamic_cast<AtomicContainerBlock3D*>(fields[0]);
     PLB_ASSERT( triangleContainer );
@@ -414,6 +423,20 @@ void MarchingCubeSurfaces3D<T>::edgeOriented (
 }
 
 template<typename T>
+void MarchingCubeSurfaces3D<T>::removeFromVertex (
+        Array<T,3> const& p0, Array<T,3> const& p1, Array<T,3>& intersection )
+{
+    static const T triangleEpsilon= 1.e-3;
+    static const T triangleEpsilonSqr = util::sqr(triangleEpsilon);
+   if (normSqr(p0-intersection) < triangleEpsilonSqr) {
+       intersection = p0 + triangleEpsilon*(p1-p0);
+   }
+   else if (normSqr(p1-intersection) < triangleEpsilonSqr) {
+       intersection = p1 - triangleEpsilon*(p1-p0);
+   }
+}
+
+template<typename T>
 void MarchingCubeSurfaces3D<T>::marchingCubeImpl (
              plint iX, plint iY, plint iZ, plint surfaceId,
              std::vector<Triangle>& triangles,
@@ -441,35 +464,58 @@ void MarchingCubeSurfaces3D<T>::marchingCubeImpl (
     if (isoSurface->isInside(surfaceId,p7)) cubeindex |= 128; // Point 7
 
     vertlist.resize(12);
-
     /* Cube is entirely in/out of the surface */
     if (mcc::edgeTable[cubeindex] == 0) return;
 
     /* Find the vertices where the surface intersects the cube */
-    if (mcc::edgeTable[cubeindex] & 1)
-       vertlist[0] = isoSurface->getSurfacePosition(surfaceId, p0, p1); // x-edge of y-neighbor.
-    if (mcc::edgeTable[cubeindex] & 2)
-       vertlist[1] = isoSurface->getSurfacePosition(surfaceId, p1, p2); // y-edge of x-neighbor.
-    if (mcc::edgeTable[cubeindex] & 4)
-       vertlist[2] = isoSurface->getSurfacePosition(surfaceId, p2, p3); // x-edge of current cell.
-    if (mcc::edgeTable[cubeindex] & 8)
-       vertlist[3] = isoSurface->getSurfacePosition(surfaceId, p3, p0); // y-edge of current cell.
-    if (mcc::edgeTable[cubeindex] & 16)
-       vertlist[4] = isoSurface->getSurfacePosition(surfaceId, p4, p5); // x-edge of y-z-neighbor.
-    if (mcc::edgeTable[cubeindex] & 32)
-       vertlist[5] = isoSurface->getSurfacePosition(surfaceId, p5, p6); // y-edge of x-z-neighbor.
-    if (mcc::edgeTable[cubeindex] & 64)
-       vertlist[6] = isoSurface->getSurfacePosition(surfaceId, p6, p7); // x-edge of z-neighbor.
-    if (mcc::edgeTable[cubeindex] & 128)
-       vertlist[7] = isoSurface->getSurfacePosition(surfaceId, p7, p4); // y-edge of z-neighbor.
-    if (mcc::edgeTable[cubeindex] & 256)
-       vertlist[8] = isoSurface->getSurfacePosition(surfaceId, p0, p4); // z-edge of y-neighbor.
-    if (mcc::edgeTable[cubeindex] & 512)
-       vertlist[9] = isoSurface->getSurfacePosition(surfaceId, p1, p5); // z-edge of x-y-neighbor.
-    if (mcc::edgeTable[cubeindex] & 1024)
-       vertlist[10] = isoSurface->getSurfacePosition(surfaceId, p2, p6); // z-edge of x-neighbor.
-    if (mcc::edgeTable[cubeindex] & 2048)
-       vertlist[11] = isoSurface->getSurfacePosition(surfaceId, p3, p7); // z-edge of current cell.
+    if (mcc::edgeTable[cubeindex] & 1) {
+        vertlist[0] = isoSurface->getSurfacePosition(surfaceId, p0, p1); // x-edge of y-neighbor.
+        removeFromVertex(p0, p1, vertlist[0]);
+    }
+    if (mcc::edgeTable[cubeindex] & 2) {
+        vertlist[1] = isoSurface->getSurfacePosition(surfaceId, p1, p2); // y-edge of x-neighbor.
+        removeFromVertex(p1, p2, vertlist[1]);
+    }
+    if (mcc::edgeTable[cubeindex] & 4) {
+        vertlist[2] = isoSurface->getSurfacePosition(surfaceId, p2, p3); // x-edge of current cell.
+        removeFromVertex(p2, p3, vertlist[2]);
+    }
+    if (mcc::edgeTable[cubeindex] & 8) {
+        vertlist[3] = isoSurface->getSurfacePosition(surfaceId, p3, p0); // y-edge of current cell.
+        removeFromVertex(p3, p0, vertlist[3]);
+    }
+    if (mcc::edgeTable[cubeindex] & 16) {
+        vertlist[4] = isoSurface->getSurfacePosition(surfaceId, p4, p5); // x-edge of y-z-neighbor.
+        removeFromVertex(p4, p5, vertlist[4]);
+    }
+    if (mcc::edgeTable[cubeindex] & 32) {
+        vertlist[5] = isoSurface->getSurfacePosition(surfaceId, p5, p6); // y-edge of x-z-neighbor.
+        removeFromVertex(p5, p6, vertlist[5]);
+    }
+    if (mcc::edgeTable[cubeindex] & 64) {
+        vertlist[6] = isoSurface->getSurfacePosition(surfaceId, p6, p7); // x-edge of z-neighbor.
+        removeFromVertex(p6, p7, vertlist[6]);
+    }
+    if (mcc::edgeTable[cubeindex] & 128) {
+        vertlist[7] = isoSurface->getSurfacePosition(surfaceId, p7, p4); // y-edge of z-neighbor.
+        removeFromVertex(p7, p4, vertlist[7]);
+    }
+    if (mcc::edgeTable[cubeindex] & 256) {
+        vertlist[8] = isoSurface->getSurfacePosition(surfaceId, p0, p4); // z-edge of y-neighbor.
+        removeFromVertex(p0, p4, vertlist[8]);
+    }
+    if (mcc::edgeTable[cubeindex] & 512) {
+        vertlist[9] = isoSurface->getSurfacePosition(surfaceId, p1, p5); // z-edge of x-y-neighbor.
+        removeFromVertex(p1, p5, vertlist[9]);
+    }
+    if (mcc::edgeTable[cubeindex] & 1024) {
+        vertlist[10] = isoSurface->getSurfacePosition(surfaceId, p2, p6); // z-edge of x-neighbor.
+        removeFromVertex(p2, p6, vertlist[10]);
+    }
+    if (mcc::edgeTable[cubeindex] & 2048) {
+        vertlist[11] = isoSurface->getSurfacePosition(surfaceId, p3, p7); // z-edge of current cell.
+        removeFromVertex(p3, p7, vertlist[11]);
+    }
 }
 
 template<typename T>
@@ -724,6 +770,19 @@ void isoSurfaceMarchingCube (
     isoSurfaceMarchingCube(triangles, scalarFieldArg, new ScalarFieldIsoSurface3D<T>(isoLevels), domain);
 }
 
+template<typename T, class Function>
+void isoSurfaceMarchingCube (
+        std::vector<typename TriangleSet<T>::Triangle>& triangles, MultiBlock3D& block,
+        Function const& function, Box3D const& domain )
+{
+    std::vector<MultiBlock3D*> surfDefinitionArgs;
+    surfDefinitionArgs.push_back(&block);
+    AnalyticalIsoSurface3D<T,Function>* isoSurface = new AnalyticalIsoSurface3D<T,Function>(function);
+    std::vector<plint> surfaceIds;
+    surfaceIds.push_back(0);
+    isoSurfaceMarchingCube(triangles, surfDefinitionArgs, isoSurface, domain, surfaceIds);
+}
+
 template<typename T, template<typename U> class Descriptor>
 TriangleSet<T> vofToTriangles(MultiScalarField3D<T>& scalarField, T threshold, Box3D domain)
 {
@@ -744,6 +803,50 @@ TriangleSet<T> vofToTriangles(MultiScalarField3D<T>& scalarField, T threshold)
 {
     Box3D domain = scalarField.getBoundingBox();
     return vofToTriangles(scalarField, threshold, domain);
+}
+
+template<typename T, class Function>
+bool AnalyticalIsoSurface3D<T,Function>::isInside (
+            plint surfaceId, Array<plint,3> const& position ) const
+{
+    return function.intIsInside(position);
+}
+
+template<typename T, class Function>
+Array<T,3> AnalyticalIsoSurface3D<T,Function>::getSurfacePosition (
+            plint surfaceId, Array<plint,3> const& p1, Array<plint,3> const& p2 ) const
+{
+    static const T epsilon = 1.e-4;
+
+    plint maxIter = 40;
+    plint countMax = 10;
+    plint count = 0;
+    T pos = T();
+    bool ok = bisect(WrappedIsInside(p1, p2, function), (T)0-epsilon, (T)1+epsilon, epsilon, maxIter, pos);
+    while (!ok && count < countMax) {
+        count++;
+        maxIter *= 2;
+        pos = T();
+        ok = bisect(WrappedIsInside(p1, p2, function), (T)0-epsilon, (T)1+epsilon, epsilon, maxIter, pos);
+    }
+    PLB_ASSERT( ok );
+
+    return Array<T,3> ( 
+               (T)p1[0] + pos * (p2[0] - p1[0]),
+               (T)p1[1] + pos * (p2[1] - p1[1]),
+               (T)p1[2] + pos * (p2[2] - p1[2]) );
+}
+
+template<typename T, class Function>
+AnalyticalIsoSurface3D<T,Function>* AnalyticalIsoSurface3D<T,Function>::clone() const {
+    return new AnalyticalIsoSurface3D<T,Function>(*this);
+}
+
+template<typename T, class Function>
+std::vector<plint> AnalyticalIsoSurface3D<T,Function>::getSurfaceIds() const {
+    std::vector<plint> surfaceIds;
+    surfaceIds.push_back(0);
+    return surfaceIds;
 }
 
 }  // namespace plb

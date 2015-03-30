@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -230,6 +230,15 @@ std::string MultiParticleField2D<ParticleFieldT>::basicType() {
 template<class ParticleFieldT>
 std::string MultiParticleField2D<ParticleFieldT>::descriptorType() {
     return ParticleFieldT::descriptorType();
+}
+
+template<class ParticleFieldT>
+MultiParticleField2D<ParticleFieldT>& findMultiParticleField2D(id_t id) {
+    MultiBlock2D* multiBlock = multiBlockRegistration2D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiParticleField2D<ParticleFieldT>::staticId) {
+        throw PlbLogicException("Trying to access a multi block lattice that is not registered.");
+    }
+    return (MultiParticleField2D<ParticleFieldT>&)(*multiBlock);
 }
 
 }  // namespace plb

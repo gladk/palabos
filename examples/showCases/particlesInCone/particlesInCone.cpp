@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -84,8 +84,9 @@ plint commEnvelope = (plint)cutOffLength +1;  // Width of communication envelope
 
 // The containers for the fluid and the particles, and the data structures for the
 // boundary-condition.
+typedef DenseParticleField3D<T,DESCRIPTOR> ParticleFieldT;
 MultiBlockLattice3D<T,DESCRIPTOR>* fluidLattice                         =0;
-MultiParticleField3D<DenseParticleField3D<T,DESCRIPTOR> >* particles    =0;
+MultiParticleField3D<ParticleFieldT>* particles    =0;
 TriangleBoundary3D<T>* triangleBd                                       =0;
 VoxelizedDomain3D<T>* voxelizedDomain                                   =0;
 BoundaryProfiles3D<T,Velocity> profiles;
@@ -156,7 +157,7 @@ public:
                         }
                         else {
                             // Inside a radius of rCritical (in lattice units), the force is constant.
-                            T rNorm = sqrt(rSqr);
+                            T rNorm = std::sqrt(rSqr);
                             force += r/(rNorm*rCritical*rCriticalSqr*rCriticalSqr*rCriticalSqr) * forceAmplitude;
                         }
                     }
@@ -288,7 +289,7 @@ void createLattices() {
     defineDynamics(*fluidLattice, voxelizedDomain->getVoxelMatrix(), fluidLattice->getBoundingBox(),
                    new NoDynamics<T,DESCRIPTOR>, voxelFlag::outside);
     // Default-initialize at equilibrium with zero-velocity and fixed pressure.
-    initializeAtEquilibrium(*fluidLattice, fluidLattice->getBoundingBox(), 1., Array<T,3>(0.,0.,0.));
+    initializeAtEquilibrium(*fluidLattice, fluidLattice->getBoundingBox(), (T)1., Array<T,3>((T)0.,(T)0.,(T)0.));
     // Execute all data processors once to start the simulation off with well-defined initial values.
     fluidLattice->initialize();
 
@@ -304,7 +305,7 @@ void createLattices() {
     // Allocation of the data for the particles. This only allocates the particle-hash
     // (a grid on which the particles are stored). The particles themselves are injected
     // later on.
-    particles = new MultiParticleField3D<DenseParticleField3D<T,DESCRIPTOR> > (
+    particles = new MultiParticleField3D<ParticleFieldT> (
         particleManagement, defaultMultiBlockPolicy3D().getCombinedStatistics() );
 }
 
@@ -314,7 +315,7 @@ void setupCouplings()
 {
     // Add a particle on each vertex of the cone wall. These particles don't move, but
     // they interact with the injected particles, so that these rebounce from the wall.
-    addWallParticles(*particles, *triangleBd);
+    addWallParticlesGeneric<T,DESCRIPTOR,ParticleFieldT>(*particles, *triangleBd);
 
     // In the following the data processors for the equations of motion and the
     // interaction terms are manually added to the particle field. In other situations,
@@ -443,7 +444,7 @@ int main(int argc, char* argv[])
         if (i%saveIter==0 && i > startParticleIter) {
             pcout << "Writing particle data.." << std::endl;
             std::string fName = createFileName("particles_",i,8)+".vtk";
-            writeSelectedParticleVtk(*particles, fName, particles->getBoundingBox(), util::SelectLargerEqualInt(1));
+            writeSelectedParticleVtk<T,DESCRIPTOR>(*particles, fName, particles->getBoundingBox(), util::SelectLargerEqualInt(1));
         }
     }
 }

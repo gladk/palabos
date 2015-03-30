@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -106,12 +106,14 @@ void PlaneFdBoundaryFunctional3D<T,Descriptor,direction,orientation>::processCel
         j = rho*vel;
     }
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    
+    dynamics.regularize(cell, Descriptor<T>::rhoBar(rho), j, jSqr, pi);
 
-    // Computation of the particle distribution functions
-    // according to the regularized formula
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop)
-        cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
-                         offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
+//     // Computation of the particle distribution functions
+//     // according to the regularized formula
+//     for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop)
+//         cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
+//                          offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -168,9 +170,7 @@ void OuterVelocityEdgeFunctional3D<T,Descriptor, plane,normal1,normal2>::process
 
     T rho10 = getNeighborRho(iX,iY,iZ,1,0, lattice);
     T rho01 = getNeighborRho(iX,iY,iZ,0,1, lattice);
-    T rho20 = getNeighborRho(iX,iY,iZ,2,0, lattice);
-    T rho02 = getNeighborRho(iX,iY,iZ,0,2, lattice);
-    T rho = (T)2/(T)3*(rho01+rho10)-(T)1/(T)6*(rho02+rho20);
+    T rho = (T)0.5*(rho01+rho10);
 
     std::vector<Array<T,3> > dA_uB_(3);
     interpolateGradients<plane,0>            ( lattice, dA_uB_[0], iX, iY, iZ );
@@ -204,11 +204,13 @@ void OuterVelocityEdgeFunctional3D<T,Descriptor, plane,normal1,normal2>::process
         j = rho*vel;
     }
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    
+    dynamics.regularize(cell, Descriptor<T>::rhoBar(rho), j, jSqr, pi);
 
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-        cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
-                         offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
-    }
+//     for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+//         cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
+//                          offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
+//     }
 }
 
 template<typename T, template<typename U> class Descriptor, int plane, int normal1, int normal2>
@@ -306,11 +308,13 @@ void OuterVelocityCornerFunctional3D<T, Descriptor, xNormal, yNormal, zNormal>::
         j = rho*vel;
     }
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    
+    dynamics.regularize(cell, Descriptor<T>::rhoBar(rho), j, jSqr, pi);
 
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-        cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
-                         offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
-    }
+//     for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+//         cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
+//                          offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
+//     }
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>

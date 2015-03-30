@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -224,6 +224,10 @@ public:
 template<typename T, template<typename U> class Descriptor>
 OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
     createLocalAdvectionDiffusionBoundaryCondition3D();
+
+template<typename T, template<typename U> class Descriptor>
+OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
+    createLocalRegularizedAdvectionDiffusionBoundaryCondition3D();
     
 }  // namespace plb
 

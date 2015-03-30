@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -54,12 +54,12 @@ struct mrtTemplates {
     }
     
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeEquilibrium( Array<T,Descriptor<T>::q>& momentsEq, 
+    static void computeEquilibriumMoments( Array<T,Descriptor<T>::q>& momentsEq, 
                                     T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                     const T jSqr ) {
         
         mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            computeEquilibrium( momentsEq, rhoBar, j, jSqr );
+            computeEquilibriumMoments( momentsEq, rhoBar, j, jSqr );
     }
     
     static void computeMoments(Array<T,Descriptor<T>::q> &moments, Cell<T,Descriptor> &cell)
@@ -69,146 +69,152 @@ struct mrtTemplates {
     }
     
     /// MRT collision step
-    static T mrtCollision( Cell<T,Descriptor>& cell,
-                           T const& rhoBar, Array<T,Descriptor<T>::d> const& j,
-                           T invM_S[Descriptor<T>::q][Descriptor<T>::q])
+    static T mrtCollision( Cell<T,Descriptor>& cell, T omega)
     {
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            mrtCollision( cell.getRawPopulations(), rhoBar, j, invM_S);
+        mrtCollision( cell.getRawPopulations(), omega);
+    }
+    
+    /// MRT collision step (imposed rhoBar, j)
+    static T mrtCollision( Cell<T,Descriptor>& cell,
+                           T const& rhoBar, Array<T,Descriptor<T>::d> const& j,
+                           const T &omega)
+    {
+        return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
+            mrtCollision( cell.getRawPopulations(), rhoBar, j, omega);
     }
     
     /// quasi incompressible MRT collision step with force
     static T smagorinskyMrtCollision( Cell<T,Descriptor>& cell,
                                         const T &rhoBar, const Array<T,Descriptor<T>::d> & j,
                                         const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago, 
-                                        T invM_S[Descriptor<T>::q][Descriptor<T>::q])
+                                        const T &omega)
     {
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            smagorinskyMrtCollision( cell.getRawPopulations(), rhoBar, j, invM_S, strain, cSmago);
+            smagorinskyMrtCollision( cell.getRawPopulations(), rhoBar, j, omega, strain, cSmago);
     }
     
-    /// MRT collision step with force
+    /// MRT collision step with guo force
     static T mrtCollisionWithForce( Cell<T,Descriptor>& cell,
                            const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
-                           T invM_S[Descriptor<T>::q][Descriptor<T>::q], T amplitude)
+                           const T &omega, T amplitude)
     {
         Array<T,Descriptor<T>::d> force;
         force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            mrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, invM_S, force,amplitude);
+            mrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, omega, force,amplitude);
     }
+    
+    /// MRT collision step with force and full_f instead of rhoBar
+    static T mrtCollisionWithHeForce( Cell<T,Descriptor>& cell,
+                           const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
+                           const T &omega, T amplitude)
+    {
+        Array<T,Descriptor<T>::d> force;
+        force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
+        return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
+            mrtCollisionWithHeForce( cell.getRawPopulations(), rhoBar, u, omega, force, amplitude);
+    }
+    
     
     /// MRT collision step with force
     static T smagorinskyMrtCollisionWithForce( Cell<T,Descriptor>& cell,
                                                const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
                                                const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago, 
-                                               T invM_S[Descriptor<T>::q][Descriptor<T>::q], T amplitude)
+                                               const T &omega, T amplitude)
     {
         Array<T,Descriptor<T>::d> force;
         force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-        smagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, invM_S, strain, cSmago, force, amplitude);
+        smagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, omega, strain, cSmago, force, amplitude);
     }
     
     
     /// quasi incompressible MRT collision step with force
-    static T quasiIncMrtCollisionWithForce( Cell<T,Descriptor>& cell,
+    static T incMrtCollisionWithForce( Cell<T,Descriptor>& cell,
                                     const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
-                                    T invM_S[Descriptor<T>::q][Descriptor<T>::q], T amplitude)
+                                    const T &omega, T amplitude)
     {
         Array<T,Descriptor<T>::d> force;
         force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            quasiIncMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, invM_S, force,amplitude);
+            incMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, omega, force,amplitude);
     }
     
     /// quasi incompressible MRT collision step with force
-    static T quasiIncSmagorinskyMrtCollisionWithForce( Cell<T,Descriptor>& cell,
+    static T incSmagorinskyMrtCollisionWithForce( Cell<T,Descriptor>& cell,
                                             const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
                                             const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago, 
-                                            T invM_S[Descriptor<T>::q][Descriptor<T>::q])
+                                            const T &omega)
     {
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            quasiIncSmagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, invM_S, strain, cSmago);
-    }
-    
-    /// MRT collision step
-    static T variableOmegaMrtCollision( Cell<T,Descriptor>& cell,
-                           T const& rhoBar, Array<T,Descriptor<T>::d> const& j,
-                           T invM_S[Descriptor<T>::q][Descriptor<T>::q], T omega)
-    {
-        return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            variableOmegaMrtCollision( cell.getRawPopulations(), rhoBar, j, invM_S, omega);
-    }
-    
-    /// MRT collision step
-    static T variableOmegaMrtCollisionWithForce( Cell<T,Descriptor>& cell,
-                           const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
-                           T invM_S[Descriptor<T>::q][Descriptor<T>::q],
-                           T amplitude, T omega)
-    {
-        Array<T,Descriptor<T>::d> force;
-        force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
-        return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            variableOmegaMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, invM_S, force,amplitude,omega);
+            incSmagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, omega, strain, cSmago);
     }
     
     /// Add a force term after BGK collision, according to the Guo algorithm
     static void addGuoForce( Cell<T,Descriptor>& cell, Array<T,Descriptor<T>::d> const& u,
-                             T invM_S[Descriptor<T>::q][Descriptor<T>::q], T amplitude)
+                             const T &omega, T amplitude)
     {
         mrtTemplatesImpl<T, typename Descriptor<T>::SecondBaseDescriptor >
-            ::addGuoForce(cell.getRawPopulations(), cell.getExternal(0), u, invM_S, amplitude);
+            ::addGuoForce(cell.getRawPopulations(), cell.getExternal(0), u, omega, amplitude);
     }
+    
     
     /// Add a force term after BGK collision, according to the Guo algorithm
-    static void variableOmegaAddGuoForce (
-            Cell<T,Descriptor>& cell, Array<T,Descriptor<T>::d> const& u,
-            T invM_S[Descriptor<T>::q][Descriptor<T>::q], T amplitude, T omega)
+    static void addHeForce( Cell<T,Descriptor>& cell, const T &rhoBar, Array<T,Descriptor<T>::d> const& u,
+                             const T &omega, T amplitude)
     {
+		// this call must be carefully checked
+		// for example cell.getExternal(0) this guy is the force. That with our Descriptor is not in position 0
         mrtTemplatesImpl<T, typename Descriptor<T>::SecondBaseDescriptor >
-            ::variableOmegaAddGuoForce (
-                    cell.getRawPopulations(), cell.getExternal(0), u,
-                    invM_S, amplitude, omega );
+            ::addHeForce(cell.getRawPopulations(), cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt), rhoBar, u, omega, amplitude);
     }
     
+    
      /// Computation of all equilibrium distribution (in moments space)
-    static void computeQuasiIncEquilibrium( Array<T,Descriptor<T>::q>& momentsEq, 
+    static void computeIncEquilibrium( Array<T,Descriptor<T>::q>& momentsEq, 
                                     T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                     const T jSqr ) {
         
         mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            computeQuasiIncEquilibrium( momentsEq, rhoBar, j, jSqr );
+            computeIncEquilibrium( momentsEq, rhoBar, j, jSqr );
     }
     
     /// MRT collision step
-    static T quasiIncMrtCollision( Cell<T,Descriptor>& cell,
-                                   T &rhoBar, Array<T,Descriptor<T>::d> & j,
-                                   T invM_S[Descriptor<T>::q][Descriptor<T>::q])
+    static T incMrtCollision( Cell<T,Descriptor>& cell, const T &omega)
     {
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            quasiIncMrtCollision( cell.getRawPopulations(), rhoBar, j, invM_S);
+            incMrtCollision( cell.getRawPopulations(), omega);
+    }
+    
+    /// MRT collision step
+    static T incMrtCollision( Cell<T,Descriptor>& cell,
+                                   const T &rhoBar, const Array<T,Descriptor<T>::d> & j,
+                                   const T &omega)
+    {
+        return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
+            incMrtCollision( cell.getRawPopulations(), rhoBar, j, omega);
     }
     
     /// Computation of all equilibrium distribution (in moments space) for the smagorinsky model
-    static void computeQuasiIncSmagorinskyEquilibrium( Array<T,Descriptor<T>::q>& momentsEq, 
+    static void computeIncSmagorinskyEquilibrium( Array<T,Descriptor<T>::q>& momentsEq, 
                                     T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                     const T jSqr,
                                     const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago ) 
     {
         
         mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            computeQuasiIncSmagorinskyEquilibrium( momentsEq, rhoBar, j, jSqr, strain, cSmago );
+            computeIncSmagorinskyEquilibrium( momentsEq, rhoBar, j, jSqr, strain, cSmago );
     }
     
     /// MRT collision step
-    static T quasiIncSmagorinskyMrtCollision( Cell<T,Descriptor>& cell,
+    static T incSmagorinskyMrtCollision( Cell<T,Descriptor>& cell,
                                               T &rhoBar, const Array<T,Descriptor<T>::d> & j,
                                               const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago,
-                                              T invM_S[Descriptor<T>::q][Descriptor<T>::q])
+                                              const T &omega)
     {
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor>::
-            quasiIncSmagorinskyMrtCollision( cell.getRawPopulations(), rhoBar, j, invM_S, strain, cSmago);
+            incSmagorinskyMrtCollision( cell.getRawPopulations(), rhoBar, j, omega, strain, cSmago);
     }
 
 
@@ -229,10 +235,27 @@ struct mrtTemplatesImpl {
         return equ;
     }
     
+    static void computeInvM_S(T invM_S[Descriptor::q][Descriptor::q], const T &omega) {
+        Array<T,Descriptor::q> s;
+        for (plint iPop = 0; iPop < Descriptor::q; ++iPop) {
+            s[iPop] = Descriptor::S[iPop];
+        }
+        for (plint iA = 0; iA < Descriptor::shearIndexes; ++iA) {
+            plint iPop = Descriptor::shearViscIndexes[iA];
+            s[iPop] = omega;
+        }
+        
+        for (plint iPop = 0; iPop < Descriptor::q; ++iPop) {
+            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
+                invM_S[iPop][jPop] = Descriptor::invM[iPop][jPop] * s[jPop];
+            }
+        }
+    }
+    
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeEquilibrium( Array<T,Descriptor::q>& momentsEq, 
-                                    T rhoBar, Array<T,Descriptor::d> const& j,
-                                    const T jSqr ) {
+    static void computeEquilibriumMoments( Array<T,Descriptor::q>& momentsEq, 
+                                           T rhoBar, Array<T,Descriptor::d> const& j,
+                                           const T jSqr ) {
         T invRho = Descriptor::invRho(rhoBar);
         for (plint iPop = 0; iPop < Descriptor::q; ++iPop) {
             momentsEq[iPop] = T();
@@ -257,13 +280,46 @@ struct mrtTemplatesImpl {
     /// MRT collision step
     static T mrtCollision( Array<T,Descriptor::q>& f,
                            const T &rhoBar, const Array<T,Descriptor::d> & j,
-                           T invM_S[Descriptor::q][Descriptor::q]) {
+                           const T &omega) {
         Array<T,Descriptor::q> momentsEq;
         Array<T,Descriptor::q> moments;
         
         computeMoments(moments,f);
         T jSqr = VectorTemplateImpl<T,Descriptor::d>::normSqr(j);
-        computeEquilibrium(momentsEq,rhoBar,j,jSqr);
+        computeEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
+    
+        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
+            T collisionTerm = T();
+            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
+                collisionTerm += invM_S[iPop][jPop] * (moments[jPop] - momentsEq[jPop]);
+            }
+            f[iPop] -= collisionTerm;
+        }
+        
+        return jSqr;
+    }
+    
+    /// MRT collision step
+    static T mrtCollision( Array<T,Descriptor::q>& f,const T &omega) {
+        Array<T,Descriptor::q> momentsEq;
+        Array<T,Descriptor::q> moments;
+        
+        computeMoments(moments,f);
+        T rhoBar = moments[0];
+        Array<T,Descriptor::d> j;
+        for (plint iA = 0; iA < Descriptor::jIndexes; ++iA) {
+            plint iPop = Descriptor::momentumIndexes[iA];
+            
+            j[iA] = moments[iPop];
+        }
+        T jSqr = VectorTemplateImpl<T,Descriptor::d>::normSqr(j);
+        computeEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
     
         for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
             T collisionTerm = T();
@@ -279,45 +335,15 @@ struct mrtTemplatesImpl {
     /// smagorinsky MRT collision step
     static T smagorinskyMrtCollision( Array<T,Descriptor::q>& f,
                                       const T &rhoBar, const Array<T,Descriptor::d> & j,
-                                      T invM_S[Descriptor::q][Descriptor::q], 
+                                      const T &omega, 
                                       const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n >& strain, T cSmago ) 
     {
         PLB_ASSERT(false);
     }
     
-    static T variableOmegaMrtCollision(
-            Array<T,Descriptor::q>& f, const T &rhoBar,
-            const Array<T,Descriptor::d> & j,
-            T invM_S[Descriptor::q][Descriptor::q], T omega )
-    {
-        Array<T,Descriptor::q> momentsEq;
-        Array<T,Descriptor::q> moments;
-        
-        computeMoments(moments,f);
-        T jSqr = VectorTemplateImpl<T,Descriptor::d>::normSqr(j);
-        computeEquilibrium(momentsEq,rhoBar,j,jSqr);
-    
-        std::vector<T> collisionTerms(Descriptor::q);
-        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
-            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
-                collisionTerms[jPop] =
-                    invM_S[iPop][jPop] * (moments[jPop] - momentsEq[jPop]);
-            }
-            for (plint jPop_ = 0; jPop_ < Descriptor::shearIndexes; ++jPop_) {
-                plint jPop = Descriptor::shearViscIndexes[jPop_];
-                collisionTerms[jPop] *= omega;
-            }
-            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
-                f[iPop] -= collisionTerms[jPop];
-            }
-        }
-        
-        return jSqr;
-    }
-    
     static void addGuoForce( Array<T,Descriptor::q>& f, const Array<T,Descriptor::d> &force,
                              Array<T,Descriptor::d> const& u,
-                             T invM_S[Descriptor::q][Descriptor::q], T amplitude )
+                             const T &omega, T amplitude )
     {
         Array<T,Descriptor::q> forcing;
         for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
@@ -341,6 +367,9 @@ struct mrtTemplatesImpl {
         
         Array<T,Descriptor::q> forceMoments;
         computeMoments(forceMoments,forcing);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
         
         for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
             T collisionTerm = T();
@@ -353,67 +382,100 @@ struct mrtTemplatesImpl {
         }
     }
     
-    static void variableOmegaAddGuoForce(
-            Array<T,Descriptor::q>& f, const Array<T,Descriptor::d> &force,
-            Array<T,Descriptor::d> const& u, T invM_S[Descriptor::q][Descriptor::q],
-            T amplitude, T omega )
-    {
-        Array<T,Descriptor::q> forcing;
-        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
-            T c_u = T();
-            for (int iD=0; iD<Descriptor::d; ++iD) {
-                c_u += Descriptor::c[iPop][iD]*u[iD];
-            }
-            c_u *= Descriptor::invCs2 * Descriptor::invCs2;
-            T forceTerm = T();
-            for (int iD=0; iD < Descriptor::d; ++iD) {
-                forceTerm +=
-                    (   ((T)Descriptor::c[iPop][iD]-u[iD]) * Descriptor::invCs2
-                    + c_u * (T)Descriptor::c[iPop][iD]
-                    )
-                    * force[iD];
-            }
-            forceTerm *= Descriptor::t[iPop];
-            forceTerm *= amplitude;
-            forcing[iPop] = forceTerm;
-        }
-        
-        Array<T,Descriptor::q> forceMoments;
-        computeMoments(forceMoments,forcing);
-        
-        std::vector<T> collisionTerms(Descriptor::q);
-        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
-            T collisionTerm = T();
-            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
-                collisionTerms[jPop] = -invM_S[iPop][jPop] * forceMoments[jPop];
-            }
-            for (plint jPop_ = 0; jPop_ < Descriptor::shearIndexes; ++jPop_) {
-                plint jPop = Descriptor::shearViscIndexes[jPop_];
-                collisionTerms[jPop] *= omega;
-            }
-            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
-                f[iPop] += (T)0.5*forcing[iPop]*collisionTerms[jPop];
-            }
-        }
-    }
-    
     /// MRT collision step with force
     static T mrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                     const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                    T invM_S[Descriptor::q][Descriptor::q], 
+                                    const T &omega, 
                                     const Array<T,Descriptor::d>& force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = mrtCollision( f, rhoBar, j, invM_S );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = mrtCollision( f, rhoBar, j, omega );
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
     
+    
+    static void addHeForce( Array<T,Descriptor::q>& f, const Array<T,Descriptor::d> &force,
+                             const T &rhoBar, Array<T,Descriptor::d> const& uLB,
+                             const T &omega, T amplitude )
+    {
+        
+		// 1st calculate the forcing term
+		
+		T rhoFull	= Descriptor::fullRho(rhoBar);
+        T invRho 	= Descriptor::invRho(rhoBar);
+        T uSqrLB 	= VectorTemplateImpl<T,Descriptor::d>::normSqr(uLB);
+        
+        Array<T,Descriptor::q> forcing;
+        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
+			
+            T c_u = Descriptor::c[iPop][0]*uLB[0];
+            T ug =  (Descriptor::c[iPop][0]-uLB[0])*force[0];
+            for (int iD=1; iD < Descriptor::d; ++iD) {
+                c_u += Descriptor::c[iPop][iD]*uLB[iD]; // uLB must be defined
+                ug  += (Descriptor::c[iPop][iD]-uLB[iD])*force[iD];
+            } 
+
+            T iPop_eqContribution = Descriptor::t[iPop]*rhoFull*(1. + Descriptor::invCs2 *c_u  
+                                                    + 0.5*Descriptor::invCs2*Descriptor::invCs2*c_u*c_u 
+                                                    - 0.5*Descriptor::invCs2*uSqrLB);
+
+			forcing[iPop] = invRho*Descriptor::invCs2*ug*iPop_eqContribution;    
+        }
+        
+        // then the momentum of the forces (for what concern the force this is also correct for He)
+		Array<T,Descriptor::q> forceMoments;
+        computeMoments(forceMoments,forcing);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
+        
+		// And then you add them to the f (at collision step)
+		
+        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
+            T collisionTerm = T();
+            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
+                collisionTerm += -invM_S[iPop][jPop] * forceMoments[jPop];
+            }
+            collisionTerm *= (T)0.5;
+            collisionTerm += forcing[iPop];
+			
+			T fullF_iPop = f[iPop] + Descriptor::SkordosFactor()*Descriptor::t[iPop]; // we have to move to full_F first 
+            fullF_iPop 	+= collisionTerm;
+			
+			f[iPop] = fullF_iPop - Descriptor::SkordosFactor()*Descriptor::t[iPop];
+        }
+        
+        
+    
+    }
+    
+    
+    /// MRT collision step with He type force
+    static T mrtCollisionWithHeForce( Array<T,Descriptor::q>& f,
+                                    const T &rhoBar, const Array<T,Descriptor::d> & u,
+                                    const T &omega, 
+                                    const Array<T,Descriptor::d>& force, T amplitude) 
+    {
+        Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
+        T jSqr = mrtCollision( f, rhoBar, j, omega );
+		// something must be noticed here. In mrtCollision we use as usual f_bar,
+		// However, while we are adding the heForce term, we work with qts calculated by using f_full.
+		// if the algo doesn't work, maybe, it could be because also mrtCollision, in this case, must be calculated with full_f
+		// Moreover, u,rhoBar etc come from externalMomentum (so a different Descriptor must be used).
+        addHeForce( f, force, rhoBar,u, omega, amplitude );
+        
+        return jSqr;
+    }
+    
+    
+        
+    
     /// MRT collision step with force
     static T smagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                                const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                               T invM_S[Descriptor::q][Descriptor::q], 
+                                               const T &omega, 
                                                const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n >& strain, T cSmago,
                                                const Array<T,Descriptor::d>& force, T amplitude) 
     {
@@ -421,43 +483,30 @@ struct mrtTemplatesImpl {
     }
     
     /// quasi incompressible MRT collision step with force
-    static T quasiIncMrtCollisionWithForce( Array<T,Descriptor::q>& f,
+    static T incMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                     const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                    T invM_S[Descriptor::q][Descriptor::q], 
+                                    const T &omega, 
                                     const Array<T,Descriptor::d>& force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = quasiIncMrtCollision( f, rhoBar, j, invM_S );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = incMrtCollision( f, rhoBar, j, omega);
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
     
     /// quasi incompressible MRT collision step with force
-    static T quasiIncSmagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
+    static T incSmagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                                        const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                                       T invM_S[Descriptor::q][Descriptor::q], 
+                                                       const T &omega, 
                                                        const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n >& strain, T cSmago,
                                                        const Array<T,Descriptor::d>& force, T amplitude ) 
     {
         PLB_ASSERT(false);
     }
     
-    /// MRT collision step
-    static T variableOmegaMrtCollisionWithForce( Array<T,Descriptor::q>& f,
-                                    const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                    T invM_S[Descriptor::q][Descriptor::q], 
-                                    const Array<T,Descriptor::d>& force, T amplitude, T omega) 
-    {
-        Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = variableOmegaMrtCollision( f, rhoBar, j, invM_S, omega );
-        variableOmegaAddGuoForce( f, force, u, invM_S, amplitude, omega );
-        
-        return jSqr;
-    }
-    
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeQuasiIncEquilibrium( Array<T,Descriptor::q>& momentsEq, 
+    static void computeIncEquilibrium( Array<T,Descriptor::q>& momentsEq, 
                                             T rhoBar, Array<T,Descriptor::d> const& j,
                                             const T jSqr )
     {
@@ -473,7 +522,7 @@ struct mrtTemplatesImpl {
     }
     
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeQuasiIncSmagorinskyEquilibrium( Array<T,Descriptor::q>& momentsEq, 
+    static void computeIncSmagorinskyEquilibrium( Array<T,Descriptor::q>& momentsEq, 
                                             T rhoBar, Array<T,Descriptor::d> const& j,
                                             const T jSqr,
                                             const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n >& strain, T cSmago )
@@ -482,17 +531,49 @@ struct mrtTemplatesImpl {
     }
     
     /// MRT collision step
-    static T quasiIncMrtCollision( Array<T,Descriptor::q>& f,
+    static T incMrtCollision( Array<T,Descriptor::q>& f,
                            const T &rhoBar, const Array<T,Descriptor::d> & j,
-                           T invM_S[Descriptor::q][Descriptor::q]) {
+                           const T &omega) {
         Array<T,Descriptor::q> momentsEq;
         Array<T,Descriptor::q> moments;
         
         computeMoments(moments,f);
-        moments[0] = rhoBar;
-        for (plint iJ = 0; iJ < Descriptor::d; ++iJ) moments[Descriptor::momentumIndexes[iJ]] = j[iJ];
         T jSqr = VectorTemplateImpl<T,Descriptor::d>::normSqr(j);
-        computeQuasiIncEquilibrium(momentsEq,rhoBar,j,jSqr);
+        computeIncEquilibriumMOments(momentsEq,rhoBar,j,jSqr);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
+    
+        for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
+            T collisionTerm = T();
+            for (plint jPop = 0; jPop < Descriptor::q; ++jPop) {
+                collisionTerm += invM_S[iPop][jPop] * (moments[jPop] - momentsEq[jPop]);
+            }
+            f[iPop] -= collisionTerm;
+        }
+        
+        return jSqr;
+    }
+    
+    /// MRT collision step
+    static T incMrtCollision( Array<T,Descriptor::q>& f,
+                           const T &omega) {
+        Array<T,Descriptor::q> momentsEq;
+        Array<T,Descriptor::q> moments;
+        
+        computeMoments(moments,f);
+        T rhoBar = moments[0];
+        Array<T,Descriptor::d> j;
+        for (plint iA = 0; iA < Descriptor::jIndexes; ++iA) {
+            plint iPop = Descriptor::momentumIndexes[iA];
+            
+            j[iA] = moments[iPop];
+        }
+        T jSqr = VectorTemplateImpl<T,Descriptor::d>::normSqr(j);
+        computeIncEquilibriumMOments(momentsEq,rhoBar,j,jSqr);
+        
+        T invM_S[Descriptor::q][Descriptor::q];
+        computeInvM_S(invM_S, omega);
     
         for (plint iPop=0; iPop < Descriptor::q; ++iPop) {
             T collisionTerm = T();
@@ -506,10 +587,10 @@ struct mrtTemplatesImpl {
     }
     
     /// Smagorinsky MRT collision step
-    static T quasiIncSmagorinskyMrtCollision( Array<T,Descriptor::q>& f,
+    static T incSmagorinskyMrtCollision( Array<T,Descriptor::q>& f,
                                    const T &rhoBar, const Array<T,Descriptor::d> & j,
-                                   T invM_S[Descriptor::q][Descriptor::q],
-                                   const Array<T,SymmetricTensorImpl<T,Descriptor::d>::N >& strain, T cSmago) 
+                                   const T &omega,
+                                   const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n >& strain, T cSmago) 
     {
         PLB_ASSERT(false);
     }

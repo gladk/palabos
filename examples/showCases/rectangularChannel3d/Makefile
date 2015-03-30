@@ -1,5 +1,5 @@
 ##########################################################################
-## Makefile for the Palabos example program rectangularChannel3D.
+## Makefile.
 ##
 ## The present Makefile is a pure configuration file, in which
 ## you can select compilation options. Compilation dependencies
@@ -15,7 +15,7 @@
 #                optimFlags   = -O -finline-functions
 
 # Leading directory of the Palabos source code
-palabosRoot   = ../../..
+palabosRoot  = ../../..
 # Name of source files in current directory to compile and link with Palabos
 projectFiles = rectangularChannel3D.cpp
 
@@ -78,10 +78,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-	    profileFlags="$(profileFlags)" \
-	    libraryPaths="$(libraryPaths)" \
-	    includePaths="$(includePaths)" \
-	    libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

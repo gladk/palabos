@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,8 +59,8 @@ public:
     virtual SetToPoiseuilleVelocityFunctional<T>* clone() const {
         return new SetToPoiseuilleVelocityFunctional(*this);
     }
-    virtual void getModificationPattern(std::vector<bool>& isWritten) const {
-        isWritten[0] = true;
+    void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::staticVariables;
     }
     virtual BlockDomain::DomainT appliesTo() const {
         return BlockDomain::bulkAndEnvelope;
@@ -92,9 +92,9 @@ public:
     virtual BoundaryFromVelocityFunctional2D<T,Descriptor>* clone() const {
         return new BoundaryFromVelocityFunctional2D(*this);
     }
-    virtual void getModificationPattern(std::vector<bool>& isWritten) const {
-        isWritten[0] = true;
-        isWritten[1] = false;
+    void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::dataStructure;
+        modified[1] = modif::nothing;
     }
     virtual BlockDomain::DomainT appliesTo() const {
         return BlockDomain::bulkAndEnvelope;

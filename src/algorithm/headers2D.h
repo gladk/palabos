@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,7 +23,6 @@
 */
 
 /** \file
- * #include "core/globalDefs.h"
  * Groups all the 2D include files in the directory utilities.
  */
 
@@ -34,4 +33,6 @@
 #include "algorithm/timePeriodicSignal.h"
 #include "algorithm/linearAlgebra.h"
 #include "algorithm/functions.h"
+#include "algorithm/quadrature.h"
+#include "algorithm/nonlinearEquationSolvers.h"
 

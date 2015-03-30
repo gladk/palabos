@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,14 +47,9 @@ void FlatAdiabaticBoundaryFunctional2D<T,Descriptor,direction,orientation>::proc
             plint iX_prev = iX + ( (direction==0) ? (-orientation) : 0 );
             plint iY_prev = iY + ( (direction==1) ? (-orientation) : 0 );
             
-            plint iX_prev_2 = iX + ( (direction==0) ? (-2*orientation) : 0 );
-            plint iY_prev_2 = iY + ( (direction==1) ? (-2*orientation) : 0 );
-            
             T temperature_1 = lattice.get(iX_prev,iY_prev).computeDensity();
-            T temperature_2 = lattice.get(iX_prev_2,iY_prev_2).computeDensity();
             
-            T temperature = fd::boundaryZeroGradient(temperature_1, temperature_2);
-            lattice.get(iX,iY).defineDensity(temperature);
+            lattice.get(iX,iY).defineDensity(temperature_1);
         }
     }
 }
@@ -70,13 +65,13 @@ template<typename T, template<typename U> class Descriptor, int direction, int o
 void FlatAdiabaticBoundaryFunctional2D<T,Descriptor,direction,orientation>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dynamicVariables;
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation> 
 BlockDomain::DomainT FlatAdiabaticBoundaryFunctional2D<T,Descriptor,direction,orientation>::appliesTo() const 
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 }  // namespace plb

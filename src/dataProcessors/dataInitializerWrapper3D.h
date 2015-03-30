@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -147,6 +147,10 @@ void setExternalScalar( BlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int whichScalar, T externalScalar );
 
 template<typename T, template<class U> class Descriptor>
+void setExternalScalar( BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask,
+                        int flag, Box3D domain, int whichScalar, T externalScalar );
+
+template<typename T, template<class U> class Descriptor>
 void setExternalVector( BlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector );
 
@@ -203,6 +207,16 @@ template<typename T, template<typename U> class Descriptor>
 void recomposeFromFlowVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
                                   MultiScalarField3D<T>& density, TensorField3D<T,3>& velocity,
                                   MultiTensorField3D<T,6>& strainRate );
+
+template<typename T, template<typename U> class Descriptor>
+void recomposeFromOrderZeroVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
+                                  MultiScalarField3D<T>& density, TensorField3D<T,3>& velocity,
+                                  MultiTensorField3D<T,Descriptor<T>::q>& fNeq, Box3D domain );
+
+template<typename T, template<typename U> class Descriptor>
+void recomposeFromOrderZeroVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
+                                  MultiScalarField3D<T>& density, TensorField3D<T,3>& velocity,
+                                  MultiTensorField3D<T,Descriptor<T>::q>& fNeq );
 
 template<typename T, template<class U> class Descriptor>
 void setOmega(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T omega);
@@ -293,17 +307,47 @@ template<typename T, template<class U> class Descriptor>
 void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int whichScalar, T externalScalar );
 
+template<typename T, template<class U> class Descriptor>
+void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                        int whichScalar, MultiScalarField3D<T> &scalar );
+
+template<typename T, template<class U> class Descriptor>
+void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int whichScalar, T externalScalar );
+
+/// Initialize scalar-field with the same constant value on each cell on which
+///   the mask is equal to the flag.
+template<typename T>
+void setToConstant(MultiScalarField3D<T>& field, MultiScalarField3D<int>& mask, int flag,
+                   Box3D domain, T value);
+
 template<typename T, template<class U> class Descriptor, class Functional>
 void setGenericExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                                int whichScalar, Functional const& functional );
+
+template<typename T, template<class U> class Descriptor, class Functional>
+void setGenericExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                               int flag, Box3D domain, int whichScalar, Functional const& functional );
 
 template<typename T, template<class U> class Descriptor>
 void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector );
 
+template<typename T, template<class U> class Descriptor>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector );
+
 template<typename T, template<class U> class Descriptor, int nDim>
 void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, MultiTensorField3D<T,nDim> &tensor );
+
+template<typename T, template<class U> class Descriptor, class Functional>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                        int vectorStartsAt, Functional const& functional );
+
+template<typename T, template<class U> class Descriptor, class Functional>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int vectorStartsAt, Functional const& functional );
 
 template<typename T, template<class U> class Descriptor>
 void interpolatePopulations (

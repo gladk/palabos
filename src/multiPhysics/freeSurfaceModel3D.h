@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,14 +41,7 @@ class TwoPhaseComputeNormals3D : public BoxProcessingFunctional3D {
 public:
     TwoPhaseComputeNormals3D()
     {
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
+        precision = floatingPointPrecision<T>();
     }
     virtual TwoPhaseComputeNormals3D<T,Descriptor>* clone() const {
         return new TwoPhaseComputeNormals3D<T,Descriptor>(*this);
@@ -77,23 +70,14 @@ public:
     FreeSurfaceGeometry3D(T contactAngle_)
         : contactAngle(contactAngle_)
     {
-        Precision precision;
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        Precision precision = floatingPointPrecision<T>();
         eps = getEpsilon<T>(precision);
 
         // The contact angle must take values between 0 and 180 degrees. If it is negative,
         // this means that contact angle effects will not be modeled.
-        PLB_ASSERT(contactAngle < (T) 180.0 || fabs(contactAngle - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
 
-        if (contactAngle < (T) 0.0 && fabs(contactAngle) > eps) {
+        if (contactAngle < (T) 0.0 && std::fabs(contactAngle) > eps) {
             useContactAngle = 0;
         } else {
             useContactAngle = 1;
@@ -123,7 +107,7 @@ private:
     void computeHeights2D(FreeSurfaceProcessorParam3D<T,Descriptor>& param, Array<int,3>& wallTangent0,
             Array<int,3>& wallTangent1, int integrationDirection, plint iX, plint iY, plint iZ, T h[3]);
 private:
-    enum { unTagged = 000, notInterface = 001, regular = 002, contactLine = 004, adjacent = 010 };
+    enum { unTagged = 0, notInterface = 1, regular = 2, contactLine = 4, adjacent = 10 };
 private:
     T contactAngle;
     int useContactAngle;
@@ -137,22 +121,14 @@ public:
         : contactAngle(contactAngle_),
           globalBoundingBox(globalBoundingBox_)
     {
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        precision = floatingPointPrecision<T>();
         T eps = getEpsilon<T>(precision);
 
         // The contact angle must take values between 0 and 180 degrees. If it is negative,
         // this means that contact angle effects will not be modeled.
-        PLB_ASSERT(contactAngle < (T) 180.0 || fabs(contactAngle - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
 
-        if (contactAngle < (T) 0.0 && fabs(contactAngle) > eps) {
+        if (contactAngle < (T) 0.0 && std::fabs(contactAngle) > eps) {
             useContactAngle = 0;
         } else {
             useContactAngle = 1;
@@ -298,8 +274,9 @@ private:
 template<typename T, template<typename U> class Descriptor>
 class TwoPhaseAddSurfaceTension3D : public BoxProcessingFunctional3D {
 public:
-    TwoPhaseAddSurfaceTension3D(T surfaceTension_)
-        : surfaceTension(surfaceTension_)
+    TwoPhaseAddSurfaceTension3D(T surfaceTension_, T rhoDefault_)
+        : surfaceTension(surfaceTension_),
+          rhoDefault(rhoDefault_)
     { }
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
     virtual TwoPhaseAddSurfaceTension3D<T,Descriptor>* clone() const {
@@ -320,6 +297,7 @@ public:
     }
 private:
     T surfaceTension;
+    T rhoDefault;
 };
 
 /// Based on the current flag status, decide, upon the value of mass fraction, which nodes shall
@@ -504,8 +482,46 @@ template<typename T,template<typename U> class Descriptor>
 class FreeSurfaceEqualMassExcessReDistribution3D : public BoxProcessingFunctional3D {
 public:
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual void redistribute( Box3D const& domain, Box3D const& originalDomain,
+                               FreeSurfaceProcessorParam3D<T,Descriptor>& param,
+                               plint iX, plint iY, plint iZ, T mass );
     virtual FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>* clone() const {
         return new FreeSurfaceEqualMassExcessReDistribution3D(*this);
+    }
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        std::fill(modified.begin(), modified.end(), modif::nothing);
+        modified[0] = modif::dataStructure;    // Fluid.
+        modified[1] = modif::staticVariables;  // rhoBar.
+        modified[2] = modif::staticVariables;  // j.
+        modified[3] = modif::staticVariables;  // Mass.
+        modified[4] = modif::staticVariables;  // Volume fraction.
+        modified[5] = modif::nothing;          // Flag-status.
+        modified[6] = modif::nothing;          // Normal.
+        modified[7] = modif::nothing;          // Interface lists.
+        modified[8] = modif::nothing;          // Curvature.
+        modified[9] = modif::nothing;          // Outside density.
+    }
+};
+
+/// Enforce exact mass balance when interface cells become fluid or empty, redistribute along interface normal.
+/** Input:
+  *   - mass-excess list: needed in bulk+1
+  *   - interface normal: needed in bulk+1
+  *   - Flag-status: needed in bulk+2
+  *   - mass:        needed in bulk+2
+  *   - density:     needed in bulk+2
+  * Output:
+  *   - mass, mass-fraction
+  **/
+template<typename T,template<typename U> class Descriptor>
+class FreeSurfaceWeightedMassExcessReDistribution3D : public BoxProcessingFunctional3D {
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual void redistribute( Box3D const& domain, Box3D const& originalDomain,
+                               FreeSurfaceProcessorParam3D<T,Descriptor>& param,
+                               plint iX, plint iY, plint iZ, T mass, T sign );
+    virtual FreeSurfaceWeightedMassExcessReDistribution3D<T,Descriptor>* clone() const {
+        return new FreeSurfaceWeightedMassExcessReDistribution3D(*this);
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
@@ -600,15 +616,9 @@ void initializeInterfaceLists3D(MultiContainerBlock3D& interfaceListBlock) {
 
 template<typename T, template<typename U> class Descriptor>
 struct FreeSurfaceFields3D {
-    //static const int envelopeWidth = 2;
-    static const int envelopeWidth = 3; // Necessary when we use height functions to compute the curvature,
-                                        // or when double smoothing is used at the data processor that computes the
-                                        // normals from the volume fraction.
-    //static const int envelopeWidth = 4; // Necessary when we use height functions to compute the curvature and
-                                        //   use the old contact angle algorithm.
-    static const int smallEnvelopeWidth = 1;
-
-    static const int envelopeWidthForImmersedWalls = 4;
+    static const int envelopeWidth;
+    static const int smallEnvelopeWidth;
+    static const int envelopeWidthForImmersedWalls;
 
     FreeSurfaceFields3D(SparseBlockStructure3D const& blockStructure,
                         Dynamics<T,Descriptor>* dynamics_,
@@ -661,22 +671,13 @@ struct FreeSurfaceFields3D {
                 defaultMultiBlockPolicy3D().getMultiTensorAccess<T,3>() ),
           normal((MultiBlock3D&) curvature)
     {
-        Precision precision;
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        Precision precision = floatingPointPrecision<T>();
         T eps = getEpsilon<T>(precision);
         // The contact angle must take values between 0 and 180 degrees. If it is negative,
         // this means that contact angle effects will not be modeled.
-        PLB_ASSERT(contactAngle < (T) 180.0 || fabs(contactAngle - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
 
-        if (fabs(surfaceTension) <= eps) {
+        if (std::fabs(surfaceTension) <= eps) {
             useSurfaceTension = 0;
         } else {
             useSurfaceTension = 1;
@@ -706,6 +707,96 @@ struct FreeSurfaceFields3D {
         lattice.internalStatSubscription().subscribeIntSum();  // Num interface cells.
 
         freeSurfaceDataProcessors(rhoDefault, force, *dynamics);
+        setExternalVector(lattice, lattice.getBoundingBox(), Descriptor<T>::ExternalField::forceBeginsAt, force);
+    }
+    FreeSurfaceFields3D(MultiBlockManagement3D const& blockManagement,
+                        Dynamics<T,Descriptor>* dynamics_,
+                        T rhoDefault_, T surfaceTension_, T contactAngle_, Array<T,3> force_,
+                        bool useImmersedWalls = false)
+        : dynamics(dynamics_),
+          rhoDefault(rhoDefault_), surfaceTension(surfaceTension_), contactAngle(contactAngle_), force(force_),
+          lattice (
+                MultiBlockManagement3D (
+                        blockManagement.getSparseBlockStructure(), blockManagement.getThreadAttribution().clone(),
+                        smallEnvelopeWidth ),
+                defaultMultiBlockPolicy3D().getBlockCommunicator(),
+                defaultMultiBlockPolicy3D().getCombinedStatistics(),
+                defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(), dynamics->clone() ),
+          helperLists(lattice),
+          mass(lattice),
+          flag (
+                MultiBlockManagement3D (
+                        blockManagement.getSparseBlockStructure(),
+                        blockManagement.getThreadAttribution().clone(),
+                        useImmersedWalls ? envelopeWidthForImmersedWalls : envelopeWidth ),
+                defaultMultiBlockPolicy3D().getBlockCommunicator(),
+                defaultMultiBlockPolicy3D().getCombinedStatistics(),
+                defaultMultiBlockPolicy3D().getMultiScalarAccess<int>() ),
+          volumeFraction((MultiBlock3D&) flag),
+          curvature (
+                MultiBlockManagement3D (
+                        blockManagement.getSparseBlockStructure(),
+                        blockManagement.getThreadAttribution().clone(),
+                        envelopeWidth ),
+                defaultMultiBlockPolicy3D().getBlockCommunicator(),
+                defaultMultiBlockPolicy3D().getCombinedStatistics(),
+                defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() ),
+          outsideDensity((MultiBlock3D&) curvature),
+          rhoBar (
+                MultiBlockManagement3D (
+                        blockManagement.getSparseBlockStructure(),
+                        blockManagement.getThreadAttribution().clone(),
+                        useImmersedWalls ? envelopeWidthForImmersedWalls : smallEnvelopeWidth ),
+                defaultMultiBlockPolicy3D().getBlockCommunicator(),
+                defaultMultiBlockPolicy3D().getCombinedStatistics(),
+                defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() ),
+          j (
+                MultiBlockManagement3D (
+                        blockManagement.getSparseBlockStructure(),
+                        blockManagement.getThreadAttribution().clone(),
+                        useImmersedWalls ? envelopeWidthForImmersedWalls : smallEnvelopeWidth ),
+                defaultMultiBlockPolicy3D().getBlockCommunicator(),
+                defaultMultiBlockPolicy3D().getCombinedStatistics(),
+                defaultMultiBlockPolicy3D().getMultiTensorAccess<T,3>() ),
+          normal((MultiBlock3D&) curvature)
+    {
+        Precision precision = floatingPointPrecision<T>();
+        T eps = getEpsilon<T>(precision);
+        // The contact angle must take values between 0 and 180 degrees. If it is negative,
+        // this means that contact angle effects will not be modeled.
+        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
+
+        if (std::fabs(surfaceTension) <= eps) {
+            useSurfaceTension = 0;
+        } else {
+            useSurfaceTension = 1;
+        }
+
+        twoPhaseArgs = aggregateFreeSurfaceParams(lattice, rhoBar, j, mass, volumeFraction,
+                    flag, normal, helperLists, curvature, outsideDensity);
+
+        initializeInterfaceLists3D<T,Descriptor>(helperLists);
+        lattice.periodicity().toggleAll(true);
+        mass.periodicity().toggleAll(true);
+        flag.periodicity().toggleAll(true);
+        volumeFraction.periodicity().toggleAll(true);
+        curvature.periodicity().toggleAll(true);
+        outsideDensity.periodicity().toggleAll(true);
+        rhoBar.periodicity().toggleAll(true);
+        j.periodicity().toggleAll(true);
+        normal.periodicity().toggleAll(true);
+        setToConstant(flag, flag.getBoundingBox(), (int)twoPhaseFlag::empty);
+        setToConstant(outsideDensity, outsideDensity.getBoundingBox(), rhoDefault);
+        rhoBarJparam.push_back(&lattice);
+        rhoBarJparam.push_back(&rhoBar);
+        rhoBarJparam.push_back(&j);
+
+        lattice.internalStatSubscription().subscribeSum();     // Total mass.
+        lattice.internalStatSubscription().subscribeSum();     // Lost mass.
+        lattice.internalStatSubscription().subscribeIntSum();  // Num interface cells.
+
+        freeSurfaceDataProcessors(rhoDefault, force, *dynamics);
+        setExternalVector(lattice, lattice.getBoundingBox(), Descriptor<T>::ExternalField::forceBeginsAt, force);
     }
 
     FreeSurfaceFields3D(FreeSurfaceFields3D<T,Descriptor> const& rhs)
@@ -794,9 +885,10 @@ struct FreeSurfaceFields3D {
         normal.periodicity().toggleAll(periodic);
     }
 
-    void defaultInitialize() {
+    void defaultInitialize(bool useConstRho = true) {
         applyProcessingFunctional (
-           new DefaultInitializeFreeSurface3D<T,Descriptor>(dynamics->clone(), force, rhoDefault),
+           new DefaultInitializeFreeSurface3D<T,Descriptor>( dynamics->clone(), force,
+                                                             rhoDefault, useConstRho ),
                    lattice.getBoundingBox(), twoPhaseArgs );
     }
 
@@ -864,7 +956,7 @@ struct FreeSurfaceFields3D {
 
         if (useSurfaceTension) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension), 
+                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension, rhoDefault), 
                 lattice.getBoundingBox(), twoPhaseArgs, pl );
         }
 
@@ -896,11 +988,23 @@ struct FreeSurfaceFields3D {
 
         integrateProcessingFunctional (
             new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
+            //new FreeSurfaceWeightedMassExcessReDistribution3D<T,Descriptor>(),
             lattice.getBoundingBox(), twoPhaseArgs, pl );
 
         integrateProcessingFunctional (
             new TwoPhaseComputeStatistics3D<T,Descriptor>,
             lattice.getBoundingBox(), twoPhaseArgs, pl );
+    }
+
+    void appendBlocksToCheckpointVector(std::vector<MultiBlock3D*>& checkpointBlocks)
+    {
+        checkpointBlocks.push_back(&lattice);
+        checkpointBlocks.push_back(&mass);
+        checkpointBlocks.push_back(&flag);
+        checkpointBlocks.push_back(&volumeFraction);
+        checkpointBlocks.push_back(&outsideDensity);
+        checkpointBlocks.push_back(&rhoBar);
+        checkpointBlocks.push_back(&j);
     }
 
     Dynamics<T,Descriptor>* dynamics;
@@ -922,6 +1026,19 @@ struct FreeSurfaceFields3D {
     std::vector<MultiBlock3D*> rhoBarJparam;
     std::vector<MultiBlock3D*> twoPhaseArgs;
 };
+
+template<typename T, template<typename U> class Descriptor>
+const int FreeSurfaceFields3D<T,Descriptor>::envelopeWidth = 3; // Necessary when we use height functions to compute the curvature,
+                                                                // or when double smoothing is used at the data processor that
+                                                                // computes the normals from the volume fraction.
+//template<typename T, template<typename U> class Descriptor>
+//const int FreeSurfaceFields3D<T,Descriptor>::envelopeWidth = 4; // Necessary when we use height functions to compute the curvature and
+                                                                  // use the old contact angle algorithm.
+template<typename T, template<typename U> class Descriptor>
+const int FreeSurfaceFields3D<T,Descriptor>::smallEnvelopeWidth = 1;
+
+template<typename T, template<typename U> class Descriptor>
+const int FreeSurfaceFields3D<T,Descriptor>::envelopeWidthForImmersedWalls = 4;
 
 }  // namespace plb
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -71,14 +71,11 @@ class DefaultMultiGridPolicy2D {
   private:
     
     DefaultMultiGridPolicy2D()
-        :numProcesses(global::mpi().getSize()),
-         gridSpacing(100)
+        :numProcesses(global::mpi().getSize())
     {}
     
   private:
     int               numProcesses;
-    plint             gridSpacing;
-
 };
 
 inline DefaultMultiGridPolicy2D& defaultMultiGridPolicy2D(){

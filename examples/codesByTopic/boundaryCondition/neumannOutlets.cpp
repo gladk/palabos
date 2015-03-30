@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,6 @@ void setupInletAndBulk( MultiBlockLattice2D<T,DESCRIPTOR>& lattice,
                         IncomprFlowParam<T> const& parameters,
                         OnLatticeBoundaryCondition2D<T,DESCRIPTOR>& boundaryCondition )
 {
-    const plint nx = parameters.getNx();
     const plint ny = parameters.getNy();
 
     // Create Velocity boundary conditions on inlet

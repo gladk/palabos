@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -304,7 +304,7 @@ void BoxGradientNormFunctional3D<T>::processBulk (
                 T xDeriv = fdDataField::bulkXderiv (value,iX, iY, iZ );
                 T yDeriv = fdDataField::bulkYderiv (value,iX, iY, iZ );
                 T zDeriv = fdDataField::bulkZderiv (value,iX, iY, iZ );
-                T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
+                T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
                 derivative.get(iX+offset.x, iY+offset.y, iZ+offset.z) = gradientNorm;
             }
         }
@@ -323,7 +323,7 @@ void BoxGradientNormFunctional3D<T>::processPlane (
                 T xDeriv = fdDataField::planeXderiv (value, direction, orientation, iX, iY, iZ );
                 T yDeriv = fdDataField::planeYderiv (value, direction, orientation, iX, iY, iZ );
                 T zDeriv = fdDataField::planeZderiv (value, direction, orientation, iX, iY, iZ );
-                T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
+                T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
                 derivative.get(iX+offset.x, iY+offset.y, iZ+offset.z) = gradientNorm;
             }
         }
@@ -342,7 +342,7 @@ void BoxGradientNormFunctional3D<T>::processEdge(
                 T xDeriv = fdDataField::edgeXderiv (value,plane, normal1, normal2, iX, iY, iZ );
                 T yDeriv = fdDataField::edgeYderiv (value,plane, normal1, normal2, iX, iY, iZ );
                 T zDeriv = fdDataField::edgeZderiv (value,plane, normal1, normal2, iX, iY, iZ );
-                T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
+                T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
                 derivative.get(iX+offset.x, iY+offset.y, iZ+offset.z) = gradientNorm;
             }
         }
@@ -361,7 +361,7 @@ void BoxGradientNormFunctional3D<T>::processCorner (
                 T xDeriv = fdDataField::cornerXderiv (value, normalX, normalY, normalZ, iX, iY, iZ );
                 T yDeriv = fdDataField::cornerYderiv (value, normalX, normalY, normalZ, iX, iY, iZ );
                 T zDeriv = fdDataField::cornerZderiv (value, normalX, normalY, normalZ, iX, iY, iZ );
-                T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
+                T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
                 derivative.get(iX+offset.x, iY+offset.y, iZ+offset.z) = gradientNorm;
             }
         }
@@ -449,7 +449,7 @@ void BoxPoissonResidueFunctional3D<T>::process (
                     pressure.get(iX-1,iY,iZ) +
                     pressure.get(iX,iY-1,iZ) +
                     pressure.get(iX,iY,iZ-1);
-                T residue = fabs( sumPressure -(T)6*pressure.get(iX,iY,iZ)
+                T residue = std::fabs( sumPressure -(T)6*pressure.get(iX,iY,iZ)
                                 + rhs.get(iX+offset.x,iY+offset.y,iZ+offset.z) );
                 statistics.gatherMax(maxResidueId, residue);
             }
@@ -875,7 +875,7 @@ void BoxPeriodicGradientNormFunctional3D<T>::process(
                 T xDeriv = fdDataField::bulkXderiv (value,iX, iY, iZ );
                 T yDeriv = fdDataField::bulkYderiv (value,iX, iY, iZ );
                 T zDeriv = fdDataField::bulkZderiv (value,iX, iY, iZ );
-                T gradientNorm = sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
+                T gradientNorm = std::sqrt(util::sqr(xDeriv)+util::sqr(yDeriv)+util::sqr(zDeriv));
                 derivative.get(iX+offset.x, iY+offset.y, iZ+offset.z) = gradientNorm;
             }
         }

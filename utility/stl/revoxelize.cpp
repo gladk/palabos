@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 
     TriangleSet<T>* triangleSet = 0;
     try {
-        triangleSet = new TriangleSet<T>(stlFileName, DBL);
+        triangleSet = new TriangleSet<T>(stlFileName, FLT);
     }
     catch (PlbIOException& exception) {
         pcout << "Error, could not read STL file " << stlFileName
@@ -69,6 +69,7 @@ int main(int argc, char* argv[])
     }
     DEFscaledMesh<T> mesh(*triangleSet, resolution, referenceDirection, margin, extraLayer);
     TriangleBoundary3D<T> boundary(mesh);
+    boundary.getMesh().inflate();
     T dx = boundary.getDx();
     Array<T,3> location(boundary.getPhysicalLocation());
     VoxelizedDomain3D<T> voxelizedDomain (
@@ -76,16 +77,22 @@ int main(int argc, char* argv[])
 
     MultiScalarField3D<T> flagMatrix((MultiBlock3D&)voxelizedDomain.getVoxelMatrix());
     setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
-                  voxelFlag::inside, flagMatrix.getBoundingBox(), 1.0);
+                  voxelFlag::inside, flagMatrix.getBoundingBox(), (T) 1.0);
     setToConstant(flagMatrix, voxelizedDomain.getVoxelMatrix(),
-                  voxelFlag::innerBorder, flagMatrix.getBoundingBox(), 1.0);
+                  voxelFlag::innerBorder, flagMatrix.getBoundingBox(), (T) 1.0);
     pcout << "Number of inside cells: " << computeSum(flagMatrix) << std::endl;
 
-   TriangleSet<T> triangles (
-           vofToTriangles<T,descriptors::D3Q19Descriptor>( 
-               flagMatrix, 0.5, flagMatrix.getBoundingBox().enlarge(-2) ) );
+   //TriangleSet<T> triangles (
+           //vofToTriangles<T,descriptors::D3Q19Descriptor>( 
+               //flagMatrix, (T) 0.5, flagMatrix.getBoundingBox().enlarge(-2) ) );
 
-    DEFscaledMesh<T> newMesh(triangles);
+    std::vector<TriangleSet<T>::Triangle> triangles;
+    isoSurfaceMarchingCube(triangles, voxelizedDomain, flagMatrix.getBoundingBox());
+    TriangleSet<T> newTriangleSet(triangles, FLT);
+    newTriangleSet.writeBinarySTL(outFileName);
+
+
+    DEFscaledMesh<T> newMesh(newTriangleSet);
     TriangleBoundary3D<T> newBoundary(newMesh);
     newBoundary.getMesh().scale(dx);
     newBoundary.getMesh().translate(location);

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,6 +34,7 @@
 #include <cstdlib>
 #include <cstring>
 #include "offLattice/triangularSurfaceMesh.h"
+#include "offLattice/triangleSet.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "core/globalDefs.h"
 #include "core/plbDebug.h"
@@ -41,8 +42,8 @@
 #include "core/util.h"
 #include "io/parallelIO.h"
 
-#define FPEQUAL_ABS(x, y, eps) (fabs((x)-(y)) <= (eps)) // Macro definition for the function
-                                                        // util::fpequal_abs<T>(T x, T y, T eps)
+#define FPEQUAL_ABS(x, y, eps) (std::fabs((x)-(y)) <= (eps)) // Macro definition for the function
+                                                             // util::fpequal_abs<T>(T x, T y, T eps)
 
 namespace plb {
 
@@ -177,11 +178,10 @@ template<typename T>
 void TriangularSurfaceMesh<T>::computeBoundingBox (
         Array<T,2>& xRange, Array<T,2>& yRange, Array<T,2>& zRange ) const
 {
-    T minVal = std::numeric_limits<T>::min();
     T maxVal = std::numeric_limits<T>::max();
-    xRange = Array<T,2>(maxVal, minVal);
-    yRange = Array<T,2>(maxVal, minVal);
-    zRange = Array<T,2>(maxVal, minVal);
+    xRange = Array<T,2>(maxVal, -maxVal);
+    yRange = Array<T,2>(maxVal, -maxVal);
+    zRange = Array<T,2>(maxVal, -maxVal);
     for (plint iVertex=0; iVertex<getNumVertices(); ++iVertex) {
         Array<T,3> const& vertex = getVertex(iVertex);
         xRange[0] = std::min(xRange[0], vertex[0]);
@@ -218,7 +218,7 @@ void TriangularSurfaceMesh<T>::scale(T alpha)
 template<typename T>
 void TriangularSurfaceMesh<T>::rotate(T phi, T theta, T psi)
 {
-    static const T pi = acos(-1.0);
+    static const T pi = std::acos((T) -1.0);
 
     PLB_ASSERT((theta > T() || util::fpequal(theta, T(), eps0)) &&
                (theta < pi  || util::fpequal(theta, pi, eps0)));
@@ -228,18 +228,18 @@ void TriangularSurfaceMesh<T>::rotate(T phi, T theta, T psi)
     a[0][1] =  (T) 0.0;
     a[0][2] =  (T) 0.0;
     a[1][0] =  (T) 0.0;
-    a[1][1] =  cos(theta);
-    a[1][2] = -sin(theta);
+    a[1][1] =  std::cos(theta);
+    a[1][2] = -std::sin(theta);
     a[2][0] =  (T) 0.0;
-    a[2][1] =  sin(theta);
-    a[2][2] =  cos(theta);
+    a[2][1] =  std::sin(theta);
+    a[2][2] =  std::cos(theta);
 
     T b[3][3];
-    b[0][0] =  cos(phi);
-    b[0][1] = -sin(phi);
+    b[0][0] =  std::cos(phi);
+    b[0][1] = -std::sin(phi);
     b[0][2] =  (T) 0.0;
-    b[1][0] =  sin(phi);
-    b[1][1] =  cos(phi);
+    b[1][0] =  std::sin(phi);
+    b[1][1] =  std::cos(phi);
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -255,11 +255,11 @@ void TriangularSurfaceMesh<T>::rotate(T phi, T theta, T psi)
         }
     }
 
-    b[0][0] =  cos(psi);
-    b[0][1] = -sin(psi);
+    b[0][0] =  std::cos(psi);
+    b[0][1] = -std::sin(psi);
     b[0][2] =  (T) 0.0;
-    b[1][0] =  sin(psi);
-    b[1][1] =  cos(psi);
+    b[1][0] =  std::sin(psi);
+    b[1][1] =  std::cos(psi);
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -289,8 +289,8 @@ template<typename T>
 void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeighted)
 {
     PLB_ASSERT(maxiter >= 0);
-    PLB_ASSERT((relax > (T) 0.0 || fabs(relax) <= eps0) &&
-               (relax < (T) 1.0 || fabs(relax - 1.0) <= eps0));
+    PLB_ASSERT((relax > (T) 0.0 || std::fabs(relax) <= eps0) &&
+               (relax < (T) 1.0 || std::fabs(relax - 1.0) <= eps0));
 
     if (maxiter <= 0)
         return;
@@ -332,7 +332,7 @@ void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeig
                         area += locArea;
                         tmp += middleVertexPos * locArea;
                     }
-                    (*bp1)[iVertex] = (1.0 - relax) * (*bp0)[iVertex] + relax * tmp / area;
+                    (*bp1)[iVertex] = ((T) 1.0 - relax) * (*bp0)[iVertex] + relax * tmp / area;
                 } else {
                     plint jVertex = -1, kVertex = -1;
                     int counter = 0;
@@ -363,7 +363,7 @@ void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeig
                     T length0 = norm(jVertexPos - iVertexPos);
                     T length1 = norm(kVertexPos - iVertexPos);
 
-                    (*bp1)[iVertex] = (1.0 - relax) * (*bp0)[iVertex] +
+                    (*bp1)[iVertex] = ((T) 1.0 - relax) * (*bp0)[iVertex] +
                                       relax * (middleVertexPos0*length0 + middleVertexPos1*length1) / (length0 + length1);
                 }
             }
@@ -383,7 +383,7 @@ void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeig
                     for (pluint i = 0; i < sizeIds; i++) {
                         tmp += (*bp0)[neighborVertexIds[i]];
                     }
-                    (*bp1)[iVertex] = (1.0 - relax) * (*bp0)[iVertex] + relax * tmp / (T) sizeIds;
+                    (*bp1)[iVertex] = ((T) 1.0 - relax) * (*bp0)[iVertex] + relax * tmp / (T) sizeIds;
                 } else {
                     plint jVertex = -1, kVertex = -1;
                     int counter = 0;
@@ -405,7 +405,7 @@ void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeig
 
                     PLB_ASSERT(counter == 2); // Problem with the boundary of the surface mesh.
 
-                    (*bp1)[iVertex] = (1.0 - relax) * (*bp0)[iVertex] +
+                    (*bp1)[iVertex] = ((T) 1.0 - relax) * (*bp0)[iVertex] +
                                       relax * ((*bp0)[jVertex] + (*bp0)[kVertex]) / (T) 2.0;
                 }
             }
@@ -479,7 +479,9 @@ std::vector<plint> TriangularSurfaceMesh<T>::getNeighborVertexIds(
         neighborVertexIds.push_back(kVertex);
     }
 
+#ifdef PLB_DEBUG
     plint size = neighborVertexIds.size();
+#endif
     PLB_ASSERT(size == 1 || size == 2); // Problem with the topology of the surface mesh.
 
     return neighborVertexIds;
@@ -823,7 +825,7 @@ T TriangularSurfaceMesh<T>::computeEdgeTileSpan(plint iVertex, plint jVertex) co
     Array<T,3> v21 = v1 - v2;
     T angle_012 = angleBetweenVectors(v21, v01);
 
-    T span = fabs(sin(angle_012)) * norm(v01);
+    T span = std::fabs(std::sin(angle_012)) * norm(v01);
 
     if (neighborVertexIds.size() == 1)
         return span/6.0;
@@ -834,16 +836,41 @@ T TriangularSurfaceMesh<T>::computeEdgeTileSpan(plint iVertex, plint jVertex) co
     Array<T,3> v12 = -v21;
     T angle_321 = angleBetweenVectors(v12, v32);
     
-    span += fabs(sin(angle_321)) * norm(v32);
+    span += std::fabs(std::sin(angle_321)) * norm(v32);
 
     return span/6.0;
 }
 
 template<typename T>
-void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname) const
+TriangleSet<T> TriangularSurfaceMesh<T>::toTriangleSet(Precision precision) const
+{
+    typedef typename TriangleSet<T>::Triangle Triangle;
+    std::vector<Triangle> triangles(numTriangles);
+    for (plint i = 0; i < numTriangles; i++) {
+        Triangle triangle;
+        triangle[0] = getVertex(i, 0);
+        triangle[1] = getVertex(i, 1);
+        triangle[2] = getVertex(i, 2);
+        triangles[i] = triangle;
+    }
+    return TriangleSet<T>(triangles, precision);
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx) const
+{
+    Array<T,3> location((T) 0, (T) 0, (T) 0);
+    writeAsciiSTL(fname, dx, location);
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx, Array<T,3> location) const
 {
     // Output only from one MPI process.
     if (!global::mpi().isMainProcessor()) {
+        return;
+    }
+    if (numTriangles == 0) {
         return;
     }
     FILE *fp = fopen(fname.c_str(), "w");
@@ -852,13 +879,13 @@ void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname) const
     char fmt1[64] = "  facet normal ";
     char fmt2[64] = "      vertex ";
     if (sizeof(T) == sizeof(long double)) {
-        strcat(fmt1, "% Le % Le % Le\n");
-        strcat(fmt2, "% Le % Le % Le\n");
+        strcat(fmt1, "% .12Le % .12Le % .12Le\n");
+        strcat(fmt2, "% .12Le % .12Le % .12Le\n");
     }
     else if (sizeof(T) == sizeof(float) ||
              sizeof(T) == sizeof(double)) {
-        strcat(fmt1, "% e % e % e\n");
-        strcat(fmt2, "% e % e % e\n");
+        strcat(fmt1, "% .10e % .10e % .10e\n");
+        strcat(fmt2, "% .10e % .10e % .10e\n");
     }
     else {
         PLB_ASSERT(false);
@@ -870,11 +897,11 @@ void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname) const
         Array<T,3> v;
         fprintf(fp, fmt1, n[0], n[1], n[2]);
         fprintf(fp, "    outer loop\n");
-        v = getVertex(i, 0);
+        v = getVertex(i, 0) * dx + location;
         fprintf(fp, fmt2, v[0], v[1], v[2]);
-        v = getVertex(i, 1);
+        v = getVertex(i, 1) * dx + location;
         fprintf(fp, fmt2, v[0], v[1], v[2]);
-        v = getVertex(i, 2);
+        v = getVertex(i, 2) * dx + location;
         fprintf(fp, fmt2, v[0], v[1], v[2]);
         fprintf(fp, "    endloop\n");
         fprintf(fp, "  endfacet\n");
@@ -885,10 +912,20 @@ void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname) const
 }
 
 template<typename T>
-void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname) const
+void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname, T dx) const
+{
+    Array<T,3> location((T) 0, (T) 0, (T) 0);
+    writeBinarySTL(fname, dx, location);
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname, T dx, Array<T,3> location) const
 {
     // Output only from one MPI process.
     if (!global::mpi().isMainProcessor()) {
+        return;
+    }
+    if (numTriangles == 0) {
         return;
     }
     FILE *fp = fopen(fname.c_str(), "wb");
@@ -911,18 +948,18 @@ void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname) const
         n[1] = normal[1];
         n[2] = normal[2];
         fwrite((void *) n, sizeof(float), 3, fp);
-        vertex = getVertex(i, 0);
+        vertex = getVertex(i, 0) * dx + location;
         float v[3];
         v[0] = vertex[0];
         v[1] = vertex[1];
         v[2] = vertex[2];
         fwrite((void *) v, sizeof(float), 3, fp);
-        vertex = getVertex(i, 1);
+        vertex = getVertex(i, 1) * dx + location;
         v[0] = vertex[0];
         v[1] = vertex[1];
         v[2] = vertex[2];
         fwrite((void *) v, sizeof(float), 3, fp);
-        vertex = getVertex(i, 2);
+        vertex = getVertex(i, 2) * dx + location;
         v[0] = vertex[0];
         v[1] = vertex[1];
         v[2] = vertex[2];
@@ -1073,7 +1110,7 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
         (upv > (T) 1.0 && !upveq1))
         return 0; // The point does not belong to the triangle
     else { // The point belongs to the triangle (boundary or interior)
-        distance = fabs(t) * norm(direction);
+        distance = std::fabs(t) * norm(direction);
                     // Distance between intersection and point1
 
         if (!ueq0 && !veq0 && !upveq1)
@@ -1161,7 +1198,7 @@ bool TriangularSurfaceMesh<T>::segmentIntersectsTriangle (
          || ( FPEQUAL_ABS(t, (T) 1.0, eps1) )
        )
     {
-        T norm_normal = sqrt(util::sqr(normal[0])+util::sqr(normal[1])+util::sqr(normal[2]));
+        T norm_normal = std::sqrt(util::sqr(normal[0])+util::sqr(normal[1])+util::sqr(normal[2]));
         normal[0] /= norm_normal;
         normal[1] /= norm_normal;
         normal[2] /= norm_normal;
@@ -1293,7 +1330,7 @@ void TriangularSurfaceMesh<T>::distanceToTriangle (
     T d1Sqr = normSqr(point-getVertex(iTriangle, 1));
     T d2Sqr = normSqr(point-getVertex(iTriangle, 2));
     T minDistSqr = std::min(d0Sqr, std::min(d1Sqr,d2Sqr));
-    distance = sqrt(minDistSqr);
+    distance = std::sqrt(minDistSqr);
 }
 
 template<typename T>
@@ -1572,7 +1609,7 @@ Array<T,3> computeGeometricCenter (
         center += (v1+v2)*l;
         circumference += l;
     }
-    center /= 2.*circumference;
+    center /= (T)2.*circumference;
     return center;
 }
 
@@ -1699,7 +1736,7 @@ void reCenter (
 template<typename T>
 void TriangularSurfaceMesh<T>::writeHTML(std::string fname)
 {
-    writeHTML(fname, "Palabos html output", T(), Array<T,3>(0.,0.,0.));
+    writeHTML(fname, "Palabos html output", T(), Array<T,3>((T)0.,(T)0.,(T)0.));
 }
 
 template<typename T>
@@ -1707,6 +1744,9 @@ void TriangularSurfaceMesh<T>::writeHTML (
         std::string fname, std::string title, T phys_dx, Array<T,3> phys_location)
 {
     if (!global::mpi().isMainProcessor()) {
+        return;
+    }
+    if (numTriangles == 0) {
         return;
     }
     std::vector<Array<T,3> > posVect(getNumVertices());
@@ -1727,11 +1767,11 @@ void TriangularSurfaceMesh<T>::writeHTML (
     T diffy = maxPos[1]-minPos[1];
     T diffz = maxPos[2]-minPos[2];
     T diff = std::max(diffx,std::max(diffy,diffz));
-    T dx_nonDim = 2./diff;
+    T dx_nonDim = (T)2./diff;
     Array<T,3> offset_nonDim (
-                 -(1.0+minPos[0]/diff),
-                 -(1.0+minPos[1]/diff),
-                 -(1.0+minPos[2]/diff) );
+                 -((T)1.0+minPos[0]/diff),
+                 -((T)1.0+minPos[1]/diff),
+                 -((T)1.0+minPos[2]/diff) );
     for (plint i=0; i<getNumVertices(); ++i) {
         posVect[i] *= dx_nonDim;
         posVect[i] += offset_nonDim;
@@ -1746,7 +1786,7 @@ void TriangularSurfaceMesh<T>::writeHTML (
     ofile << "    <head>\n";
     ofile << "        <title>" << "Palabos Geometry" << "</title>\n";
     ofile << "        <link rel=\"stylesheet\" type=\"text/css\" href=\"http://www.x3dom.org/download/x3dom.css\">\n";
-    ofile << "        <script type=\"text/javascript\" src=\"http://www.x3dom.org/download/x3dom.js\">\n";
+    ofile << "        <script type=\"text/javascript\" src=\"http://www.x3dom.org/download/1.4/x3dom-full.js\">\n";
     ofile << "        </script>\n";
 
     ofile << "        <script type=\"text/javascript\">\n";
@@ -1796,6 +1836,93 @@ void TriangularSurfaceMesh<T>::writeHTML (
     ofile << "        </scene>\n";
     ofile << "    </x3d>\n";
     ofile << "</html>\n";
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeX3D(std::string fname)
+{
+    writeX3D(fname, "Palabos X3D output", T(), Array<T,3>((T)0.,(T)0.,(T)0.));
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeX3D (
+        std::string fname, std::string title, T phys_dx, Array<T,3> phys_location)
+{
+    if (!global::mpi().isMainProcessor()) {
+        return;
+    }
+    if (numTriangles == 0) {
+        return;
+    }
+    std::vector<Array<T,3> > posVect(getNumVertices());
+    T maxLimit = std::numeric_limits<T>::max();
+    T minLimit = std::numeric_limits<T>::min();
+    Array<T,3> minPos(maxLimit,maxLimit,maxLimit), maxPos(minLimit,minLimit,minLimit);
+    for (plint i=0; i<getNumVertices(); ++i) {
+        posVect[i] = (*vertexList)[i];
+        if (posVect[i][0]<minPos[0]) minPos[0] = posVect[i][0];
+        if (posVect[i][1]<minPos[1]) minPos[1] = posVect[i][1];
+        if (posVect[i][2]<minPos[2]) minPos[2] = posVect[i][2];
+        if (posVect[i][0]>maxPos[0]) maxPos[0] = posVect[i][0];
+        if (posVect[i][1]>maxPos[1]) maxPos[1] = posVect[i][1];
+        if (posVect[i][2]>maxPos[2]) maxPos[2] = posVect[i][2];
+    }
+
+    T diffx = maxPos[0]-minPos[0];
+    T diffy = maxPos[1]-minPos[1];
+    T diffz = maxPos[2]-minPos[2];
+    T diff = std::max(diffx,std::max(diffy,diffz));
+    T dx_nonDim = (T)2./diff;
+    Array<T,3> offset_nonDim (
+                 -((T)1.0+minPos[0]/diff),
+                 -((T)1.0+minPos[1]/diff),
+                 -((T)1.0+minPos[2]/diff) );
+    for (plint i=0; i<getNumVertices(); ++i) {
+        posVect[i] *= dx_nonDim;
+        posVect[i] += offset_nonDim;
+    }
+    
+    std::ofstream ofile(fname.c_str());
+    ofile << std::fixed << std::setprecision(5);
+    ofile << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    ofile << "<!DOCTYPE X3D PUBLIC \"ISO//Web3D//DTD X3D 3.0//EN\" \"http://www.web3d.org/specifications/x3d-3.0.dtd\">\n";
+    ofile << "<X3D version=\"3.0\" profile=\"Immersive\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema-instance\" xsd:noNamespaceSchemaLocation=\"http://www.web3d.org/specifications/x3d-3.0.xsd\">\n";
+    ofile << "        <Scene>\n";
+    ofile << "            <Shape>\n";
+    ofile << "            <IndexedFaceSet coordIndex=\"";
+
+    for (plint iTriangle=0; iTriangle<getNumTriangles(); ++iTriangle) {
+        plint i0 = getVertexId(iTriangle, 0);
+        plint i1 = getVertexId(iTriangle, 1);
+        plint i2 = getVertexId(iTriangle, 2);
+        ofile << i0 << " " << i1 << " " << i2 << " -1 ";
+    }
+    ofile << "\" solid=\"false\">\n";
+    ofile << "            <Coordinate point=\"";
+    for (plint iVertex=0; iVertex<getNumVertices(); ++iVertex) {
+        ofile << posVect[iVertex][0] << " "
+              << posVect[iVertex][1] << " "
+              << posVect[iVertex][2];
+        if (iVertex < getNumVertices()-1) {
+            ofile << " ";
+        }
+    }
+    ofile << "\"/>\n";
+    ofile << "            <Normal vector=\"";
+    for (plint iVertex=0; iVertex<getNumVertices(); ++iVertex) {
+        Array<T,3> normal = computeVertexNormal(iVertex);
+        ofile << normal[0] << " "
+              << normal[1] << " "
+              << normal[2];
+        if (iVertex < getNumVertices()-1) {
+            ofile << " ";
+        }
+    }
+    ofile << "\"/>\n";
+    ofile << "            </IndexedFaceSet>\n";
+    ofile << "            </Shape>\n";
+    ofile << "        </Scene>\n";
+    ofile << "    </X3D>\n";
 }
 
 } // namespace plb

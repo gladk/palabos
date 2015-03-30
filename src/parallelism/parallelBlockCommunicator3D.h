@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,6 +40,17 @@
 namespace plb {
 
 #ifdef PLB_MPI_PARALLEL
+
+struct CommunicationPattern3D
+{
+    CommunicationPattern3D (
+            std::vector<Overlap3D> const& overlaps,
+            MultiBlockManagement3D const& originManagement,
+            MultiBlockManagement3D const& destinationManagement );
+    CommunicationPackage3D sendPackage;
+    CommunicationPackage3D recvPackage;
+    CommunicationPackage3D sendRecvPackage;
+};
 
 struct CommunicationStructure3D
 {
@@ -81,6 +92,31 @@ private:
 private:
     mutable bool overlapsModified;
     mutable CommunicationStructure3D* communication;
+};
+
+
+class BlockingCommunicator3D : public BlockCommunicator3D {
+public:
+    BlockingCommunicator3D();
+    ~BlockingCommunicator3D();
+    BlockingCommunicator3D(BlockingCommunicator3D const& rhs);
+    BlockingCommunicator3D& operator= (
+            BlockingCommunicator3D const& rhs );
+    void swap(BlockingCommunicator3D& rhs);
+    virtual BlockingCommunicator3D* clone() const;
+    virtual void duplicateOverlaps(MultiBlock3D& multiBlock, modif::ModifT whichData) const;
+    virtual void communicate( std::vector<Overlap3D> const& overlaps,
+                              MultiBlock3D const& originMultiBlock,
+                              MultiBlock3D& destinationMultiBlock,
+                              modif::ModifT whichData ) const;
+    virtual void signalPeriodicity() const;
+private:
+    void communicate( CommunicationPattern3D& communication,
+                      MultiBlock3D const& originMultiBlock,
+                      MultiBlock3D& destinationMultiBlock, modif::ModifT whichData ) const;
+private:
+    mutable bool overlapsModified;
+    mutable CommunicationPattern3D* communication;
 };
 
 #endif  // PLB_MPI_PARALLEL

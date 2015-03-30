@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,6 +34,7 @@
 #include "atomicBlock/blockLattice3D.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "finiteDifference/interpolations2D.h"
+#include "offLattice/immersedWalls3D.h"
 #include "core/plbRandom.h"
 #include <algorithm>
 
@@ -386,7 +387,7 @@ void ComputeParticleForce3D<T,Descriptor>::processGenericBlocks (
                     ++numUsableCells;
                 }
             }
-            position -= 1.e-1*n;
+            position -= (T)1.e-1*n;
             ++numTrials;
         }
         if (numUsableCells==0) {
@@ -395,7 +396,7 @@ void ComputeParticleForce3D<T,Descriptor>::processGenericBlocks (
         //PLB_ASSERT(numUsableCells>0);
         if (numUsableCells <= 0) { // TODO: This code is temporary!! Must be changed!!!
             std::vector<Array<T,3> > vectors;
-            Array<T,3> forceOnWall(0., 0., 0.);
+            Array<T,3> forceOnWall((T)0., (T)0., (T)0.);
             vectors.push_back(forceOnWall);
             particle.setVectors(vectors);
 
@@ -462,10 +463,10 @@ void ComputeParticleForce3D<T,Descriptor>::processGenericBlocks (
         T omega = cellOnVertex->getDynamics().getOmega();
         Array<T,3> forceOnFluid;
         if (incompressibleModel) {
-            forceOnFluid = -(rho-1.)*Descriptor<T>::cs2*n + rho*(omega/2.-1.)*Pi_n;  // Incompressible vision
+            forceOnFluid = -(rho-(T)1.)*Descriptor<T>::cs2*n + (omega/(T)2.-(T)1.)*Pi_n;  // Incompressible vision
         }
         else {
-            forceOnFluid = -(rho-1.)*Descriptor<T>::cs2*n + (omega/2.-1.)*Pi_n;  // Compressible vision
+            forceOnFluid = -(rho-(T)1.)*Descriptor<T>::cs2*n + Descriptor<T>::invRho(rhoBar)*(omega/(T)2.-(T)1.)*Pi_n;  // Compressible vision
         }
         Array<T,3> forceOnWall = -forceOnFluid;  // Remark by J.L: This is Newton!
         delete cellOnVertex;
@@ -474,7 +475,7 @@ void ComputeParticleForce3D<T,Descriptor>::processGenericBlocks (
         vectors.push_back(forceOnWall);
         particle.setVectors(vectors);
 
-        T pressure = (rho-1.)*Descriptor<T>::cs2;
+        T pressure = (rho-(T)1.)*Descriptor<T>::cs2;
         T wss = norm(forceOnWall - dot(n,forceOnWall)*n);
 
         std::vector<T> scalars;
@@ -490,12 +491,6 @@ ComputeParticleForce3D<T,Descriptor>*
     ComputeParticleForce3D<T,Descriptor>::clone() const
 {
     return new ComputeParticleForce3D<T,Descriptor>(*this);
-}
-
-template<typename T, template<typename U> class Descriptor>
-BlockDomain::DomainT ComputeParticleForce3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulk; // Important: must be bulk-only,
-    // because non-local access to fluid is made.
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1018,6 +1013,82 @@ void computePlaneMappingParticleStatistics3D(
     numSlowParticles = functional.getNumSlowParticles();
     numSlowNearWallParticles = functional.getNumSlowNearWallParticles();
 }
+
+
+/* ******** ScalarFieldToParticle3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+ScalarFieldToParticle3D<T,Descriptor>::ScalarFieldToParticle3D(plint whichScalar_)
+    : whichScalar(whichScalar_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void ScalarFieldToParticle3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==2 );
+    ParticleField3D<T,Descriptor>& particleField =
+        *dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    ScalarField3D<T>& scalarField =
+        *dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+
+    Dot3D partLoc = particleField.getLocation();
+    Dot3D ofs = computeRelativeDisplacement(particleField, scalarField);
+    Array<T,3> realLoc((T)partLoc.x,(T)partLoc.y,(T)partLoc.z);
+
+    std::vector<Particle3D<T,Descriptor>*> found;
+    particleField.findParticles(domain, found);
+
+    std::vector<Dot3D> cellPos(8);
+    std::vector<T> weights(8);
+    std::vector<Cell<T,Descriptor>*> cells(8);
+    for (pluint iParticle=0; iParticle<found.size(); ++iParticle) {
+        Particle3D<T,Descriptor>& particle = *found[iParticle];
+        Array<T,3> vertex = particle.getPosition() - realLoc;
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        T averageScalar = T();
+        // x   x . x   x
+        for (plint dx=-1; dx<=+2; ++dx) {
+            for (plint dy=-1; dy<=+2; ++dy) {
+                for (plint dz=-1; dz<=+2; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    T nextScalar =
+                        scalarField.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z);
+                    Array<T,3> r(pos[0]-vertex[0],pos[1]-vertex[1],pos[2]-vertex[2]);
+                    T W = inamuroDeltaFunction<T>().W(r);
+                    averageScalar += W*nextScalar;
+                }
+            }
+        }
+
+        if (whichScalar==-1) {
+            std::vector<T> scalars;
+            scalars.push_back(averageScalar);
+            particle.setScalars(scalars);
+        }
+        else {
+            particle.setScalar(whichScalar, averageScalar);
+        }
+    }
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+ScalarFieldToParticle3D<T,Descriptor>*
+    ScalarFieldToParticle3D<T,Descriptor>::clone() const
+{
+    return new ScalarFieldToParticle3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ScalarFieldToParticle3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables; // Particle field.
+    modified[1] = modif::nothing;  // Scalar field.
+}
+
 
 }  // namespace plb
 

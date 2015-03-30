@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -230,6 +230,39 @@ template<typename T>
 inline bool contained(Array<T,2> const& x, Box2D const& box) {
     return x[0]>box.x0 && x[0]<box.x1 &&
            x[1]>box.y0 && x[1]<box.y1;
+}
+
+template<>
+inline bool contained<plint>(Array<plint,2> const& x, Box2D const& box) {
+    //IMPORTANT: the behavior of this function (for int) has changed in Palabos!
+    //use contained(plint, plint, Box2D) instead.
+    //TODO: In the future, this function will do the following instead of an assert:
+    //return contained(x[0], x[1], box);
+    PLB_ASSERT( false );
+    return false;
+}
+
+/// Decide if a Lagrangian point is contained in 2D box, boundaries exclusive at the epsilon level of accuracy.
+template<typename T>
+inline bool contained(Array<T,2> const& x, Box2D const& box, T epsilon) {
+    return x[0]-epsilon>box.x0 && x[0]+epsilon<box.x1 &&
+           x[1]-epsilon>box.y0 && x[1]+epsilon<box.y1;
+}
+
+/// Decide if a Lagrangian point is contained in 2D box, boundaries inclusive at the epsilon level of accuracy.
+template<typename T>
+inline bool containedInclusive(Array<T,2> const& x, Box2D const& box, T epsilon)
+{
+    return util::greaterEqual_abs(x[0], (T) box.x0, epsilon) && util::lessEqual_abs(x[0], (T) box.x1, epsilon) &&
+           util::greaterEqual_abs(x[1], (T) box.y0, epsilon) && util::lessEqual_abs(x[1], (T) box.y1, epsilon);
+}
+
+/// Decide if a Lagrangian point is contained in 2D box, boundaries inclusive at the floating point precision level of accuracy.
+template<typename T>
+inline bool containedInclusive(Array<T,2> const& x, Box2D const& box)
+{
+    return util::greaterEqual_abs(x[0], (T) box.x0) && util::lessEqual_abs(x[0], (T) box.x1) &&
+           util::greaterEqual_abs(x[1], (T) box.y0) && util::lessEqual_abs(x[1], (T) box.y1);
 }
 
 /// Decide if lattice point is contained in 2D box, boundaries inclusive

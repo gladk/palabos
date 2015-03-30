@@ -1,20 +1,24 @@
 /* This file is part of the Palabos library.
- * Copyright (C) 2009 Jonas Latt
- * E-mail contact: jonas@lbmethod.org
+ *
+ * Copyright (C) 2011-2015 FlowKit Sarl
+ * Route d'Oron 2
+ * 1010 Lausanne, Switzerland
+ * E-mail contact: contact@flowkit.com
+ *
  * The most recent release of Palabos can be downloaded at 
- * <http://www.lbmethod.org/palabos/>
+ * <http://www.palabos.org/>
  *
  * The library Palabos is free software: you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
+ * modify it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
  *
  * The library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -36,8 +40,6 @@
 using namespace plb;
 using namespace plb::descriptors;
 using namespace std;
-
-
 
 typedef double T;
 #define DESCRIPTOR D2Q9Descriptor
@@ -67,7 +69,7 @@ T computeU0(plint iX, plint iY, IncomprFlowParam<T> params){
     T y = ((T)iY * params.getDeltaX() - 1.);
     PLB_ASSERT(-1.0 <= x && x <= 1.0);
     PLB_ASSERT(-1.0 <= y && y <= 1.0);
-    return (-(y-p1[1])*exp(-(r1Sqr(x,y)/(r0*r0)))+(y-p2[1])*exp(-(r2Sqr(x,y)/(r0*r0))))*omega_e/2.0;
+    return (-(y-p1[1])*std::exp(-(r1Sqr(x,y)/(r0*r0)))+(y-p2[1])*std::exp(-(r2Sqr(x,y)/(r0*r0))))*omega_e/2.0;
 }
 
 /// computation of the vertical 
@@ -79,14 +81,14 @@ T computeV0(plint iX, plint iY, IncomprFlowParam<T> params){
 
     PLB_ASSERT(-1.0 <= x && x <= 1.0);
     PLB_ASSERT(-1.0 <= y && y <= 1.0);
-    return ((x-p1[0])*exp(-(r1Sqr(x,y)/(r0*r0)))-(x-p2[0])*exp(-(r2Sqr(x,y)/(r0*r0))))*omega_e/2.0;
+    return ((x-p1[0])*std::exp(-(r1Sqr(x,y)/(r0*r0)))-(x-p2[0])*std::exp(-(r2Sqr(x,y)/(r0*r0))))*omega_e/2.0;
 }
 
 T computeEnstrophy (MultiTensorField2D<T,2>& velocity)
 {
     auto_ptr<MultiScalarField2D<T> > vorticity = computeVorticity(velocity);
     auto_ptr<MultiScalarField2D<T> > enstrophy =
-        multiply(0.5, *multiply(*vorticity,*vorticity) );
+        multiply((T)0.5, *multiply(*vorticity,*vorticity) );
     return computeBoundedAverage(*enstrophy);
 }
 
@@ -112,7 +114,7 @@ void geometrySetup( MultiGridLattice2D<T,DESCRIPTOR>& lattice, ConvectiveRefinem
     for (int iLevel = 0; iLevel < lattice.getNumLevels(); ++iLevel){
       boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice.getComponent(iLevel));
       setBoundaryVelocity( lattice.getComponent(iLevel), 
-                         lattice.getComponent(iLevel).getBoundingBox(), Array<T,2>(0.,0.) );
+                         lattice.getComponent(iLevel).getBoundingBox(), Array<T,2>((T)0.,(T)0.) );
       
       initializeAtEquilibrium( lattice.getComponent(iLevel), lattice.getComponent(iLevel).getBoundingBox(),
                                dipoleVelocity<T>(parameters[iLevel]) );
@@ -143,7 +145,7 @@ void initializeLatticeWithDipoleVelocity(MultiBlockLattice2D<T,Descriptor>& latt
         boundaryCondition = createLocalBoundaryCondition2D<T,DESCRIPTOR>();
 
     boundaryCondition->setVelocityConditionOnBlockBoundaries(lattice);
-    setBoundaryVelocity( lattice,lattice.getBoundingBox(),Array<T,2>(0.,0.) );
+    setBoundaryVelocity( lattice,lattice.getBoundingBox(),Array<T,2>((T)0.,(T)0.) );
       
     initializeAtEquilibrium( lattice, lattice.getBoundingBox(), dipoleVelocity<T>(parameters) );
     lattice.initialize();
@@ -175,15 +177,15 @@ auto_ptr<MultiScalarField2D<T> > solvePressureGS(MultiBlockLattice2D<T,Descripto
     std::auto_ptr<MultiScalarField2D<T> > density = computeDensity(lattice);
     std::auto_ptr<MultiTensorField2D<T,2> > velocity = computeVelocity(lattice);
     // initial pressure
-    std::auto_ptr<MultiScalarField2D<T> > initialValue = multiply( DESCRIPTOR<T>::cs2, *add(-1., *density) );
+    std::auto_ptr<MultiScalarField2D<T> > initialValue = multiply( DESCRIPTOR<T>::cs2, *add((T)-1., *density) );
     // the result holder
-    std::auto_ptr<MultiScalarField2D<T> > result = multiply( DESCRIPTOR<T>::cs2, *add(-1., *density) );
+    std::auto_ptr<MultiScalarField2D<T> > result = multiply( DESCRIPTOR<T>::cs2, *add((T)-1., *density) );
     // right hand side of the equation
     std::auto_ptr<MultiScalarField2D<T> > rhs = computePoissonRHS(*velocity);  ;
     rhs = multiply( -(T)1, *rhs );
     
     global::timer("gaussSeidel").start();
-    GaussSeidelSolver( *initialValue, *result, *rhs, lattice.getBoundingBox(),1e-3, 1000000 );
+    GaussSeidelSolver( *initialValue, *result, *rhs, lattice.getBoundingBox(), (T)1e-3, 1000000 );
     T timeGS = global::timer("gaussSeidel").stop();
     pcout << "Time GS = " << timeGS << std::endl;
     

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -176,6 +176,12 @@ namespace descriptors {
         static const char name[];
     };
 
+    template <typename T> struct AbsorbingWaveD3Q15Descriptor
+        : public D3Q15DescriptorBase<T>, public AbsorbingWaveExternalField3dBase
+    {
+        static const char name[];
+    };
+
     template <typename T> struct D3Q19Descriptor
         : public D3Q19DescriptorBase<T>, public NoExternalFieldBase
     {
@@ -205,7 +211,19 @@ namespace descriptors {
     {
         static const char name[];
     };
+    
+    template <typename T> struct SymTensorD3Q19Descriptor
+    : public D3Q19DescriptorBase<T>, public SymTensor3dBase
+    {
+        static const char name[];
+    };
 
+    template <typename T> struct AbsorbingWaveD3Q19Descriptor
+        : public D3Q19DescriptorBase<T>, public AbsorbingWaveExternalField3dBase
+    {
+        static const char name[];
+    };
+    
     template <typename T> struct D3Q27Descriptor
         : public D3Q27DescriptorBase<T>, public NoExternalFieldBase
     {
@@ -226,6 +244,12 @@ namespace descriptors {
 
     template <typename T> struct ForcedRhoBarJD3Q27Descriptor
         : public D3Q27DescriptorBase<T>, public ForcedRhoBarJdescriptorBase3D
+    {
+        static const char name[];
+    };
+
+    template <typename T> struct AbsorbingWaveD3Q27Descriptor
+        : public D3Q27DescriptorBase<T>, public AbsorbingWaveExternalField3dBase
     {
         static const char name[];
     };

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,12 +44,15 @@ namespace dynamicParams {
     
     const plint omega_epsilon  = 2;
     const plint omega_q        = 3;
+    
+    const plint psi        = 4; // used for complete trt dynamics
 
     // Use 100-199 for material constants
     const plint sqrSpeedOfSound = 100; // Speed of sound squared
 
     // Use 1000 and higher for custom user-defined constants
     const plint smagorinskyConstant = 1010;
+    const plint dynamicOmega = 1011;
 }
 
 template<typename T, template<typename U> class Descriptor> class Cell;
@@ -119,8 +122,7 @@ struct Dynamics {
     /// Compute the local particle density in lattice units
     virtual T computeDensity(Cell<T,Descriptor> const& cell) const =0;
     /// Compute the local pressure in lattice units
-    virtual T computePressure(Cell<T,Descriptor> const& cell) const =0;
-    /// Compute the local fluid velocity in lattice units
+    virtual T computePressure(Cell<T,Descriptor> const& cell) const =0; /// Compute the local fluid velocity in lattice units
     virtual void computeVelocity( Cell<T,Descriptor> const& cell,
                                   Array<T,Descriptor<T>::d>& u ) const =0;
     /// Compute the temperature in lattice units
@@ -140,6 +142,12 @@ struct Dynamics {
 
 /* *************** Access to Dynamics variables, e.g. omega ***************** */
 
+    /// Set all relaxation frequencies (in case of an SRT model they should all equal omega).
+    virtual void setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies);
+
+    /// Get all relaxation frequencies (in case of an SRT model they are all equal to omega).
+    virtual Array<T, Descriptor<T>::q> getRelaxationFrequencies() const;
+
     /// Get local relaxation parameter of the dynamics.
     virtual T getOmega() const =0;
 
@@ -148,6 +156,9 @@ struct Dynamics {
 
     /// Get local value of any generic parameter.
     virtual T getParameter(plint whichParameter) const;
+
+    /// Get local value of any generic parameter which depends on the cell value.
+    virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
 
     /// Set local value of any generic parameter.
     virtual void setParameter(plint whichParameter, T value);
@@ -298,7 +309,6 @@ public:
                                 plint momentId, T* moment ) const;
 
 /* *************** Access to Dynamics variables, e.g. omega ***************** */
-
     /// Get local relaxation parameter of the dynamics
     virtual T getOmega() const;
 
@@ -580,6 +590,10 @@ public:
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
 
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
     /// Yields 0
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
@@ -688,6 +702,10 @@ public:
     /// Does nothing
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Yields 0
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,

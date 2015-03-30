@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -56,10 +56,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
 
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice, lattice.getBoundingBox(), boundary::dirichlet);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -100,6 +100,9 @@ void writeVTK(BlockLatticeT& lattice,
     vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
     vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);
     vtkOut.writeData<3,float>(*computeVorticity(*computeVelocity(lattice)), "vorticity", 1./dt);
+
+    plb_ofstream ofile("velocity.txt");
+    ofile << *computeVelocity(lattice);
 }
 
 
@@ -107,6 +110,7 @@ int main(int argc, char* argv[]) {
 
     plbInit(&argc, &argv);
     global::directories().setOutputDir("./tmp/");
+    //defaultMultiBlockPolicy3D().toggleBlockingCommunication(true);
 
     IncomprFlowParam<T> parameters(
             (T) 1e-2,  // uMax
@@ -118,7 +122,7 @@ int main(int argc, char* argv[]) {
     );
     const T logT     = (T)1/(T)10;
     const T imSave   = (T)1/(T)10;
-    const T vtkSave  = (T)1/(T)10;
+    const T vtkSave  = (T)1/(T)100;
     const T maxT     = (T)10.1;
 
     pcout << "omega= " << parameters.getOmega() << std::endl;
@@ -129,6 +133,7 @@ int main(int argc, char* argv[]) {
     MultiBlockLattice3D<T, DESCRIPTOR> lattice (
             parameters.getNx(), parameters.getNy(), parameters.getNz(),
             new BGKdynamics<T,DESCRIPTOR>(omega) );
+
 
     OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
         //= createInterpBoundaryCondition3D<T,DESCRIPTOR>();

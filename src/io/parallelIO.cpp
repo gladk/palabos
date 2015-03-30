@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -149,6 +149,19 @@ bool plb_ifstream::is_open() {
     return open;
 #else
     return original->is_open();
+#endif
+}
+
+bool plb_ifstream::good() {
+#ifdef PLB_MPI_PARALLEL
+    int open = false;
+    if (global::mpi().isMainProcessor()) {
+        open = original->good();
+    }
+    global::mpi().bCast(&open, 1);
+    return open;
+#else
+    return original->good();
 #endif
 }
 

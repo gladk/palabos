@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -75,6 +75,30 @@ public:
 
     /// Clone the object, based on its dynamic type
     virtual RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
+
+    /// Execute completion scheme before base collision
+    virtual void completePopulations(Cell<T,Descriptor>& cell) const;
+private:
+    static int id;
+};
+
+/// Advection-diffusion dynamics on flat boundaries
+template<typename T, template<typename U> class Descriptor, int direction, int orientation>
+class RegularizedCompleteAdvectionDiffusionBoundaryDynamics : public StoreDensityDynamics<T,Descriptor>
+{
+public:
+    /// Constructor
+    RegularizedCompleteAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics,
+                                                  bool automaticPrepareCollision_=true);
+    RegularizedCompleteAdvectionDiffusionBoundaryDynamics(HierarchicUnserializer& unserializer);
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    /// Clone the object, based on its dynamic type
+    virtual RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
 
     /// Execute completion scheme before base collision
     virtual void completePopulations(Cell<T,Descriptor>& cell) const;

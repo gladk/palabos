@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -73,7 +73,7 @@ ExplicitThreadAttribution* optimalThreadAttribution( SparseBlockStructure3D cons
 
     std::vector<plint> sumNumBlocks(numBlocks.size()+1);
     sumNumBlocks[0]=0;
-    partial_sum(numBlocks.begin(), numBlocks.end(), sumNumBlocks.begin()+1);
+    std::partial_sum(numBlocks.begin(), numBlocks.end(), sumNumBlocks.begin()+1);
     plint totalNumBlocks = sumNumBlocks.back();
 
     std::vector<plint> everyOnesBlocks(totalNumBlocks, 0);

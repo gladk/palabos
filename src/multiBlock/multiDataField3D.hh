@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -255,6 +255,15 @@ std::string MultiScalarField3D<T>::basicType() {
     return NativeType<T>::getName();
 }
 
+template<typename T>
+MultiScalarField3D<T>& findMultiScalarField3D(id_t id) {
+    MultiBlock3D* multiBlock = multiBlockRegistration3D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiScalarField3D<T>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiScalarField3D<T>&)(*multiBlock);
+}
+
 
 //////// Class MultiTensorField3D //////////////////////////////////
 
@@ -501,6 +510,14 @@ std::string MultiTensorField3D<T,nDim>::basicType() {
     return NativeType<T>::getName();
 }
 
+template<typename T, int nDim>
+MultiTensorField3D<T,nDim>& findMultiTensorField3D(id_t id) {
+    MultiBlock3D* multiBlock = multiBlockRegistration3D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiTensorField3D<T,nDim>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiTensorField3D<T,nDim>&)(*multiBlock);
+}
 
 
 //////// Class MultiNTensorField3D //////////////////////////////////
@@ -753,6 +770,15 @@ std::string MultiNTensorField3D<T>::blockName() {
 template<typename T>
 std::string MultiNTensorField3D<T>::basicType() {
     return NativeType<T>::getName();
+}
+
+template<typename T>
+MultiNTensorField3D<T>& findMultiNTensorField3D(id_t id) {
+    MultiBlock3D* multiBlock = multiBlockRegistration3D().find(id);
+    if (!multiBlock || multiBlock->getStaticId() != MultiNTensorField3D<T>::staticId) {
+        throw PlbLogicException("Trying to access a multi scalar field that is not registered.");
+    }
+    return (MultiNTensorField3D<T>&)(*multiBlock);
 }
 
 }  // namespace plb

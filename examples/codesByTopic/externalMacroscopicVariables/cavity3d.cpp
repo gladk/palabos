@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,10 +55,10 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     // All walls implement a Dirichlet velocity condition.
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    T u = sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, 1., Array<T,3>(0.,0.,0.) );
-    initializeAtEquilibrium(lattice, topLid, 1., Array<T,3>(u,0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,0.,u) );
+    T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
+    initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
     lattice.initialize();
 }
@@ -108,6 +108,11 @@ int main(int argc, char* argv[]) {
     integrateProcessingFunctional( new ExternalRhoJcollideAndStream3D<T,DESCRIPTOR>,
                                    lattice2.getBoundingBox(), lattice2RhoBarJparam, -1 );
 
+    const plint nx = parameters.getNx();
+    const plint ny = parameters.getNy();
+    const plint nz = parameters.getNz();
+    Box3D slice(0.5*nx-1, 0.5*nx+1, 0, ny-1, 0, nz-1);
+
     // Loop over main time iteration.
     global::timer("iterations").start();
     for (plint iT=0; iT<parameters.nStep(maxT); ++iT) {
@@ -122,6 +127,13 @@ int main(int argc, char* argv[]) {
             pcout << "Energy 1: " << computeAverageEnergy(lattice) << std::endl;
             pcout << "Energy 2: " << computeAverageEnergy(lattice2) << std::endl;
             pcout << global::timer("iterations").getTime()/(iT+1) << std::endl;
+
+            T dx = parameters.getDeltaX();
+            T dt = parameters.getDeltaT();
+            VtkImageOutput3D<T> vtkOut(createFileName("diff_", iT, 6), dx);
+            vtkOut.writeData<float>(
+                    *subtract(*computeVelocityNorm(lattice, slice),*computeVelocityNorm(lattice2, slice)), 
+                    "velocityNormDiff", dx/dt);
         }
 
     }

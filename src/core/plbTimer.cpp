@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,10 @@
 #include "core/plbTimer.h"
 #include <map>
 
+#ifndef PLB_MPI_PARALLEL
+#include <time.h>
+#endif
+
 namespace plb {
 
 namespace global {
@@ -41,7 +45,13 @@ void PlbTimer::start() {
 #ifdef PLB_MPI_PARALLEL
     startTime = mpi().getTime();
 #else
+#ifdef PLB_USE_POSIX
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    startTime = (double) ts.tv_nsec * (double) 1.0e-9;
+#else
     startClock = clock();
+#endif
 #endif
     isOn = true;
 }
@@ -66,8 +76,15 @@ double PlbTimer::getTime() const {
 #ifdef PLB_MPI_PARALLEL
         return cumulativeTime + mpi().getTime()-startTime;
 #else
+#ifdef PLB_USE_POSIX
+        timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        double endTime = (double) ts.tv_nsec * (double) 1.0e-9;
+        return cumulativeTime + endTime-startTime;
+#else
         return cumulativeTime + (double)(clock()-startClock)
                               / (double)CLOCKS_PER_SEC;
+#endif
 #endif
     }
     else {

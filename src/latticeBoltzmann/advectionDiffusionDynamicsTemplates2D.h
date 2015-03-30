@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -156,6 +156,106 @@ static T no_corr_rlb_collision (
     return jSqr*invRho*invRho;
 }
 
+};  // struct advectionDiffusionDynamicsTemplatesImpl
+
+template<typename T>
+struct advectionDiffusionDynamicsTemplatesImpl<T,descriptors::D2Q9DescriptorBase<T> >
+{
+    
+typedef descriptors::D2Q9DescriptorBase<T> D;
+
+static T computePsiComplete(T omega) {
+    T psi = T();
+    if (omega > (T)1.75) {
+        psi = -629.1520418797601-562.5634533117104*omega*omega+102.9178439049484*omega*omega*omega+1029.031566819295*omega;
+    } else {
+        psi = -2.400317064381656*omega*omega+.6470123480620908*omega*omega*omega+2.435047526713970*omega;
+    }
+    if (psi > (T)2) psi = (T)2;
+    return psi;
+}
+
+
+
+static T bgk_ma1_equilibrium(plint iPop, T rhoBar, Array<T,D::d> const& jEq) 
+{
+    return D::t[iPop] * (rhoBar + D::invCs2 * 
+            (D::c[iPop][0]*jEq[0]+D::c[iPop][1]*jEq[1]));
+}
+
+static void regularize(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& jAdvDiff,
+                       Array<T,D::d> const& jEq)
+{
+    T invRho = D::invRho(rhoBar);
+    T jSqr = jEq[0]*jEq[0]+jEq[1]*jEq[1];
+    dynamicsTemplatesImpl<T,D>::bgk_ma2_equilibria( rhoBar, invRho, jEq, jSqr, f);
+    Array<T,D::d> jNeq = jAdvDiff - jEq;
+    for (plint iPop = 0; iPop < D::q; ++iPop) {
+        f[iPop] += D::t[iPop]*D::invCs2 * (D::c[iPop][0]*jNeq[0]+D::c[iPop][1]*jNeq[1]);
+    }
+}
+
+static T no_corr_bgk_collision ( Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& jEq, 
+        T omega ) 
+{
+    T invRho = D::invRho(rhoBar);
+    T jSqr = dynamicsTemplatesImpl<T,D>::bgk_ma2_collision(f, rhoBar, jEq, omega);
+    
+    return jSqr*invRho*invRho;
+}
+
+static T no_corr_rlb_collision (
+    Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& jEq,
+    Array<T,D::d> const& jNeq,T omega )
+{
+    T invRho = D::invRho(rhoBar);
+    T jSqr = jEq[0]*jEq[0]+jEq[1]*jEq[1];
+    dynamicsTemplatesImpl<T,D>::bgk_ma2_equilibria( rhoBar, invRho, jEq, jSqr, f);
+    for (plint iPop = 0; iPop < D::q; ++iPop) {
+        f[iPop] += ((T)1-omega)*(D::t[iPop]*D::invCs2 * (D::c[iPop][0]*jNeq[0]+D::c[iPop][1]*jNeq[1]));
+    }
+            
+    return jSqr*invRho*invRho;
+}
+
+static void complete_bgk_ma2_regularize(Array<T,D::q>& f, T rhoPhiBar, T rhoBar,
+                                        Array<T,D::d> const& jEq, Array<T,D::d> const& jNeq, 
+                                        const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
+{
+    T invRhoPhi = D::invRho(rhoPhiBar);
+    T jEqSqr = jEq[0]*jEq[0] + jEq[1]*jEq[1];
+    dynamicsTemplatesImpl<T,D>::complete_bgk_ma2_equilibria( rhoPhiBar, invRhoPhi, jEq, jEqSqr, f );
+    
+    T phi = D::fullRho(rhoPhiBar)*D::invRho(rhoBar);
+
+    Array<T,D::d> u = jEq*invRhoPhi;
+    T ux2 = u[0]*u[0]; T uy2 = u[1]*u[1];
+    Array<T,SymmetricTensorImpl<T,D::d>::n> psiNeq;
+    psiNeq[0] = 2*omega*u[0]*jNeq[0]/omegaNonPhys+phi*omegaFluid*piNeq[0]/omegaNonPhys;
+    psiNeq[1] = omega*u[0]*jNeq[1]/omegaNonPhys+omega*u[1]*jNeq[0]/omegaNonPhys+phi*omegaFluid*piNeq[1]/omegaNonPhys;
+    psiNeq[2] = 2*omega*u[1]*jNeq[1]/omegaNonPhys+phi*omegaFluid*piNeq[2]/omegaNonPhys;
+    
+    Array<T,D::d> q;
+    q[0] = phi*u[0]*omegaFluid*piNeq[2]/omegaNonPhys+2*phi*omegaFluid*u[1]*piNeq[1]/omegaNonPhys+omega*jNeq[0]*uy2/omegaNonPhys+2*omega*jNeq[1]*u[0]*u[1]/omegaNonPhys;
+    q[1] = omega*jNeq[1]*ux2/omegaNonPhys+2*omega*jNeq[0]*u[0]*u[1]/omegaNonPhys+2*phi*u[0]*omegaFluid*piNeq[1]/omegaNonPhys+phi*omegaFluid*u[1]*piNeq[0]/omegaNonPhys;
+    
+    T chi = 2*omega*jNeq[1]*ux2*u[1]/omegaNonPhys+2*omega*jNeq[0]*u[0]*uy2/omegaNonPhys+phi*ux2*omegaFluid*piNeq[2]/omegaNonPhys+4*phi*u[0]*u[1]*omegaFluid*piNeq[1]/omegaNonPhys+phi*omegaFluid*uy2*piNeq[0]/omegaNonPhys;
+    
+    f[0] += -(T)2*D::cs2*psiNeq[0]-(T)2*D::cs2*psiNeq[2]+chi;
+    
+    f[2] += -D::cs2*jNeq[0]+D::cs2*psiNeq[0]-(T)0.5*D::cs2*psiNeq[2]+(T)0.5*q[0]-(T)0.5*chi;
+    f[6] +=  D::cs2*jNeq[0]+D::cs2*psiNeq[0]-(T)0.5*D::cs2*psiNeq[2]-(T)0.5*q[0]-(T)0.5*chi;
+    
+    f[4] += -D::cs2*jNeq[1]-(T)0.5*D::cs2*psiNeq[0]+D::cs2*psiNeq[2]+(T)0.5*q[1]-(T)0.5*chi;
+    f[8] +=  D::cs2*jNeq[1]-(T)0.5*D::cs2*psiNeq[0]+D::cs2*psiNeq[2]-(T)0.5*q[1]-(T)0.5*chi;
+    
+    f[1] += -(T)0.25*D::cs2*jNeq[0]+(T)0.25*D::cs2*jNeq[1]+(T)0.25*D::cs2*psiNeq[0]-(T)0.25*psiNeq[1]+(T)0.25*D::cs2*psiNeq[2]-(T)0.25*q[0]+(T)0.25*q[1]+(T)0.25*chi;
+    f[5] +=  (T)0.25*D::cs2*jNeq[0]-(T)0.25*D::cs2*jNeq[1]+(T)0.25*D::cs2*psiNeq[0]-(T)0.25*psiNeq[1]+(T)0.25*D::cs2*psiNeq[2]+(T)0.25*q[0]-(T)0.25*q[1]+(T)0.25*chi;
+    
+    f[3] += -(T)0.25*D::cs2*jNeq[0]-(T)0.25*D::cs2*jNeq[1]+(T)0.25*D::cs2*psiNeq[0]+(T)0.25*psiNeq[1]+(T)0.25*D::cs2*psiNeq[2]-(T)0.25*q[0]-(T)0.25*q[1]+(T)0.25*chi;
+    f[7] +=  (T)0.25*D::cs2*jNeq[0]+(T)0.25*D::cs2*jNeq[1]+(T)0.25*D::cs2*psiNeq[0]+(T)0.25*psiNeq[1]+(T)0.25*D::cs2*psiNeq[2]+(T)0.25*q[0]+(T)0.25*q[1]+(T)0.25*chi;
+}
+    
 };  // struct advectionDiffusionDynamicsTemplatesImpl
 
 }  // namespace plb

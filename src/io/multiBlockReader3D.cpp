@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -354,7 +354,7 @@ SavedFullMultiBlockSerializer3D::SavedFullMultiBlockSerializer3D (
 {  
     if (global::mpi().isMainProcessor()) {
         fp = fopen(data_fName.get().c_str(), "rb");
-#ifdef PLB_MAC_OS_X
+#if defined PLB_MAC_OS_X || defined PLB_BSD
         fseek(fp, (long int)pos, SEEK_SET);
 #else
         fseeko64(fp, pos, SEEK_SET);

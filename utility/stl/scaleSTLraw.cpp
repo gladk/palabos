@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,19 +60,8 @@ int main(int argc, char* argv[])
               << ": " << exception.what() << std::endl;
         return -1;
     }
-    try {
-        DEFscaledMesh<T>* defMesh = new DEFscaledMesh<T>(*triangleSet);
-        Array<T,2> xRange, yRange, zRange;
-        defMesh->getMesh().computeBoundingBox(xRange, yRange, zRange);
-        defMesh->getMesh().scale(scale);
-        //defMesh->getMesh().writeAsciiSTL(outFileName);
-        defMesh->getMesh().writeBinarySTL(outFileName);
-    }
-    catch (PlbIOException& exception) {
-            pcout << "Error in STL file " << stlFileName
-                  << ": " << exception.what() << std::endl;
-            exit(-1);
-    }
+    triangleSet->scale(scale);
+    triangleSet->writeBinarySTL(outFileName);
 
     return 0;
 }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,8 +25,6 @@
 /** \file
  * Interface for dataProcessing steps -- implementation file.
  */
-#ifndef DATA_PROCESSOR_3D_HH
-#define DATA_PROCESSOR_3D_HH
 
 #include "atomicBlock/dataProcessor3D.h"
 #include "core/util.h"
@@ -324,4 +322,3 @@ DotList3D const& DottedReductiveDataProcessorGenerator3D::getDotList() const {
 
 }  // namespace plb
 
-#endif  // DATA_PROCESSOR_3D_HH

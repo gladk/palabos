@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -81,11 +81,31 @@ bool Dynamics<T,Descriptor>::isNonLocal() const {
 }
 
 template<typename T, template<typename U> class Descriptor>
+void Dynamics<T,Descriptor>::setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies) {
+    setOmega(frequencies[0]);
+}
+
+template<typename T, template<typename U> class Descriptor>
+Array<T, Descriptor<T>::q> Dynamics<T,Descriptor>::getRelaxationFrequencies() const {
+    Array<T, Descriptor<T>::q> frequencies;
+    for (plint i=0; i<Descriptor<T>::q; ++i) {
+        frequencies[i] = getOmega();
+    }
+    return frequencies;
+}
+
+template<typename T, template<typename U> class Descriptor>
 T Dynamics<T,Descriptor>::getParameter(plint whichParameter) const {
     if (whichParameter == dynamicParams::omega_shear) {
         return getOmega();
     }
     return 0.;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T Dynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const {
+    // Parameter not implemented.
+    return ((T) 0);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -256,7 +276,7 @@ BasicBulkDynamics<T,Descriptor>::BasicBulkDynamics(T omega_)
 
 template<typename T, template<typename U> class Descriptor>
 T BasicBulkDynamics<T,Descriptor>::computeDensity(Cell<T,Descriptor> const& cell) const
-    {
+{
     return momentTemplates<T,Descriptor>::compute_rho(cell);
 }
 
@@ -770,6 +790,14 @@ void BounceBack<T,Descriptor>::collide (
 }
 
 template<typename T, template<typename U> class Descriptor>
+void BounceBack<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    collide(cell, stat);
+}
+
+template<typename T, template<typename U> class Descriptor>
 T BounceBack<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                                T jSqr, T thetaBar) const
 {
@@ -940,6 +968,12 @@ template<typename T, template<typename U> class Descriptor>
 void NoDynamics<T,Descriptor>::collide (
         Cell<T,Descriptor>& cell,
         BlockStatistics& statistics )
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void NoDynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
 { }
 
 template<typename T, template<typename U> class Descriptor>

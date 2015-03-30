@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -172,7 +172,7 @@ void TwoPhasePunchSphere3D<T,Descriptor>
                     }
                     else {
                         param.flag(iX,iY,iZ) = empty;
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoEmpty));
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rhoEmpty);
@@ -207,7 +207,6 @@ void TwoPhasePunchRectangle3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
 
     Dot3D offset = param.absOffset();
     
@@ -281,7 +280,7 @@ void TwoPhasePunchRectangle3D<T,Descriptor>
                     }
                     else {
                         param.flag(iX,iY,iZ) = empty;
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoEmpty));
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rhoEmpty);
@@ -311,7 +310,6 @@ template< typename T,template<typename U> class Descriptor>
 void DefaultInitializeTwoPhase3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
@@ -362,8 +360,8 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                         break;
                     case empty:
                     case protectEmpty:
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                        param.setForce(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                        param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
@@ -384,8 +382,8 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                     switch(param.flag(iX,iY,iZ)) {
                         case fluid:
                         case protect:
-                            param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                            param.setForce2(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                            param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                            param.setForce2(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         case interface:
@@ -418,7 +416,6 @@ template< typename T,template<typename U> class Descriptor>
 void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
@@ -465,8 +462,8 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                         break;
                     case empty:
                     case protectEmpty:
-                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                        param.setForce(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                        param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
@@ -486,8 +483,8 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                     switch(param.flag(iX,iY,iZ)) {
                         case fluid:
                         case protect:
-                            param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>());
-                            param.setForce2(iX,iY,iZ, Array<T,3>(0.,0.,0.));
+                            param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
+                            param.setForce2(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         case interface:
@@ -811,7 +808,7 @@ void TwoPhaseComputeInterfaceLists3D<T,Descriptor>::processGenericBlocks (
                 // TwoPhaseMacroscopic3D.
                 Array<T,3> velocity(param.getMomentum(iX,iY,iZ)/param.getDensity(iX,iY,iZ));
                 Array<T,3> velocity2(averageMomentum2/averageDensity2);
-                Array<T,3> velAverage((velocity+densityRatio*velocity2)/(1.+densityRatio));
+                Array<T,3> velAverage((velocity+densityRatio*velocity2)/((T)1.+densityRatio));
                 Array<T,3> newMomentum(velAverage*newDensity);
 
                 flToI->second.density = newDensity;
@@ -888,7 +885,7 @@ void TwoPhaseComputeInterfaceLists3D<T,Descriptor>::processGenericBlocks (
             // TwoPhaseMacroscopic3D.
             Array<T,3> velocity(averageMomentum/averageDensity);
             Array<T,3> velocity2(param.getMomentum2(iX,iY,iZ)/param.getDensity2(iX,iY,iZ));
-            Array<T,3> velAverage((velocity+densityRatio*velocity2)/(1.+densityRatio));
+            Array<T,3> velAverage((velocity+densityRatio*velocity2)/((T)1.+densityRatio));
             Array<T,3> newMomentum = velAverage*averageDensity;
             iEtoI->second.density = newDensity;
             iEtoI->second.j = newMomentum;
@@ -1209,8 +1206,8 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 T rhoBar, rhoBar2; 
-                Array<T,3> j(0.,0.,0.), j2(0.,0.,0.);
-                T density=param.outsideDensity(iX,iY,iZ), density2=param.outsideDensity(iX,iY,iZ);
+                Array<T,3> j((T)0.,(T)0.,(T)0.), j2((T)0.,(T)0.,(T)0.);
+		T density=param.outsideDensity(iX,iY,iZ), density2=param.outsideDensity(iX,iY,iZ);
                 if (isWet(param.flag(iX,iY,iZ))) {
                     momentTemplates<T,Descriptor>::get_rhoBar_j(param.cell(iX,iY,iZ), rhoBar, j);
                     density = Descriptor<T>::fullRho(rhoBar);
@@ -1303,7 +1300,7 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
                         // ratio is zero.
                         if (model==dynamic) {
                             newDensity1 = referenceDensity+0.5*(deltaP+deltaP2*densityRatio);
-                            newDensity2 = referenceDensity+0.5*(densityRatio*deltaP+(2.0-densityRatio)*deltaP2);
+                            newDensity2 = referenceDensity+0.5*(1./densityRatio*deltaP+(2.0-densityRatio)*deltaP2);
                         }
                         // In the bubble-pressure model, there's only a one-way coupling from fluid2 to fluid1.
                         else { // model=bubblePressure
@@ -1339,7 +1336,7 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
                         T rho2 = param.getDensity2(iX,iY,iZ);
                         Array<T,3> velocity(j/rho);
                         Array<T,3> velocity2(j2/rho2);
-                        Array<T,3> velAverage((velocity+densityRatio*velocity2)/(1.+densityRatio));
+                        Array<T,3> velAverage((velocity+densityRatio*velocity2)/((T)1.+densityRatio));
                         j = rho*velAverage;
                         j2 = rho2*velAverage;
                     }
@@ -1378,7 +1375,6 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseInterfaceFilter<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef Descriptor<T> D;
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
@@ -1501,7 +1497,7 @@ void TwoPhaseIniInterfaceToAnyNodes3D<T,Descriptor>
 
                 if (model!=freeSurface) {
                     // interface->fluid for phase 1 means interface->empty for phase 2.
-                    param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>());
+                    param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
                     param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                     param.setDensity2(iX,iY,iZ, rhoDefault);
                     param.setMomentum2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
@@ -1524,7 +1520,7 @@ void TwoPhaseIniInterfaceToAnyNodes3D<T,Descriptor>
         plint iZ = node[2];
         
         param.flag(iX,iY,iZ) = empty;
-        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>());
+        param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoDefault));
 
         T massExcess = param.mass(iX,iY,iZ);
         param.massExcess().insert(std::pair<Node,T>(node,massExcess));
@@ -1582,7 +1578,6 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseIniEmptyToInterfaceNodes3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    typedef Descriptor<T> D;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::ExtrapolInfo ExtrapolInfo;
     using namespace twoPhaseFlag;
@@ -1695,7 +1690,7 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
                                 param.mass2(iX,iY,iZ) = T();
                                 param.setDensity2(iX,iY,iZ, rhoDefault);
                                 param.setMomentum2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                                param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>());
+                                param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
                                 param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                             }
                         }
@@ -1707,7 +1702,7 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
                             T massExcess = param.mass(iX,iY,iZ);
                             param.massExcess().insert(std::pair<Node,T>(node,massExcess));
                             
-                            param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>());
+                            param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
                             param.mass(iX,iY,iZ) = T();
                             param.volumeFraction(iX,iY,iZ) = T();
                             param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
@@ -1891,7 +1886,6 @@ void TwoPhaseComputeVelocity3D<T,Descriptor>
             dynamic_cast<TensorField3D<T,3>*>(atomicBlocks[14]);
     PLB_ASSERT(velocity);
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     Dot3D offset = computeRelativeDisplacement(*atomicBlocks[0], *velocity);
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -1943,7 +1937,6 @@ void TwoPhaseAverageVelocity3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     BlockStatistics& statistics = this->getStatistics();
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -2014,7 +2007,6 @@ void TwoPhaseAveragePressure3D<T,Descriptor>
 {
     using namespace twoPhaseFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    typedef Descriptor<T> D;
     BlockStatistics& statistics = this->getStatistics();
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {

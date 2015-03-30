@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,21 +42,26 @@ namespace plb {
 template<typename T, template<typename U> class Descriptor>
 class InitializeMomentumExchangeFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
 public:
-    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice) {
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY,iZ).getDynamics();
-                    if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+                    if (dynamics.getId() == mEBounceBackId) {
                         std::vector<plint> fluidDirections;
                         for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                             plint nextX = iX + Descriptor<T>::c[iPop][0];
                             plint nextY = iY + Descriptor<T>::c[iPop][1];
                             plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                             Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                            if ( typeid(partner) !=
-                                 typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                            {
+                            int partnerId = partner.getId();
+                            if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                                 fluidDirections.push_back(iPop);
                             }
                         }
@@ -109,23 +114,28 @@ public:
     virtual ~MomentumExchangeComplexDomainFunctional3D() {
         delete domain;
     }
-    virtual void process(Box3D boundingBox, BlockLattice3D<T,Descriptor>& lattice) {
+    virtual void process(Box3D boundingBox, BlockLattice3D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         Dot3D relativeOffset = lattice.getLocation();
         for (plint iX=boundingBox.x0; iX<=boundingBox.x1; ++iX) {
             for (plint iY=boundingBox.y0; iY<=boundingBox.y1; ++iY) {
                 for (plint iZ=boundingBox.z0; iZ<=boundingBox.z1; ++iZ) {
                     if ((*domain)(iX+relativeOffset.x,iY+relativeOffset.y,iZ+relativeOffset.z)) {
                         Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY,iZ).getDynamics();
-                        if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+                        if (dynamics.getId() == mEBounceBackId) {
                             std::vector<plint> fluidDirections;
                             for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                                 plint nextX = iX + Descriptor<T>::c[iPop][0];
                                 plint nextY = iY + Descriptor<T>::c[iPop][1];
                                 plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                                 Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                                if ( typeid(partner) !=
-                                     typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                                {
+                                int partnerId = partner.getId();
+                                if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                                     fluidDirections.push_back(iPop);
                                 }
                             }
@@ -160,23 +170,28 @@ private:
 template<typename T, template<typename U> class Descriptor>
 class InitializeDotMomentumExchangeFunctional3D : public DotProcessingFunctional3D_L<T,Descriptor> {
 public:
-    virtual void process(DotList3D const& dotList, BlockLattice3D<T,Descriptor>& lattice) {
+    virtual void process(DotList3D const& dotList, BlockLattice3D<T,Descriptor>& lattice)
+    {
+        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
+        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+
         for (plint iDot=0; iDot<dotList.getN(); ++iDot) {
             Dot3D const& dot = dotList.getDot(iDot);
             plint iX = dot.x;
             plint iY = dot.y;
             plint iZ = dot.z;
             Dynamics<T,Descriptor>& dynamics = lattice.get(iX,iY,iZ).getDynamics();
-            if (typeid(dynamics) == typeid(MomentumExchangeBounceBack<T,Descriptor>&)) {
+            if (dynamics.getId() == mEBounceBackId) {
                 std::vector<plint> fluidDirections;
                 for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
                     plint nextX = iX + Descriptor<T>::c[iPop][0];
                     plint nextY = iY + Descriptor<T>::c[iPop][1];
                     plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                     Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                    if ( typeid(partner) !=
-                         typeid(MomentumExchangeBounceBack<T,Descriptor>&) )
-                    {
+                    int partnerId = partner.getId();
+                    if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
                         fluidDirections.push_back(iPop);
                     }
                 }

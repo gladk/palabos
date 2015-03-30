@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,9 +22,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/** \file
- * Functionals for domain initialization -- generic implementation.
- */
 #ifndef DYNAMICS_PROCESSOR_2D_HH
 #define DYNAMICS_PROCESSOR_2D_HH
 
@@ -51,7 +48,7 @@ void ExternalRhoJcollideAndStream2D<T,Descriptor>::collide (
             Cell<T,Descriptor>& cell = lattice.get(iX,iY);
             T rhoBar            = rhoBarField.get(iX+offset1.x, iY+offset1.y);
             Array<T,2> const& j = jField.get(iX+offset2.x, iY+offset2.y);
-            cell.getDynamics().collide(cell, rhoBar, j, T(), stat);
+            cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
             cell.revert();
         }
     }
@@ -68,7 +65,7 @@ void ExternalRhoJcollideAndStream2D<T,Descriptor>::bulkCollideAndStream (
             Cell<T,Descriptor>& cell = lattice.get(iX,iY);
             T rhoBar            = rhoBarField.get(iX+offset1.x, iY+offset1.y);
             Array<T,2> const& j = jField.get(iX+offset2.x, iY+offset2.y);
-            cell.getDynamics().collide(cell, rhoBar, j, T(), stat);
+            cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
             latticeTemplates<T,Descriptor>::swapAndStream2D(lattice.grid, iX, iY);
         }
     }
@@ -109,10 +106,7 @@ void ExternalRhoJcollideAndStream2D<T,Descriptor>::processGenericBlocks (
     TensorField2D<T,2> const& jField =
         dynamic_cast<TensorField2D<T,2> const&>(*atomicBlocks[2]);
 
-    BlockStatistics stat;
-    stat.subscribeAverage();
-    stat.subscribeAverage();
-    stat.subscribeMax();
+    BlockStatistics& stat = lattice.getInternalStatistics();
 
     static const plint vicinity = Descriptor<T>::vicinity;
     Box2D extDomain(domain.enlarge(vicinity));

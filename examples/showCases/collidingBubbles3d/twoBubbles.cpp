@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -129,7 +129,7 @@ void initializeParameters()
     concentr_l = 0.;
 
     // Eq.9 from LeePaper. Not clear why he is using concentr_h-concentr_l here.
-    beta = 12.*sigma/pow((concentr_h-concentr_l),4.)/delta;   
+    beta = 12.*sigma/std::pow((T)(concentr_h-concentr_l),(T)4.)/delta;   
     kappa = beta*util::sqr(delta)*util::sqr(concentr_h-concentr_l)/8.;
     M = Pe/beta;    
     
@@ -319,8 +319,8 @@ T C_InitialDrop(plint iX, plint iY, plint iZ)
 {
     T concentr_mean = 0.5*(concentr_h+concentr_l);
     T concentr_diff = 0.5*(concentr_h-concentr_l);
-    T c = (sqrt(util::sqr(iX-cx0)+util::sqr(iY-cy0)+util::sqr(iZ-cz0))-radius) / delta * 2.;
-    return concentr_mean-concentr_diff*tanh(c);
+    T c = (std::sqrt((T)util::sqr(iX-cx0)+(T)util::sqr(iY-cy0)+(T)util::sqr(iZ-cz0))-radius) / delta * 2.;
+    return concentr_mean-concentr_diff*std::tanh(c);
 }
 
 // Definition of a drop as initial condition (taken from Lee's Fortran code).
@@ -328,8 +328,8 @@ T C_InitialEllipsoid(plint iX, plint iY, plint iZ)
 {
     T concentr_mean = 0.5*(concentr_h+concentr_l);
     T concentr_diff = 0.5*(concentr_h-concentr_l);
-    T c = (sqrt(2*util::sqr(iX-cx0)+util::sqr(iY-cy0)+util::sqr(iZ-cz0))-radius) / delta * 2.;
-    return concentr_mean-concentr_diff*tanh(c);
+    T c = (std::sqrt(2*(T)util::sqr(iX-cx0)+(T)util::sqr(iY-cy0)+(T)util::sqr(iZ-cz0))-radius) / delta * 2.;
+    return concentr_mean-concentr_diff*std::tanh(c);
 }
 
 // Definition of a drop as initial condition (taken from Lee's Fortran code).
@@ -337,17 +337,17 @@ T C_InitialTwoEllipsoids(plint iX, plint iY, plint iZ)
 {
     T concentr_mean = 0.5*(concentr_h+concentr_l);
     T concentr_diff = 0.5*(concentr_h-concentr_l);
-    T c1 = (sqrt(2*util::sqr(iX-cx0)+util::sqr(iY-cy0)+util::sqr(iZ-cz0))-radius) / delta * 2.;
-    T c2 = (sqrt(util::sqr(iX-nx+cx0)+2*util::sqr(iY-cy0)+util::sqr(iZ-cz0))-radius) / delta * 2.;
-    return 2*concentr_mean-concentr_diff*(tanh(c1)+tanh(c2));
+    T c1 = (std::sqrt(2*(T)util::sqr(iX-cx0)+(T)util::sqr(iY-cy0)+(T)util::sqr(iZ-cz0))-radius) / delta * 2.;
+    T c2 = (std::sqrt((T)util::sqr(iX-nx+cx0)+2*(T)util::sqr(iY-cy0)+(T)util::sqr(iZ-cz0))-radius) / delta * 2.;
+    return 2*concentr_mean-concentr_diff*(std::tanh(c1)+std::tanh(c2));
 }
 
 void initialCondition()
 {
     // 1. Initialize the three macroscopic variables.
-    setToConstant(*p1, p1->getBoundingBox(), 0.);
-    setToConstant<T,3>(*u, Box3D(0,nx/2,0,ny-1,0,nz-1), Array<T,3>(0.02,0.,0.));
-    setToConstant<T,3>(*u, Box3D(nx/2+1,nx-1,0,ny-1,0,nz-1), Array<T,3>(-0.02,0.,0.));
+    setToConstant(*p1, p1->getBoundingBox(), (T)0.);
+    setToConstant<T,3>(*u, Box3D(0,nx/2,0,ny-1,0,nz-1), Array<T,3>((T)0.02,(T)0.,(T)0.));
+    setToConstant<T,3>(*u, Box3D(nx/2+1,nx-1,0,ny-1,0,nz-1), Array<T,3>((T)-0.02,(T)0.,(T)0.));
     //setToFunction(*C, C->getBoundingBox(), C_InitialDrop);
     setToFunction(*C, C->getBoundingBox(), C_InitialTwoEllipsoids);
 
@@ -385,13 +385,12 @@ void writeGifs(plint iter)
                                 imSize, imSize );
 }
 
-template<typename T>
 void writeVTKscalarField(MultiScalarField3D<T>& scalarField, std::string name, plint iter)
 {
  
     T dx = (T)1/(T)(scalarField.getNx()-1);
     // Write full image
-    VtkImageOutput3D<double> vtkOut(createFileName("vtk_"+name+"_", iter, 8), dx);
+    VtkImageOutput3D<T> vtkOut(createFileName("vtk_"+name+"_", iter, 8), dx);
     vtkOut.writeData<float>(scalarField, name,(T)1 );
 }
 

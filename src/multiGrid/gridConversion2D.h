@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -201,6 +201,36 @@ private:
     plint dxScale, dtScale;
 };
 
+/// Copy data from a coarse to a fine BlockLattice, using bilinear interpolation.
+template<typename T, template<typename U> class Descriptor>
+class LatticeLinearInterpolateCoarseToFine2D : public BoxProcessingFunctional2D_LL<T,Descriptor,T,Descriptor>
+{
+public:
+    LatticeLinearInterpolateCoarseToFine2D(plint dxScale_, plint dtScale_);
+
+    LatticeLinearInterpolateCoarseToFine2D (
+            LatticeLinearInterpolateCoarseToFine2D<T,Descriptor> const& rhs );
+    LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>& operator= (
+            LatticeLinearInterpolateCoarseToFine2D<T,Descriptor> const& rhs );
+    
+    virtual void process( Box2D coarseDomain,
+                          BlockLattice2D<T,Descriptor>& coarseLattice,
+                          BlockLattice2D<T,Descriptor>& fineLattice );
+
+    virtual LatticeLinearInterpolateCoarseToFine2D<T,Descriptor>* clone() const;
+    
+    virtual BlockDomain::DomainT appliesTo() const {
+        return BlockDomain::bulk;
+    }
+
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::nothing;
+        modified[1] = modif::staticVariables;
+    }
+private:
+    plint dxScale, dtScale;
+};
+
 
 template <typename T>
 std::auto_ptr<MultiScalarField2D<T> > coarsen (
@@ -229,6 +259,11 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > coarsen (
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > refine (
+        MultiBlockLattice2D<T,Descriptor>& coarseLattice,
+        plint dxScale, plint dtScale, Dynamics<T,Descriptor>* backgroundDynamics );
+
+template<typename T, template<typename U> class Descriptor> 
+std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > linearRefine (
         MultiBlockLattice2D<T,Descriptor>& coarseLattice,
         plint dxScale, plint dtScale, Dynamics<T,Descriptor>* backgroundDynamics );
 

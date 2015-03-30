@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -127,7 +127,7 @@ template<typename T>
 struct latticeTemplates<T, descriptors::ForcedD3Q15Descriptor> {
 
 static void swapAndStreamCell (
-      Cell<T,descriptors::D3Q15Descriptor> ***grid,
+      Cell<T,descriptors::ForcedD3Q15Descriptor> ***grid,
       plint iX, plint iY, plint iZ, plint nX, plint nY, plint nZ, plint iPop, T& fTmp )
 {
     fTmp                     = grid[iX][iY][iZ][iPop];
@@ -136,7 +136,7 @@ static void swapAndStreamCell (
     grid[nX][nY][nZ][iPop]   = fTmp;
 }
 
-static void swapAndStream3D(Cell<T,descriptors::D3Q15Descriptor> ***grid,
+static void swapAndStream3D(Cell<T,descriptors::ForcedD3Q15Descriptor> ***grid,
                             plint iX, plint iY, plint iZ)
 {
     T fTmp;

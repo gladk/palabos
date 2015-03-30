@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -192,7 +192,7 @@ MultiScalarField2D<T>* computeGaussSeidelDefect(MultiScalarField2D<T>& u_h, Mult
 template<typename T>
 T computeEuclidianNorm(MultiScalarField2D<T>& matrix, Box2D const& domain){
     T av = computeAverage( *multiply(matrix,matrix),domain);
-    return sqrt(av);
+    return std::sqrt(av);
 }
 
 

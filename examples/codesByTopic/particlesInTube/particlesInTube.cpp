@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -101,7 +101,7 @@ void iniLattice( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     //   boundary layer, and keep the rest as BGKdynamics.
     defineDynamics(lattice, voxelizedDomain.getVoxelMatrix(), lattice.getBoundingBox(),
                    new NoDynamics<T,DESCRIPTOR>, voxelFlag::outside);
-    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), 1., Array<T,3>(0.,0.,0.));
+    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.));
     lattice.initialize();
 }
 

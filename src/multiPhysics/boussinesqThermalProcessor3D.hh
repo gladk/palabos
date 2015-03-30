@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,7 +46,7 @@ BoussinesqThermalProcessor3D<T,FluidDescriptor,TemperatureDescriptor>::
        dir(dir_)
 {
     // We normalize the direction of the force vector.
-    T normDir = sqrt(VectorTemplate<T,FluidDescriptor>::normSqr(dir));
+    T normDir = std::sqrt(VectorTemplate<T,FluidDescriptor>::normSqr(dir));
     for (pluint iD = 0; iD < FluidDescriptor<T>::d; ++iD) {
         dir[iD] /= normDir;
     }
@@ -126,7 +126,7 @@ SmagorinskyBoussinesqThermalProcessor3D<T,FluidDescriptor,TemperatureDescriptor>
        nu0(nu0_), d0(d0_)
 {
     // We normalize the direction of the force vector.
-    T normDir = sqrt(VectorTemplate<T,FluidDescriptor>::normSqr(dir));
+    T normDir = std::sqrt(VectorTemplate<T,FluidDescriptor>::normSqr(dir));
     for (pluint iD = 0; iD < FluidDescriptor<T>::d; ++iD) {
         dir[iD] /= normDir;
     }

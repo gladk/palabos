@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,7 +44,7 @@ GuoOffLatticeModel3D<T,Descriptor>::LiquidNeighbor::LiquidNeighbor
 {
     int const* c = NextNeighbor<T>::c[iNeighbor];
     Array<T,3> neighborVect(c[0],c[1],c[2]);
-    cosAngle = fabs(dot(neighborVect,wallNormal))*NextNeighbor<T>::invD[iNeighbor];
+    cosAngle = std::fabs(dot(neighborVect,wallNormal))*NextNeighbor<T>::invD[iNeighbor];
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -307,7 +307,7 @@ bool GuoAlgorithm3D<T,Descriptor>::computeNeighborData()
         T delta = (T)1. - wallDistance * invDistanceToNeighbor;
         Array<T,3> normalFluidDirection((T)fluidDirection.x, (T)fluidDirection.y, (T)fluidDirection.z);
         normalFluidDirection *= invDistanceToNeighbor;
-        weights[iDirection] = fabs(dot(normalFluidDirection, wallNormal));
+        weights[iDirection] = std::fabs(dot(normalFluidDirection, wallNormal));
         sumWeights += weights[iDirection];
         this->extrapolateVariables (
                 fluidDirection, depth, wallNode, delta, wall_vel,
@@ -427,20 +427,37 @@ void GuoPiNeqAlgorithm3D<T,Descriptor>::extrapolateVariables (
 
         T tmpRhoBar;
         cell2.getDynamics().computeRhoBarJ(cell2, tmpRhoBar, j2);
-    }
-    else {
-        PLB_ASSERT( (plint)this->args.size()==1 );
-        NTensorField3D<T> const* macroField =
-            dynamic_cast<NTensorField3D<T> const*>( this->args[0] );
-        PLB_ASSERT( macroField );
-        // 1 Variable for rhoBar, 3 variables for j.
-        PLB_ASSERT( macroField->getNdim()==4 );
-        Dot3D offset = computeRelativeDisplacement(this->lattice, *macroField);
-        T const* macroscopic = macroField->get (
-                this->guoNode.x+2*fluidDirection.x+offset.x,
-                this->guoNode.y+2*fluidDirection.y+offset.y,
-                this->guoNode.z+2*fluidDirection.z+offset.z );
-        j2.from_cArray(macroscopic+1);
+    } else {
+        if ((plint) this->args.size() == 1) {
+            NTensorField3D<T> const* macroField =
+                dynamic_cast<NTensorField3D<T> const*>( this->args[0] );
+            PLB_ASSERT( macroField );
+            // 1 Variable for rhoBar, 3 variables for j.
+            PLB_ASSERT( macroField->getNdim()==4 );
+            Dot3D offset = computeRelativeDisplacement(this->lattice, *macroField);
+            T const* macroscopic = macroField->get (
+                    this->guoNode.x+2*fluidDirection.x+offset.x,
+                    this->guoNode.y+2*fluidDirection.y+offset.y,
+                    this->guoNode.z+2*fluidDirection.z+offset.z );
+            j2.from_cArray(macroscopic+1);
+        } else if ((plint) this->args.size() == 2) {
+            // 1 field for rhoBar, 1 field for j.
+#ifdef PLB_DEBUG
+            ScalarField3D<T> const* rhoBarField =
+                dynamic_cast<ScalarField3D<T> const*>( this->args[0] );
+#endif
+            TensorField3D<T,3> const* jField =
+                dynamic_cast<TensorField3D<T,3> const*>( this->args[1] );
+            PLB_ASSERT( rhoBarField );
+            PLB_ASSERT( jField );
+            Dot3D offset = computeRelativeDisplacement(this->lattice, *jField);
+            j2 = jField->get (
+                    this->guoNode.x+2*fluidDirection.x+offset.x,
+                    this->guoNode.y+2*fluidDirection.y+offset.y,
+                    this->guoNode.z+2*fluidDirection.z+offset.z );
+        } else {
+            PLB_ASSERT(false); // Not implemented for 3 args.
+        }
     }
 
     if ( bdType==OffBoundary::constRhoInlet ||
@@ -687,7 +704,10 @@ void GuoOffLatticeModel3D<T,Descriptor>::cellCompletion (
                 *this, lattice, guoNode, dryNodeFluidDirections,
                 dryNodeIds, absoluteOffset, localForce, args, computesStat(), usesSecondOrder() );
     }
-    bool ok = algorithm -> computeNeighborData();
+#ifdef PLB_DEBUG
+    bool ok =
+#endif
+        algorithm -> computeNeighborData();
     PLB_ASSERT( ok );
     algorithm->finalize();
     delete algorithm;

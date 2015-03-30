@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,6 +29,7 @@
 #ifndef BOUNDARY_TEMPLATES_H
 #define BOUNDARY_TEMPLATES_H
 
+#include "latticeBoltzmann/momentTemplates.h"
 #include "boundaryCondition/regularizedBoundaryDynamics.h"
 #include "core/cell.h"
 #include "latticeBoltzmann/indexTemplates.h"
@@ -84,6 +85,37 @@ struct boundaryTemplates {
                 ++iPi;
             }
         }
+    }
+    
+    static void compute_jNeq (
+         Dynamics<T,Descriptor> const& dynamics,
+         Cell<T,Descriptor> const& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr,
+         Array<T,Descriptor<T>::d>& jNeq )
+    {
+        typedef Descriptor<T> D;
+
+        std::vector<plint> const& onWallIndices = indexTemplates::subIndex<D, direction, 0>();
+        std::vector<plint> const& normalIndices = indexTemplates::subIndex<D, direction, orientation>();
+
+        // Compute off-equilibrium for known particle populations.
+        Array<T,Descriptor<T>::q> fNeq;
+        for (pluint fIndex=0; fIndex<onWallIndices.size(); ++fIndex) {
+            plint iPop = onWallIndices[fIndex];
+            fNeq[iPop] = cell[iPop] - dynamics.computeEquilibrium(iPop, rhoBar, j, jSqr);
+        }
+        for (pluint fIndex=0; fIndex<normalIndices.size(); ++fIndex) {
+            plint iPop = normalIndices[fIndex];
+            plint iOpp = indexTemplates::opposite<D>(iPop);
+            if (iPop == 0) {
+                fNeq[iPop] = T();  // fNeq[0] will not be used anyway
+            }
+            else {
+                fNeq[iPop] = cell[iPop] - dynamics.computeEquilibrium(iPop, rhoBar, j, jSqr);
+                fNeq[iOpp] = -fNeq[iPop];
+            }
+        }
+
+        momentTemplatesImpl<T,D>::get_j(fNeq, jNeq );
     }
 
 };  // struct boundaryTemplates

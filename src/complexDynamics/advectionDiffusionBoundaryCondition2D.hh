@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,6 +35,8 @@
 #include "complexDynamics/advectionDiffusionBoundaries.hh"
 #include "complexDynamics/advectionDiffusionBoundaryCondition2D.h"
 #include "complexDynamics/advectionDiffusionBoundaryInstantiator2D.h"
+#include "complexDynamics/advectionDiffusionProcessor2D.h"
+#include "complexDynamics/advectionDiffusionProcessor2D.hh"
 
 namespace plb {
     
@@ -82,13 +84,13 @@ class AdvectionDiffusionBoundaryManager2D {
 public:
     template<int direction, int orientation> static BoundaryCompositeDynamics<T,Descriptor>*
         getAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
-    template<int direction, int orientation> static DataProcessorGenerator2D*
-        getAdvectionDiffusionBoundaryProcessor(Box2D domain);
+    template<int direction, int orientation> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionBoundaryProcessor();
 
     template<int xNormal, int yNormal> static BoundaryCompositeDynamics<T,Descriptor>*
         getAdvectionDiffusionCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
-    template<int xNormal, int yNormal> static DataProcessorGenerator2D*
-        getAdvectionDiffusionCornerProcessor(plint x, plint y);
+    template<int xNormal, int yNormal> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionCornerProcessor();
 };
 
 //================ Regularized advectionDiffusionBoundaryManager2D ==========//
@@ -98,13 +100,29 @@ class RegularizedAdvectionDiffusionBoundaryManager2D {
 public:
     template<int direction, int orientation> static BoundaryCompositeDynamics<T,Descriptor>*
         getAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
-    template<int direction, int orientation> static DataProcessorGenerator2D*
-        getAdvectionDiffusionBoundaryProcessor(Box2D domain);
+    template<int direction, int orientation> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionBoundaryProcessor();
 
     template<int xNormal, int yNormal> static BoundaryCompositeDynamics<T,Descriptor>*
         getAdvectionDiffusionCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
-    template<int xNormal, int yNormal> static DataProcessorGenerator2D*
-        getAdvectionDiffusionCornerProcessor(plint x, plint y);
+    template<int xNormal, int yNormal> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionCornerProcessor();
+};
+
+//================ Complete Regularized advectionDiffusionBoundaryManager2D ==========//
+
+template<typename T, template<typename U> class Descriptor>
+class RegularizedCompleteAdvectionDiffusionBoundaryManager2D {
+public:
+    template<int direction, int orientation> static BoundaryCompositeDynamics<T,Descriptor>*
+        getAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int direction, int orientation> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionBoundaryProcessor();
+
+    template<int xNormal, int yNormal> static BoundaryCompositeDynamics<T,Descriptor>*
+        getAdvectionDiffusionCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int xNormal, int yNormal> static BoxProcessingFunctional2D_L<T,Descriptor>*
+        getAdvectionDiffusionCornerProcessor();
 };
 
 
@@ -120,9 +138,9 @@ BoundaryCompositeDynamics<T,Descriptor>* AdvectionDiffusionBoundaryManager2D<T,D
 
 template<typename T, template<typename U> class Descriptor>
 template<int direction, int orientation>
-DataProcessorGenerator2D*
+BoxProcessingFunctional2D_L<T,Descriptor>*
     AdvectionDiffusionBoundaryManager2D<T,Descriptor>::
-        getAdvectionDiffusionBoundaryProcessor(Box2D domain)
+        getAdvectionDiffusionBoundaryProcessor()
 {
     return 0;
 }
@@ -140,9 +158,9 @@ BoundaryCompositeDynamics<T,Descriptor>* AdvectionDiffusionBoundaryManager2D<T,D
 
 template<typename T, template<typename U> class Descriptor>
 template<int xNormal, int yNormal>
-DataProcessorGenerator2D*
+BoxProcessingFunctional2D_L<T,Descriptor>*
     AdvectionDiffusionBoundaryManager2D<T,Descriptor>::
-        getAdvectionDiffusionCornerProcessor(plint x, plint y)
+        getAdvectionDiffusionCornerProcessor()
 {
     return 0;
 }
@@ -159,9 +177,9 @@ BoundaryCompositeDynamics<T,Descriptor>* RegularizedAdvectionDiffusionBoundaryMa
 
 template<typename T, template<typename U> class Descriptor>
 template<int direction, int orientation>
-DataProcessorGenerator2D*
+BoxProcessingFunctional2D_L<T,Descriptor>*
     RegularizedAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
-        getAdvectionDiffusionBoundaryProcessor(Box2D domain)
+        getAdvectionDiffusionBoundaryProcessor()
 {
     return 0;
 }
@@ -174,16 +192,55 @@ template<int xNormal, int yNormal>
 BoundaryCompositeDynamics<T,Descriptor>* RegularizedAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
     getAdvectionDiffusionCornerDynamics(Dynamics<T,Descriptor>* baseDynamics)
 {
-    return new AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>(baseDynamics);
+    return new StoreDensityDynamics<T,Descriptor>(baseDynamics);
 }
 
 template<typename T, template<typename U> class Descriptor>
 template<int xNormal, int yNormal>
-DataProcessorGenerator2D*
+BoxProcessingFunctional2D_L<T,Descriptor>*
     RegularizedAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
-        getAdvectionDiffusionCornerProcessor(plint x, plint y)
+        getAdvectionDiffusionCornerProcessor()
+{
+    return new AdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>();
+}
+
+////////// Regularized CompleteAdvectionDiffusionBoundaryManager2D /////////////////////////////////////////
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoundaryCompositeDynamics<T,Descriptor>* RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
+    getAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoxProcessingFunctional2D_L<T,Descriptor>*
+    RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
+        getAdvectionDiffusionBoundaryProcessor()
 {
     return 0;
+}
+
+
+//==================  Corners ================================
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal>
+BoundaryCompositeDynamics<T,Descriptor>* RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
+    getAdvectionDiffusionCornerDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new StoreDensityDynamics<T,Descriptor>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal>
+BoxProcessingFunctional2D_L<T,Descriptor>*
+    RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
+        getAdvectionDiffusionCornerProcessor()
+{
+    return new CompleteAdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>();
 }
 
 ////////// Factory functions //////////////////////////////////////////////////
@@ -202,6 +259,14 @@ OnLatticeAdvectionDiffusionBoundaryCondition2D<T,Descriptor>*
 {
     return new AdvectionDiffusionBoundaryConditionInstantiator2D<T, Descriptor,
                        RegularizedAdvectionDiffusionBoundaryManager2D<T,Descriptor> > ();
+}
+
+template<typename T, template<typename U> class Descriptor>
+OnLatticeAdvectionDiffusionBoundaryCondition2D<T,Descriptor>* 
+        createLocalRegularizedCompleteAdvectionDiffusionBoundaryCondition2D()
+{
+    return new AdvectionDiffusionBoundaryConditionInstantiator2D<T, Descriptor,
+                       RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor> > ();
 }
 
 }  // namespace plb

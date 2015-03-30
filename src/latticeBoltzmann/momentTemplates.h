@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -325,6 +325,22 @@ static void compute_PiNeq(Array<T,Descriptor::q> const& f, T rhoBar, Array<T,Des
         }
         // Stripe off diagonal term
         PiNeq[iDiagonal] -= Descriptor::cs2 * rhoBar;
+    }
+}
+
+static void compute_PiNeq(Array<T,Descriptor::q> const& fNeq, Array<T,SymmetricTensorImpl<T,Descriptor::d>::n>& PiNeq)
+{
+    int iPi = 0;
+    for (int iAlpha=0; iAlpha < Descriptor::d; ++iAlpha) {
+        for (int iBeta=iAlpha; iBeta < Descriptor::d; ++iBeta) {
+            PiNeq[iPi] = Descriptor::c[0][iAlpha]*
+                         Descriptor::c[0][iBeta] * fNeq[0];
+            for (plint iPop=1; iPop < Descriptor::q; ++iPop) {
+                PiNeq[iPi] += Descriptor::c[iPop][iAlpha]*
+                              Descriptor::c[iPop][iBeta] * fNeq[iPop];
+            }
+            ++iPi;
+        }
     }
 }
 

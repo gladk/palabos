@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -203,6 +203,19 @@ public:
 private:
     Dynamics<T,Descriptor>* dynamics;
     int whichFlag;
+};
+
+/* *************** Class RecomposeFromOrderZeroVariablesFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class RecomposeFromOrderZeroVariablesFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    virtual void processGenericBlocks(Box3D domain,
+                                      std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 };
 
 /* *************** Class RecomposeFromFlowVariablesFunctional3D ******************* */
@@ -412,7 +425,6 @@ private:
 };
 
 
-
 /* ************* Class SetExternalScalarFunctional3D ******************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -428,6 +440,37 @@ private:
     T externalScalar;
 };
 
+/* ************* Class SetExternalScalarFromScalarFieldFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class SetExternalScalarFromScalarFieldFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,T> {
+public:
+    SetExternalScalarFromScalarFieldFunctional3D(int whichScalar_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<T> &scalar);
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>* clone() const;
+private:
+    int whichScalar;
+};
+
+
+/* ************* Class MaskedSetExternalScalarFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class MaskedSetExternalScalarFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,int> {
+public:
+    MaskedSetExternalScalarFunctional3D(int flag_, int whichScalar_, T externalScalar_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual MaskedSetExternalScalarFunctional3D<T,Descriptor>* clone() const;
+private:
+    int flag;
+    int whichScalar;
+    T externalScalar;
+};
+
 
 /* ************* Class SetGenericExternalScalarFunctional3D ******************* */
 
@@ -439,6 +482,22 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual SetGenericExternalScalarFunctional3D<T,Descriptor,Functional>* clone() const;
 private:
+    int whichScalar;
+    Functional functional;
+};
+
+
+/* ************* Class MaskedSetGenericExternalScalarFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+class MaskedSetGenericExternalScalarFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,int> {
+public:
+    MaskedSetGenericExternalScalarFunctional3D(int flag_, int whichScalar_, Functional const& functional_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>* clone() const;
+private:
+    int flag;
     int whichScalar;
     Functional functional;
 };
@@ -474,6 +533,55 @@ private:
     int vectorStartsAt;
     Array<T,Descriptor<T>::d> externalVector;
 };
+
+
+/* ************* Class MaskedSetExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class MaskedSetExternalVectorFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,int> {
+public:
+    MaskedSetExternalVectorFunctional3D (
+            int flag_, int vectorStartsAt_, Array<T,Descriptor<T>::d> & externalVector_ );
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual MaskedSetExternalVectorFunctional3D<T,Descriptor>* clone() const;
+private:
+    int flag;
+    int vectorStartsAt;
+    Array<T,Descriptor<T>::d> externalVector;
+};
+
+
+/* ************* Class SetGenericExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+class SetGenericExternalVectorFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
+public:
+    SetGenericExternalVectorFunctional3D(int vectorBeginsAt_, Functional const& functional_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>* clone() const;
+private:
+    int vectorBeginsAt;
+    Functional functional;
+};
+
+
+/* ************* Class MaskedSetGenericExternalVectorFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+class MaskedSetGenericExternalVectorFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,int> {
+public:
+    MaskedSetGenericExternalVectorFunctional3D(int flag_, int vectorBeginsAt_, Functional const& functional_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>* clone() const;
+private:
+    int flag;
+    int vectorBeginsAt;
+    Functional functional;
+};
+
 
 /* ************* Class SetExternalVectorFromTensorFieldFunctional3D ******************* */
 

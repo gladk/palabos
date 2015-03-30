@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,8 +26,15 @@
 #define VISUAL_PARTICLE_WRAPPER_3D_HH
 
 #include "core/globalDefs.h"
+#include "core/array.h"
+#include "core/geometry3D.h"
 #include "particles/visualParticleWrapper3D.h"
 #include "particles/visualParticleFunctional3D.h"
+#include "particles/visualParticle3D.h"
+
+#include <vector>
+#include <string>
+#include <cmath>
 
 namespace plb {
 
@@ -183,6 +190,42 @@ std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
             scalarField, *particleField, domain, particleTemplate,
             mostUnlikely, mostLikely, probability, numShotsPerCell );
     return particleField;
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void scalarFieldToParticles(MultiScalarField3D<T>& scalar, MultiParticleField3D<ParticleFieldT>& particleField, Box3D domain)
+{
+    std::vector<MultiBlock3D*> particleScalarArg;
+    particleScalarArg.push_back(&particleField);
+    particleScalarArg.push_back(&scalar);
+    applyProcessingFunctional (
+            new ScalarFieldToParticle3D<T,Descriptor>(), domain, particleScalarArg );
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
+    scalarFieldToSurface(TriangularSurfaceMesh<T>& mesh, MultiScalarField3D<T>& scalar, Box3D domain)
+{
+    std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
+        particles( new MultiParticleField3D<DenseParticleField3D<T,Descriptor> > (
+                       scalar.getMultiBlockManagement(),
+                       defaultMultiBlockPolicy3D().getCombinedStatistics() ) );
+
+    std::vector<MultiBlock3D*> particleArg;
+    particleArg.push_back(particles.get());
+    applyProcessingFunctional ( 
+      new CreateParticleFromVertex3D<T,Descriptor,VisualParticle3D<T,Descriptor> >(mesh),
+      domain, particleArg );
+
+    std::vector<MultiBlock3D*> particleScalarArg;
+    particleScalarArg.push_back(particles.get());
+    particleScalarArg.push_back(&scalar);
+    applyProcessingFunctional (
+            new ScalarFieldToParticle3D<T,Descriptor>(),
+            domain, particleScalarArg);
+
+    return particles;
 }
 
 }  // namespace plb

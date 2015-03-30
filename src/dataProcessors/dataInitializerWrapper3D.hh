@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -195,6 +195,15 @@ void setExternalScalar( BlockLattice3D<T,Descriptor>& lattice, Box3D domain,
 }
 
 template<typename T, template<class U> class Descriptor>
+void setExternalScalar( BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask,
+                        int flag, Box3D domain, int whichScalar, T externalScalar )
+{
+    applyProcessingFunctional (
+            new MaskedSetExternalScalarFunctional3D<T,Descriptor>(flag, whichScalar, externalScalar),
+            domain, lattice, mask );
+}
+
+template<typename T, template<class U> class Descriptor>
 void setExternalVector( BlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector )
 {
@@ -296,6 +305,29 @@ void recomposeFromFlowVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
 }
 
 template<typename T, template<typename U> class Descriptor>
+void recomposeFromOrderZeroVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
+                                  MultiScalarField3D<T>& density, MultiTensorField3D<T,3>& velocity,
+                                  MultiTensorField3D<T,Descriptor<T>::q>& fNeq )
+{
+    recomposeFromOrderZeroVariables( lattice, density, velocity, fNeq, lattice.getBoundingBox() );
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+void recomposeFromOrderZeroVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
+                                  MultiScalarField3D<T>& density, MultiTensorField3D<T,3>& velocity,
+                                  MultiTensorField3D<T,Descriptor<T>::q>& fNeq, Box3D domain )
+{
+    std::vector<MultiBlock3D*> multiBlocks(4);
+    multiBlocks[0] = &lattice;
+    multiBlocks[1] = &density;
+    multiBlocks[2] = &velocity;
+    multiBlocks[3] = &fNeq;
+    applyProcessingFunctional( new RecomposeFromOrderZeroVariablesFunctional3D<T,Descriptor>, domain,
+                               multiBlocks );
+}
+
+template<typename T, template<typename U> class Descriptor>
 void recomposeFromFlowVariables ( MultiBlockLattice3D<T,Descriptor>& lattice,
                                   MultiScalarField3D<T>& density, MultiTensorField3D<T,3>& velocity,
                                   MultiTensorField3D<T,6>& strainRate )
@@ -348,7 +380,6 @@ void setCompositeDynamics( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D dom
             domain, lattice );
 }
 
-
 template<typename T, template<class U> class Descriptor>
 void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int whichScalar, T externalScalar )
@@ -356,6 +387,24 @@ void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain
     applyProcessingFunctional (
             new SetExternalScalarFunctional3D<T,Descriptor>(whichScalar, externalScalar),
             domain, lattice );
+}
+
+template<typename T, template<class U> class Descriptor>
+void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                        int whichScalar, MultiScalarField3D<T> &scalar )
+{
+    applyProcessingFunctional (
+            new SetExternalScalarFromScalarFieldFunctional3D<T,Descriptor>(whichScalar),
+            domain, lattice, scalar );
+}
+
+template<typename T, template<class U> class Descriptor>
+void setExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int whichScalar, T externalScalar )
+{
+    applyProcessingFunctional (
+            new MaskedSetExternalScalarFunctional3D<T,Descriptor>(flag, whichScalar, externalScalar),
+            domain, lattice, mask );
 }
 
 template<typename T, template<class U> class Descriptor, class Functional>
@@ -367,6 +416,15 @@ void setGenericExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D
             domain, lattice );
 }
 
+template<typename T, template<class U> class Descriptor, class Functional>
+void setGenericExternalScalar( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                               int flag, Box3D domain, int whichScalar, Functional const& functional )
+{
+    applyProcessingFunctional (
+            new MaskedSetGenericExternalScalarFunctional3D<T,Descriptor,Functional>(flag, whichScalar, functional),
+            domain, lattice, mask );
+}
+
 template<typename T, template<class U> class Descriptor>
 void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector )
@@ -376,6 +434,15 @@ void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain
             domain, lattice );
 }
 
+template<typename T, template<class U> class Descriptor>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int vectorStartsAt, Array<T,Descriptor<T>::d> externalVector )
+{
+    applyProcessingFunctional (
+            new MaskedSetExternalVectorFunctional3D<T,Descriptor>(flag, vectorStartsAt, externalVector),
+            domain, lattice, mask );
+}
+
 template<typename T, template<class U> class Descriptor, int nDim>
 void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
                         int vectorStartsAt, MultiTensorField3D<T,nDim> &tensor )
@@ -383,6 +450,24 @@ void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain
     applyProcessingFunctional (
             new SetExternalVectorFromTensorFieldFunctional3D<T,Descriptor,nDim>(vectorStartsAt),
             domain, lattice, tensor );
+}
+
+template<typename T, template<class U> class Descriptor, class Functional>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                        int vectorStartsAt, Functional const& functional )
+{
+    applyProcessingFunctional (
+        new SetGenericExternalVectorFunctional3D<T,Descriptor,Functional>(vectorStartsAt, functional),
+                               domain, lattice );
+}
+
+template<typename T, template<class U> class Descriptor, class Functional>
+void setExternalVector( MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                        int flag, Box3D domain, int vectorStartsAt, Functional const& functional )
+{
+    applyProcessingFunctional (
+        new MaskedSetGenericExternalVectorFunctional3D<T,Descriptor,Functional>(flag, vectorStartsAt, functional),
+                               domain, lattice, mask );
 }
 
 template<typename T, template<class U> class Descriptor>
@@ -421,7 +506,7 @@ void setToConstant( ScalarField3D<T>& field, ScalarField3D<int>& mask,
                     int flag, Box3D domain, T value )
 {
     applyProcessingFunctional (
-            new MaskedIniConstScalarFunctional3D<T>(flag, value), domain, mask, field);
+            new MaskedIniConstScalarFunctional3D<T>(flag, value), domain, field, mask);
 }
 
 template<typename T, int nDim>
@@ -437,7 +522,7 @@ void setToConstant( TensorField3D<T,nDim>& field, ScalarField3D<int>& mask, int 
                     Box3D domain, Array<T,nDim> const& value )
 {
     applyProcessingFunctional (
-            new MaskedIniConstTensorFunctional3D<T,nDim>(flag, value), domain, field, mask );
+            new MaskedIniConstTensorFunctional3D<T,nDim>(flag, value), domain, mask, field );
 }
 
 template<typename T>

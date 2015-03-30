@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,11 +34,11 @@
 #include "core/dynamicsIdentifiers.h"
 #include "latticeBoltzmann/indexTemplates.h"
 #include "latticeBoltzmann/hermitePolynomialsTemplates.h"
-#include <Eigen3/Core>
-#include <Eigen3/LU>
-#include <Eigen3/QR>
-#include <Eigen3/Cholesky>
-#include <Eigen3/SVD>
+#include <Eigen/Core>
+#include <Eigen/LU>
+#include <Eigen/QR>
+#include <Eigen/Cholesky>
+#include <Eigen/SVD>
 
 namespace plb {
 
@@ -261,49 +261,49 @@ struct generalizedComprTempBoundaryTemplates {
 //         pcout << "x = ";
         T threshold = 1.0e-13;
         Array<T,SymmetricTensor<T,Descriptor>::n+2+Descriptor<T>::d+SymmetricRankThreeTensor<T,Descriptor>::n> res;
-        if (fabs(rho) > threshold) {
-            res[0] = fabs(x(0)/rho);
+        if (std::fabs(rho) > threshold) {
+            res[0] = std::fabs(x(0)/rho);
         }
-        else res[0] = fabs(x(0));
+        else res[0] = std::fabs(x(0));
 //         pcout << x(0) << ", ";
 
         for (plint iD = 0; iD < Descriptor<T>::d; ++iD) {
 //             pcout << x(iD+1) << ", ";
-            if (fabs(u[iD])  > threshold) {
-                res[iD+1] = fabs(x(iD+1)/u[iD]);
+            if (std::fabs(u[iD])  > threshold) {
+                res[iD+1] = std::fabs(x(iD+1)/u[iD]);
             }
-            else res[iD+1] = fabs(x(iD+1));
+            else res[iD+1] = std::fabs(x(iD+1));
         }
 //         pcout << std::endl;
-        if (fabs(thetaBar) > threshold) {
-            res[1+Descriptor<T>::d] = fabs(x(1+Descriptor<T>::d)/thetaBar);
+        if (std::fabs(thetaBar) > threshold) {
+            res[1+Descriptor<T>::d] = std::fabs(x(1+Descriptor<T>::d)/thetaBar);
         }
-        else res[1+Descriptor<T>::d] = fabs(x(1+Descriptor<T>::d));
+        else res[1+Descriptor<T>::d] = std::fabs(x(1+Descriptor<T>::d));
         
         for (plint iPi = 0; iPi < SymmetricTensor<T,Descriptor>::n; ++iPi) {
 //             pcout << x(iPi+1) << ", ";
-            if (fabs(PiNeq[iPi]) > threshold) {
-                res[iPi+2+Descriptor<T>::d] = fabs(x(iPi+2+Descriptor<T>::d)/PiNeq[iPi]);
+            if (std::fabs(PiNeq[iPi]) > threshold) {
+                res[iPi+2+Descriptor<T>::d] = std::fabs(x(iPi+2+Descriptor<T>::d)/PiNeq[iPi]);
             }
-            else res[iPi+2+Descriptor<T>::d] = fabs(x(iPi+2+Descriptor<T>::d));
+            else res[iPi+2+Descriptor<T>::d] = std::fabs(x(iPi+2+Descriptor<T>::d));
         }
 //         pcout << std::endl;
         
 //         pcout << u[dir] << ", " << PiNeq[0] << ", " << PiNeq[1] << ", " << PiNeq[2] << std::endl;
         for (plint iPi = 0; iPi < SymmetricRankThreeTensor<T,Descriptor>::n; ++iPi) {
 //             pcout << x(iPi+1) << ", ";
-            if (fabs(Qneq[iPi]) > threshold) {
+            if (std::fabs(Qneq[iPi]) > threshold) {
                 res[iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n] = 
-                    fabs(x(iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n)/Qneq[iPi]);
+                    std::fabs(x(iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n)/Qneq[iPi]);
             }
             else res[iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n] =
-                fabs(x(iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n));
+                std::fabs(x(iPi+2+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n));
         }
         
 //         pcout << "res = ";
         sumRes = T();
         for (plint iPi = 0; iPi < SymmetricRankThreeTensor<T,Descriptor>::n+SymmetricTensor<T,Descriptor>::n+2+Descriptor<T>::d; ++iPi) {
-            sumRes += fabs(res[iPi]);
+            sumRes += std::fabs(res[iPi]);
 //             pcout << res[iPi] << ", ";
             if (res[iPi] > epsilon) {
                 return false;
@@ -327,49 +327,49 @@ struct generalizedComprTempBoundaryTemplates {
 //         pcout << "x = ";
         T threshold = 1.0e-13;
         Array<T,SymmetricTensor<T,Descriptor>::n+2+Descriptor<T>::d+SymmetricRankThreeTensor<T,Descriptor>::n> res;
-        if (fabs(rho) > threshold) {
-            res[0] = fabs(x(0)/rho);
+        if (std::fabs(rho) > threshold) {
+            res[0] = std::fabs(x(0)/rho);
         }
-        else res[0] = fabs(x(0));
+        else res[0] = std::fabs(x(0));
 //         pcout << x(0) << ", ";
 
         for (plint iD = 0; iD < Descriptor<T>::d; ++iD) {
 //             pcout << x(iD+1) << ", ";
-            if (fabs(u[iD])  > threshold) {
-                res[iD+1] = fabs(x(iD+1)/u[iD]);
+            if (std::fabs(u[iD])  > threshold) {
+                res[iD+1] = std::fabs(x(iD+1)/u[iD]);
             }
-            else res[iD+1] = fabs(x(iD+1));
+            else res[iD+1] = std::fabs(x(iD+1));
         }
 //         pcout << std::endl;
-        if (fabs(thetaBar) > threshold) {
-            res[1+Descriptor<T>::d] = fabs(x(1+Descriptor<T>::d)/thetaBar);
+        if (std::fabs(thetaBar) > threshold) {
+            res[1+Descriptor<T>::d] = std::fabs(x(1+Descriptor<T>::d)/thetaBar);
         }
-        else res[1+Descriptor<T>::d] = fabs(x(1+Descriptor<T>::d));
+        else res[1+Descriptor<T>::d] = std::fabs(x(1+Descriptor<T>::d));
         
         for (plint iPi = 0; iPi < SymmetricTensor<T,Descriptor>::n-1; ++iPi) {
 //             pcout << x(iPi+1) << ", ";
-            if (fabs(PiNeq[iPi]) > threshold) {
-                res[iPi+2+Descriptor<T>::d] = fabs(x(iPi+2+Descriptor<T>::d)/PiNeq[iPi]);
+            if (std::fabs(PiNeq[iPi]) > threshold) {
+                res[iPi+2+Descriptor<T>::d] = std::fabs(x(iPi+2+Descriptor<T>::d)/PiNeq[iPi]);
             }
-            else res[iPi+2+Descriptor<T>::d] = fabs(x(iPi+2+Descriptor<T>::d));
+            else res[iPi+2+Descriptor<T>::d] = std::fabs(x(iPi+2+Descriptor<T>::d));
         }
 //         pcout << std::endl;
         
 //         pcout << u[dir] << ", " << PiNeq[0] << ", " << PiNeq[1] << ", " << PiNeq[2] << std::endl;
         for (plint iPi = 0; iPi < SymmetricRankThreeTensor<T,Descriptor>::n; ++iPi) {
 //             pcout << x(iPi+1) << ", ";
-            if (fabs(Qneq[iPi]) > threshold) {
+            if (std::fabs(Qneq[iPi]) > threshold) {
                 res[iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n] = 
-                    fabs(x(iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n)/Qneq[iPi]);
+                    std::fabs(x(iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n)/Qneq[iPi]);
             }
             else res[iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n] =
-                fabs(x(iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n));
+                std::fabs(x(iPi+1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n));
         }
         
 //         pcout << "res = ";
         sumRes = T();
         for (plint iPi = 0; iPi < SymmetricRankThreeTensor<T,Descriptor>::n+SymmetricTensor<T,Descriptor>::n+1+Descriptor<T>::d; ++iPi) {
-            sumRes += fabs(res[iPi]);
+            sumRes += std::fabs(res[iPi]);
 //             pcout << res[iPi] << ", ";
             if (res[iPi] > epsilon) {
                 return false;

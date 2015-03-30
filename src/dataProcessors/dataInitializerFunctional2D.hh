@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -999,6 +999,44 @@ SetExternalScalarFunctional2D<T,Descriptor>*
     SetExternalScalarFunctional2D<T,Descriptor>::clone() const 
 {
     return new SetExternalScalarFunctional2D<T,Descriptor>(*this);
+}
+
+/* ************* Class SetGenericExternalScalarFunctional2D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>::SetGenericExternalScalarFunctional2D (
+        int whichScalar_, Functional const& functional_)
+    : whichScalar(whichScalar_),
+      functional(functional_)
+{
+    PLB_ASSERT(whichScalar < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>::process (
+        Box2D domain, BlockLattice2D<T,Descriptor>& lattice )
+{
+    Dot2D absOffset = lattice.getLocation();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            *lattice.get(iX,iY).getExternal(whichScalar)
+                = functional(iX+absOffset.x,iY+absOffset.y);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+void SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor, class Functional>
+SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>*
+    SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>::clone() const 
+{
+    return new SetGenericExternalScalarFunctional2D<T,Descriptor,Functional>(*this);
 }
 
 

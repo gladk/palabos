@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,7 +47,7 @@ public:
      *  \param lz_ z-length in dimensionless units (e.g. 1).
      */
     IncomprFlowParam(T physicalU_, T latticeU_, T Re_, T physicalLength_, plint resolution_, T lx_, T ly_, T lz_=T() )
-        : latticeU(latticeU_), physicalU(physicalU_), Re(Re_), physicalLength(physicalLength_), 
+        : physicalU(physicalU_), latticeU(latticeU_), physicalLength(physicalLength_), Re(Re_),
           resolution(resolution_), lx(lx_), ly(ly_), lz(lz_)
     { }
     

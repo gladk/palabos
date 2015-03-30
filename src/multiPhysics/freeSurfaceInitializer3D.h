@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,12 +34,12 @@ namespace plb {
 template< typename T,template<typename U> class Descriptor>
 class DefaultInitializeFreeSurface3D : public BoxProcessingFunctional3D {
 public:
-    DefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_, Array<T,3> g_, T rhoIni_=(T)1.)
-        : dynamicsTemplate(dynamicsTemplate_), g(g_), rhoIni(rhoIni_)
+    DefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_, Array<T,3> g_, T rhoIni_, bool useRhoIni_)
+        : dynamicsTemplate(dynamicsTemplate_), g(g_), rhoIni(rhoIni_), useRhoIni(useRhoIni_)
     { }
     DefaultInitializeFreeSurface3D(DefaultInitializeFreeSurface3D<T,Descriptor> const& rhs)
         : dynamicsTemplate(rhs.dynamicsTemplate->clone()),
-          g(rhs.g), rhoIni(rhs.rhoIni)
+          g(rhs.g), rhoIni(rhs.rhoIni), useRhoIni(rhs.useRhoIni)
     { }
     DefaultInitializeFreeSurface3D<T,Descriptor>* operator=(DefaultInitializeFreeSurface3D<T,Descriptor> const& rhs)
     { 
@@ -50,6 +50,7 @@ public:
         std::swap(dynamicsTemplate, rhs.dynamicsTemplate);
         std::swap(g, rhs.g);
         std::swap(rhoIni, rhs.rhoIni);
+        std::swap(useRhoIni, rhs.useRhoIni);
     }
     virtual ~DefaultInitializeFreeSurface3D() {
         delete dynamicsTemplate;
@@ -75,6 +76,7 @@ private:
     Dynamics<T,Descriptor>* dynamicsTemplate;
     Array<T,3> g;
     T rhoIni;
+    bool useRhoIni;
 };
 
 // Same as DefaultInitializeFreeSurface, but without initializing the Volume-fraction.
@@ -238,6 +240,35 @@ private:
     T volumeFraction;
 };
 
+
+template<typename T, template<typename U> class Descriptor>
+class OutletVolumeFractionInRange3D : public BoxProcessingFunctional3D {
+public:
+    OutletVolumeFractionInRange3D(T minFraction_, T maxFraction_)
+        : minFraction(minFraction_),
+          maxFraction(maxFraction_)
+    { }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual OutletVolumeFractionInRange3D<T,Descriptor>* clone() const {
+        return new OutletVolumeFractionInRange3D<T,Descriptor>(*this);
+    }
+    virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
+        std::fill(modified.begin(), modified.end(), modif::nothing);
+        modified[0] = modif::nothing;         // Fluid.
+        modified[1] = modif::nothing;         // rhoBar.
+        modified[2] = modif::nothing;         // j.
+        modified[3] = modif::staticVariables; // Mass.
+        modified[4] = modif::nothing;         // Volume-fraction.
+        modified[5] = modif::nothing;         // Flag-status.
+        modified[6] = modif::nothing;         // Normal.
+        modified[7] = modif::nothing;         // Interface-lists.
+        modified[8] = modif::nothing;         // Curvature.
+        modified[9] = modif::nothing;         // Outside density.
+    }
+private:
+    T minFraction, maxFraction;
+};
+
 template<typename T, template<typename U> class Descriptor>
 class OutletMaximumVolumeFraction2_3D : public BoxProcessingFunctional3D {
 public:
@@ -321,6 +352,47 @@ private:
     Array<T,3> center;
     T radius;
     T rho0;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class AnalyticalPunchSphere3D : public BoxProcessingFunctional3D {
+public:
+    AnalyticalPunchSphere3D(Array<T,3> const& center_, T radius_, T rho0_, plint subDivision_=5)
+        : center(center_),
+          radius(radius_),
+          rho0(rho0_),
+          subDivision(subDivision_)
+    {
+        PLB_ASSERT(subDivision>1);
+    }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual AnalyticalPunchSphere3D<T,Descriptor>* clone() const {
+        return new AnalyticalPunchSphere3D<T,Descriptor>(*this);
+    }
+    virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
+        std::fill(modified.begin(), modified.end(), modif::nothing);
+        modified[0] = modif::staticVariables; // Fluid.
+        modified[1] = modif::staticVariables; // rhoBar.
+        modified[2] = modif::staticVariables; // j.
+        modified[3] = modif::staticVariables; // Mass.
+        modified[4] = modif::staticVariables; // Volume-fraction.
+        modified[5] = modif::staticVariables; // Flag-status.
+        modified[6] = modif::nothing;         // Normal.
+        modified[7] = modif::nothing;         // Interface-lists.
+        modified[8] = modif::staticVariables; // Curvature.
+        modified[9] = modif::staticVariables; // Outside density.
+    }
+private:
+    bool isInsideSphere(T x, T y, T z)
+    {
+        return(normSqr(Array<T,3>(x, y, z) - center) < radius*radius);
+    }
+    void subDomainVolumeFraction(plint globalX, plint globalY, plint globalZ, int& flag, T& volumeFraction);
+private:
+    Array<T,3> center;
+    T radius;
+    T rho0;
+    plint subDivision;
 };
 
 template<typename T, template<typename U> class Descriptor>

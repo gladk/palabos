@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -90,12 +90,32 @@ void vertexAsciiData(std::vector<Particle3D<T,Descriptor>*> const& particles,
 template<typename T, template<typename U> class Descriptor>
 void writeAsciiParticlePos (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName );
+        std::string const& fName, T deltaX, Array<T,3> const& offset );
+
+template<typename T, template<typename U> class Descriptor>
+void writeAsciiParticlePos (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, T deltaX = T(1) )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeAsciiParticlePos(particles, fName, deltaX, offset);
+}
 
 template<typename T, template<typename U> class Descriptor>
 void writeParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, pluint maxNumParticlesToWrite = 0 );
+        std::string const& fName, T deltaX, Array<T,3> const& offset, pluint maxNumParticlesToWrite = 0 );
+
+template<typename T, template<typename U> class Descriptor>
+void writeParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, T deltaX = T(1), pluint maxNumParticlesToWrite = 0 )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeParticleVtk(particles, fName, deltaX, offset, maxNumParticlesToWrite);
+}
 
 template<typename T, template<typename U> class Descriptor>
 void writeParticleVtk (
@@ -103,14 +123,81 @@ void writeParticleVtk (
         std::string const& fName,
         std::map<plint,std::string> const& additionalScalars,
         std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset,
         pluint maxNumParticlesToWrite = 0 );
+
+template<typename T, template<typename U> class Descriptor>
+void writeParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName,
+        std::map<plint,std::string> const& additionalScalars,
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX = T(1),
+        pluint maxNumParticlesToWrite = 0 )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeParticleVtk(particles, fName, additionalScalars, additionalVectors, deltaX, offset, maxNumParticlesToWrite);
+}
 
 template<typename T, template<typename U> class Descriptor>
 void writeSelectedParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, Box3D const& domain, plint tag )
+        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        T deltaX, Array<T,3> const& offset );
+
+template<typename T, template<typename U> class Descriptor>
+void writeSelectedParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        T deltaX = T(1) )
 {
-    writeSelectedParticleVtk(particles, fName, domain, util::SelectConstInt(tag));
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeSelectedParticleVtk(particles, fName, domain, tags, deltaX, offset);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void writeSelectedParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, Box3D const& domain, plint tag,
+        T deltaX, Array<T,3> const& offset )
+{
+    writeSelectedParticleVtk(particles, fName, domain, util::SelectConstInt(tag), deltaX, offset);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void writeSelectedParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, Box3D const& domain, plint tag,
+        T deltaX = T(1) )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeSelectedParticleVtk(particles, fName, domain, tag, deltaX, offset);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void writeSelectedParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        std::map<plint,std::string> const& additionalScalars,
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset );
+
+template<typename T, template<typename U> class Descriptor>
+void writeSelectedParticleVtk (
+        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
+        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        std::map<plint,std::string> const& additionalScalars,
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX = T(1) )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeSelectedParticleVtk(particles, fName, domain, tags,
+                             additionalScalars, additionalVectors,
+                             deltaX, offset);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -118,23 +205,27 @@ void writeSelectedParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
         std::string const& fName, Box3D const& domain, plint tag,
         std::map<plint,std::string> const& additionalScalars,
-        std::map<plint,std::string> const& additionalVectors )
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX, Array<T,3> const& offset )
 {
     writeSelectedParticleVtk(particles, fName, domain, util::SelectConstInt(tag),
-                             additionalScalars, additionalVectors);
+                             additionalScalars, additionalVectors, deltaX, offset);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void writeSelectedParticleVtk (
         MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, Box3D const& domain, util::SelectInt const& tags );
-
-template<typename T, template<typename U> class Descriptor>
-void writeSelectedParticleVtk (
-        MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles,
-        std::string const& fName, Box3D const& domain, util::SelectInt const& tags,
+        std::string const& fName, Box3D const& domain, plint tag,
         std::map<plint,std::string> const& additionalScalars,
-        std::map<plint,std::string> const& additionalVectors );
+        std::map<plint,std::string> const& additionalVectors,
+        T deltaX = T(1) )
+{
+    Array<T,3> offset;
+    offset.resetToZero();
+    writeSelectedParticleVtk(particles, fName, domain, tag,
+                             additionalScalars, additionalVectors,
+                             deltaX, offset);
+}
 
 }  // namespace plb
 

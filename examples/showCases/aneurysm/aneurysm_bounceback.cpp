@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -93,7 +93,7 @@ void iniLattice( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     //   boundary layer, and keep the rest as BGKdynamics.
     defineDynamics(lattice, voxelizedDomain.getVoxelMatrix(), lattice.getBoundingBox(),
                    new NoDynamics<T,DESCRIPTOR>, voxelFlag::outside);
-    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), 1., Array<T,3>(0.,0.,0.));
+    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), (T) 1., Array<T,3>((T) 0.,(T) 0.,(T) 0.));
     lattice.initialize();
 }
 
@@ -188,7 +188,7 @@ void writeImages (
     VtkImageOutput3D<T> vtkOut(fname, dx, location);
     vtkOut.writeData<float>(*computeDensity(lattice, vtkDomain), "p", util::sqr(dx/dt)*fluidDensity);
     vtkOut.writeData<float>(*computeVelocityNorm(lattice, vtkDomain), "u", dx/dt);
-    vtkOut.writeData<float>(*copyConvert<int,double>(*extractSubDomain(flagMatrix, vtkDomain)), "flag", 1.);
+    vtkOut.writeData<float>(*copyConvert<int,T>(*extractSubDomain(flagMatrix, vtkDomain)), "flag", 1.);
 }
 
 // This function produces images at predefined yz, xz and xy planes. The coordinates of the planes are given
@@ -348,11 +348,11 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
 
 
     boundaryCondition->addVelocityBoundary2N(inletDomain, *lattice);
-    setBoundaryVelocity(*lattice, inletDomain, Array<T,3>(0.,0.,uAveLB));
+    setBoundaryVelocity(*lattice, inletDomain, Array<T,3>((T)0.,(T)0.,uAveLB));
     boundaryCondition->addPressureBoundary2N(outlet1Domain, *lattice);
-    setBoundaryDensity(*lattice, outlet1Domain, 1.);
+    setBoundaryDensity(*lattice, outlet1Domain, (T)1.);
     boundaryCondition->addPressureBoundary0N(outlet2Domain, *lattice);
-    setBoundaryDensity(*lattice, outlet2Domain, 1.);
+    setBoundaryDensity(*lattice, outlet2Domain, (T)1.);
 
     defineDynamics(*lattice, flagMatrix, lattice->getBoundingBox(), new BounceBack<T,DESCRIPTOR>(1.), 0);
     defineDynamics(*lattice, behindInlet, new BounceBack<T,DESCRIPTOR>(1.));

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,6 +32,7 @@
 #include "core/globalDefs.h"
 #include <string>
 #include <fstream>
+#include <cmath>
 
 namespace plb {
 
@@ -58,7 +59,7 @@ public:
           resolution(resolution_), lx(lx_), ly(ly_), lz(lz_)
     { }
     /// Reynolds number
-    T getRe() const      { return sqrt(getRa()/getPr()); }
+    T getRe() const      { return std::sqrt(getRa()/getPr()); }
     /// Rayleigh number
     T getRa() const      { return Ra; }
     /// Prandlt number

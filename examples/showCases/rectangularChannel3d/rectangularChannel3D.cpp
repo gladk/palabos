@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,7 +39,7 @@ typedef double T;
 
 #define NMAX 150
 
-const T pi = 4.*atan(1.);
+const T pi = (T)4.*std::atan((T)1.);
 
 static T poiseuillePressure(IncomprFlowParam<T> const &parameters, plint maxN)
 {
@@ -53,12 +53,12 @@ static T poiseuillePressure(IncomprFlowParam<T> const &parameters, plint maxN)
     for (plint iN = 0; iN < maxN; iN += 2)
     {
         T twoNplusOne = (T)2*(T)iN+(T)1;
-        sum += ((T)1 / (pow(twoNplusOne,3)*cosh(twoNplusOne*pi*b/((T)2*a))));
+        sum += ((T)1 / (std::pow(twoNplusOne,(T)3)*std::cosh(twoNplusOne*pi*b/((T)2*a))));
     }
     for (plint iN = 1; iN < maxN; iN += 2)
     {
         T twoNplusOne = (T)2*(T)iN+(T)1;
-        sum -= ((T)1 / (pow(twoNplusOne,3)*cosh(twoNplusOne*pi*b/((T)2*a))));
+        sum -= ((T)1 / (std::pow(twoNplusOne,(T)3)*std::cosh(twoNplusOne*pi*b/((T)2*a))));
     }
 
     T alpha = -(T)8 * uMax * pi * pi * pi / (a*a*(pi*pi*pi-(T)32*sum)); // alpha = -dp/dz / mu
@@ -84,18 +84,18 @@ T poiseuilleVelocity(plint iX, plint iY, IncomprFlowParam<T> const& parameters, 
     {
         T twoNplusOne = (T)2*(T)iN+(T)1;
 
-        sum += (cos(twoNplusOne*pi*x/a)*cosh(twoNplusOne*pi*y/a)
-             / ( pow(twoNplusOne,3)*cosh(twoNplusOne*pi*b/((T)2*a)) ));
+        sum += (std::cos(twoNplusOne*pi*x/a)*std::cosh(twoNplusOne*pi*y/a)
+             / ( std::pow(twoNplusOne,(T)3)*std::cosh(twoNplusOne*pi*b/((T)2*a)) ));
     }
     for (plint iN = 1; iN < maxN; iN += 2)
     {
         T twoNplusOne = (T)2*(T)iN+(T)1;
 
-        sum -= (cos(twoNplusOne*pi*x/a)*cosh(twoNplusOne*pi*y/a)
-             / ( pow(twoNplusOne,3)*cosh(twoNplusOne*pi*b/((T)2*a)) ));
+        sum -= (std::cos(twoNplusOne*pi*x/a)*std::cosh(twoNplusOne*pi*y/a)
+             / ( std::pow(twoNplusOne,(T)3)*std::cosh(twoNplusOne*pi*b/((T)2*a)) ));
     }
 
-    sum *= ((T)4 * alpha * a *a /pow(pi,3));
+    sum *= ((T)4 * alpha * a *a /std::pow(pi,(T)3));
     sum += (alpha / (T)2 * (x * x - a*a / (T)4));
     
     return sum;
@@ -164,10 +164,10 @@ void squarePoiseuilleSetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     setBoundaryVelocity(lattice, inlet, SquarePoiseuilleVelocity<T>(parameters, NMAX));
     setBoundaryVelocity(lattice, outlet, SquarePoiseuilleVelocity<T>(parameters, NMAX));
     
-    setBoundaryVelocity(lattice, top, Array<T,3>(0.0,0.0,0.0));
-    setBoundaryVelocity(lattice, bottom, Array<T,3>(0.0,0.0,0.0));
-    setBoundaryVelocity(lattice, left, Array<T,3>(0.0,0.0,0.0));
-    setBoundaryVelocity(lattice, right, Array<T,3>(0.0,0.0,0.0));
+    setBoundaryVelocity(lattice, top, Array<T,3>((T)0.0,(T)0.0,(T)0.0));
+    setBoundaryVelocity(lattice, bottom, Array<T,3>((T)0.0,(T)0.0,(T)0.0));
+    setBoundaryVelocity(lattice, left, Array<T,3>((T)0.0,(T)0.0,(T)0.0));
+    setBoundaryVelocity(lattice, right, Array<T,3>((T)0.0,(T)0.0,(T)0.0));
 
     initializeAtEquilibrium(lattice, lattice.getBoundingBox(), SquarePoiseuilleDensityAndVelocity<T>(parameters, NMAX));
 

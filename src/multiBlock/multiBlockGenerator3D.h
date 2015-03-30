@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,6 +24,12 @@
 
 /** \file
  * Copy 3D multiblocks on a new parallel distribution -- header file.
+ */
+
+/*
+ * All functions that take as an argument a Box3D, or compute intersections, or join,
+ * or crop, do not adjust periodicity of the newly created blocks by default. The user
+ * is responsible to take care of this matter explicitly.
  */
 
 #ifndef MULTI_BLOCK_GENERATOR_3D_H
@@ -66,7 +72,7 @@ std::auto_ptr<MultiScalarField3D<T> > generateMultiScalarField (
 ///   envelope-width, etc. An optional initialization value can be provided.
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > defaultGenerateMultiScalarField3D (
-        MultiBlockManagement3D const& management, plint nDim=1 );
+        MultiBlockManagement3D const& management, T iniVal = T() );
 
 /// Create a clone of a MultiScalarField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -145,7 +151,8 @@ std::auto_ptr<MultiScalarField3D<T> > except (
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > redistribute (
         MultiScalarField3D<T> const& originalField,
-        SparseBlockStructure3D const& newBlockStructure );
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original field on the domain of intersection,
 ///   with a different block-distribution.
@@ -191,7 +198,6 @@ template<typename T>
 std::auto_ptr<MultiNTensorField3D<T> > defaultGenerateMultiNTensorField3D (
         MultiBlockManagement3D const& management, plint nDim=1 );
 
-
 template<typename T>
 MultiNTensorField3D<T>* generateMultiNTensorField3D (
         MultiBlock3D& multiBlock, plint envelopeWidth, plint ndim );
@@ -206,10 +212,6 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint n
 template<typename T>
 MultiNTensorField3D<T>* clone (
         MultiNTensorField3D<T>& originalField, Box3D const& subDomain, bool crop=true );
-
-template<typename T>
-MultiNTensorField3D<T>* generateMultiNTensorField3D (
-        MultiBlock3D& multiBlock, plint envelopeWidth, plint ndim );
 
 /// Generate a new multi-tensor-field with same distribution as original block,
 ///   but intersected with a given domain.
@@ -409,7 +411,8 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > except (
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > redistribute (
         MultiTensorField3D<T,nDim> const& originalField,
-        SparseBlockStructure3D const& newBlockStructure );
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original field on the domain of intersection,
 ///   with a different block-distribution.
@@ -546,7 +549,8 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > except (
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice3D<T, Descriptor> > redistribute (
         MultiBlockLattice3D<T, Descriptor> const& originalBlock,
-        SparseBlockStructure3D const& newBlockStructure );
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity=true );
 
 /// Create a clone of the original lattice on the domain of intersection,
 ///   with a different block-distribution.
@@ -590,8 +594,15 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > > generateMultiDenseParticleField (
         Box3D boundingBox, plint envelopeWidth=1 );
 
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        Box3D boundingBox, plint envelopeWidth=1 );
 
-/* *************** General Functions **********33**************************** */
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlock3D& multiBlock, plint envelopeWidth );
+
+/* *************** General Functions **************************************** */
 
 /// Copy all data processors from the old to the new block, and replace
 ///   the "self" block in the list of the data processor to point to the new block.

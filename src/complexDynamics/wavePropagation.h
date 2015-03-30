@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,7 +60,7 @@ public:
                          BlockStatistics& statistics_);
 
     /// Implementation of the collision step, with imposed macroscopic variables
-    virtual void collide(Cell<T,Descriptor>& cell, T rhoBar,
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
                          Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Compute equilibrium distribution function
@@ -91,6 +91,46 @@ private:
     T vs2;    ///< speed of sound
 private:
     static int id;
+};
+
+
+/// This class implements the absorbing condition of H. Xu 
+template<typename T, template<typename U> class Descriptor>
+class WaveAbsorptionDynamics : public CompositeDynamics<T,Descriptor> {
+public:
+    WaveAbsorptionDynamics(Dynamics<T,Descriptor>* baseDynamics_);
+    WaveAbsorptionDynamics(HierarchicUnserializer& unserializer);
+    virtual void collide(Cell<T,Descriptor>& cell, BlockStatistics& statistics_);
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+    virtual WaveAbsorptionDynamics<T,Descriptor>* clone() const {
+        return new WaveAbsorptionDynamics<T,Descriptor>(*this);
+    }
+    virtual void prepareCollision(Cell<T,Descriptor>& cell);
+        /// Return a unique ID for this class.
+    virtual int getId() const;
+private:
+    static int id;
+};
+
+// Declaration of a specific "sigma" function for WaveAbsorptionDynamics.
+
+template<typename T>
+class WaveAbsorptionSigmaFunction3D {
+public:
+    WaveAbsorptionSigmaFunction3D(Box3D domain_, Array<plint,6> const& numCells_, T omega_);
+    T operator()(plint iX, plint iY, plint iZ) const;
+
+private:
+    void addDistance(plint from, plint pos, std::vector<plint>& distances, plint i) const;
+    T sigma(T x0, T x1, T x) const;
+
+private:
+    Box3D domain;
+    Array<plint,6> numCells;
+    T xi;
 };
 
 }  // namespace plb

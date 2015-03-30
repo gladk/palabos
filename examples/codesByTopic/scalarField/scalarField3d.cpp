@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,10 +47,10 @@ int main(int argc, char* argv[]) {
     MultiScalarField3D<T> yCoord(N+1,N+1,N+1);
     MultiScalarField3D<T> zCoord(N+1,N+1,N+1);
 
-    const T pi = 4.*std::atan(1.);
-    setToCoordinate(xCoord, xCoord.getBoundingBox(), 0); multiplyInPlace(xCoord, 2.*pi/(T)N);
-    setToCoordinate(yCoord, yCoord.getBoundingBox(), 1); multiplyInPlace(yCoord, 2.*pi/(T)N);
-    setToCoordinate(zCoord, zCoord.getBoundingBox(), 2); multiplyInPlace(zCoord, 2.*pi/(T)N);
+    const T pi = (T)4.*std::atan((T)1.);
+    setToCoordinate(xCoord, xCoord.getBoundingBox(), 0); multiplyInPlace(xCoord, (T)2.*pi/(T)N);
+    setToCoordinate(yCoord, yCoord.getBoundingBox(), 1); multiplyInPlace(yCoord, (T)2.*pi/(T)N);
+    setToCoordinate(zCoord, zCoord.getBoundingBox(), 2); multiplyInPlace(zCoord, (T)2.*pi/(T)N);
 
     MultiScalarField3D<T> wave(N+1,N+1,N+1);
 

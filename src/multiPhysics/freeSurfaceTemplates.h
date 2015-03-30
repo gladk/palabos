@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,7 +69,6 @@ static void massExchangeFluidCell (
     FreeSurfaceProcessorParam3D<T,descriptors::ForcedD3Q19Descriptor>& param,
     plint iX, plint iY, plint iZ )
 {
-    typedef descriptors::ForcedD3Q19Descriptor<T> D;
     using namespace twoPhaseFlag;
     // Calculate mass at time t+1 --> eq 6 Thurey's paper.
     plint nextX, nextY, nextZ, nextFlag;

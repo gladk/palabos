@@ -45,7 +45,7 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall
+compileFlags = -Wall -Wnon-virtual-dtor
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
@@ -77,10 +77,10 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             linkFlags="$(linkFlags)" \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
-			profileFlags="$(profileFlags)" \
-			libraryPaths="$(libraryPaths)" \
-			includePaths="$(includePaths)" \
-			libraries="$(libraries)"
+            profileFlags="$(profileFlags)" \
+            libraryPaths="$(libraryPaths)" \
+            includePaths="$(includePaths)" \
+            libraries="$(libraries)"
 
 compile:
 	python $(SCons) $(SConsArgs)

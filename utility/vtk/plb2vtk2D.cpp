@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,15 +39,6 @@ void plbFileToVtk( std::string fName, std::string identifier, VtkImageOutput2D<T
     parallelIO::SavedFullMultiBlockSerializer2D *serializer
         = new parallelIO::SavedFullMultiBlockSerializer2D(fName);
     Box2D bbox = serializer->getBoundingBox();
-    plint nx, ny, nz;
-    if (serializer->orderingIsForward()) {
-        nx = bbox.getNy();
-        ny = bbox.getNx();
-    }
-    else {
-        nx = bbox.getNx();
-        ny = bbox.getNy();
-    }
     std::string convertType = serializer->dataType();
     pcout << "Adding the field \"" << identifier << "\" from file " << fName
           << " to the VTK file, with type \"" << convertType << "\""<< std::endl;
@@ -97,7 +88,6 @@ int main(int argc, char* argv[]) {
 
     try {
         double dx = 1.;
-        double dt = 1.;
         VtkImageOutput2D<double> vtkOut(FileName(fNames.back()).getName(), dx);
         for (plint iFile=0; iFile<(plint)fNames.size()-1; ++iFile) {
             plbFileToVtk(fNames[iFile], FileName(fNames[iFile]).getName(), vtkOut);

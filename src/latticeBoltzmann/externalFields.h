@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -100,6 +100,24 @@ struct RhoBarJdescriptorBase2D {
     typedef RhoBarJdescriptor2D ExternalField;
 };
 
+struct RhoBarJPiNeqOmegaDescriptor2D {
+    static const int numScalars       = 7;
+    static const int numSpecies       = 4;
+    static const int rhoBarBeginsAt   = 0;
+    static const int sizeOfRhoBar     = 1;
+    static const int velocityBeginsAt = 1; // j is stored here
+    static const int sizeOfVelocity   = 2;
+    static const int piNeqBeginsAt    = 3;
+    static const int sizeOfPiNeq      = 3;
+    static const int omegaBeginsAt    = 6;
+    static const int sizeOfOmega      = 1;
+    static const int sizeOfForce      = 0;
+};
+
+struct RhoBarJPiNeqOmegaDescriptorBase2D {
+    typedef RhoBarJPiNeqOmegaDescriptor2D ExternalField;
+};
+
 
 struct ForcedRhoBarJdescriptor2D {
     static const int numScalars     = 5;
@@ -114,6 +132,24 @@ struct ForcedRhoBarJdescriptor2D {
 
 struct ForcedRhoBarJdescriptorBase2D {
     typedef ForcedRhoBarJdescriptor2D ExternalField;
+};
+
+struct AbsorbingWaveDescriptor2D {
+    static const int numScalars             = 5;
+    static const int numSpecies             = 4;
+    static const int sigmaBeginsAt          = 0;
+    static const int sizeOfSigma            = 1;
+    static const int invDenominatorBeginsAt = 1;
+    static const int sizeOfInvDenominator   = 1;
+    static const int rhoBarBeginsAt         = 2;
+    static const int sizeOfRhoBar           = 1;
+    static const int uBeginsAt              = 3; 
+    static const int sizeOfU                = 2;
+    static const int sizeOfForce            = 0;
+};
+
+struct AbsorbingWaveExternalField2dBase {
+    typedef AbsorbingWaveDescriptor2D ExternalField;
 };
 
 struct Force3dDescriptor {
@@ -180,8 +216,38 @@ struct VelocityAndScalar3dDescriptor {
     static const int sizeOfForce      = 0;
 };
 
+struct SymTensor3dDescriptor {
+    static const int numScalars = 6;
+    static const int numSpecies = 1;
+    static const int tensorBeginsAt = 0;
+    static const int sizeOfTensor   = 6;
+    static const int sizeOfForce    = 0;
+};
+
+struct SymTensor3dBase {
+    typedef SymTensor3dDescriptor ExternalField;
+};
+
 struct VelocityAndScalar3dBase {
     typedef VelocityAndScalar3dDescriptor ExternalField;
+};
+
+struct AbsorbingWaveDescriptor3D {
+    static const int numScalars             = 6;
+    static const int numSpecies             = 4;
+    static const int sigmaBeginsAt          = 0;
+    static const int sizeOfSigma            = 1;
+    static const int invDenominatorBeginsAt = 1;
+    static const int sizeOfInvDenominator   = 1;
+    static const int rhoBarBeginsAt         = 2;
+    static const int sizeOfRhoBar           = 1;
+    static const int uBeginsAt              = 3; 
+    static const int sizeOfU                = 3;
+    static const int sizeOfForce            = 0;
+};
+
+struct AbsorbingWaveExternalField3dBase {
+    typedef AbsorbingWaveDescriptor3D ExternalField;
 };
 
 }  // namespace descriptors

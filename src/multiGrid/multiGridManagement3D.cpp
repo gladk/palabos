@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -132,9 +132,6 @@ void MultiGridManagement3D::refine(plint coarseLevel, Box3D coarseDomain){
     // The extended coarse domain it the one which is going to be added
     //   to the original fine lattice.
     Box3D extendedCoarseDomain(coarseDomain.enlarge(1));
-
-    // Same as coarseDomain, but in units of the fine lattice.
-    Box3D fineDomain(coarseDomain.multiply(2));
     
     // If the domain in question touches a boundary of the multi-block,
     //   both the reduced and the extended coarse domain are

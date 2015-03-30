@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,8 +25,6 @@
 /** \file
  * Helper classes for parallel 2D multiblock lattice -- generic implementation.
  */
-#ifndef PARALLEL_BLOCK_COMMUNICATOR_2D_HH
-#define PARALLEL_BLOCK_COMMUNICATOR_2D_HH
 
 #include "parallelism/parallelBlockCommunicator2D.h"
 #include "multiBlock/multiBlock2D.h"
@@ -235,4 +233,3 @@ void ParallelBlockCommunicator2D::signalPeriodicity() const {
 
 }  // namespace plb
 
-#endif  // PARALLEL_BLOCK_COMMUNICATOR_2D_HH

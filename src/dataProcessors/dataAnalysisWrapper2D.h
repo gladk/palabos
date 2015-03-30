@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * Helper functions for domain initialization -- header file.
  */
+
 #ifndef DATA_ANALYSIS_WRAPPER_2D_H
 #define DATA_ANALYSIS_WRAPPER_2D_H
 
@@ -835,6 +836,11 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField2D<T> > computeEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, plint iPop);
 
 template<typename T, template<typename U> class Descriptor>
+void computeAllPopulations(MultiBlockLattice2D<T,Descriptor>& lattice, 
+                           MultiTensorField2D<T,Descriptor<T>::q>& populations,
+                           Box2D domain);
+
+template<typename T, template<typename U> class Descriptor>
 void computeAllPopulations(MultiBlockLattice2D<T,Descriptor>& lattice,
                            MultiTensorField2D<T,Descriptor<T>::q>& populations);
 
@@ -896,6 +902,35 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
     computeExternalForce(MultiBlockLattice2D<T,Descriptor>& lattice);
 
+/* *************** ExternalScalar ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice,
+                          MultiScalarField2D<T>& scalar, int whichScalar, Box2D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField2D<T> >
+   computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice, int whichScalar, Box2D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField2D<T> >
+    computeExternalScalar(MultiBlockLattice2D<T,Descriptor>& lattice, int whichScalar);    
+
+/* *************** ExternalVector ****************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice,
+                           MultiTensorField2D<T,Descriptor<T>::d>& tensorField, int vectorBeginsAt, Box2D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
+    computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice, int vectorBeginsAt, Box2D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField2D<T,Descriptor<T>::d> >
+    computeExternalVector(MultiBlockLattice2D<T,Descriptor>& lattice, int vectorBeginsAt);    
+    
+       
 /* ******************************************************************* */
 /* *************** PART V : Multi-block wrappers: Scalar-Field ******* */
 /* ******************************************************************* */
@@ -1363,6 +1398,17 @@ std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorTrace(MultiTensorFie
 
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeSymmetricTensorTrace(MultiTensorField2D<T,3>& tensorField);
+
+/* *************** Gradient from scalar field *********************** */
+
+template<typename T>
+void computeGradient(MultiScalarField2D<T>& phi, MultiTensorField2D<T,2>& gradient, Box2D domain);
+
+template<typename T>
+std::auto_ptr<MultiTensorField2D<T,2> > computeGradient(MultiScalarField2D<T>& phi, Box2D domain);
+
+template<typename T>
+std::auto_ptr<MultiTensorField2D<T,2> > computeGradient(MultiScalarField2D<T>& phi);
 
 
 /* *************** Vorticity from Velocity field *********************** */

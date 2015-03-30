@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,6 +50,7 @@ namespace twoPhaseFlag {
             case protectEmpty:   return "protectEmpty";
             default: PLB_ASSERT( false );
         }
+        return std::string();
     }
     inline Flag invert(int flag) {
         switch(flag) {
@@ -61,6 +62,7 @@ namespace twoPhaseFlag {
             case protectEmpty: return protectEmpty;
             default: PLB_ASSERT( false );
         }
+        return (Flag) (-1);
     }
     inline bool isWet(int flag) {
         return flag==interface || flag==fluid || flag==protect; 
@@ -103,8 +105,10 @@ std::vector<MultiBlock3D*> aggregateFreeSurfaceParams (
 template< typename T,template<typename U> class Descriptor>
 struct InterfaceLists : public ContainerBlockData {
     typedef Array<plint,Descriptor<T>::d> Node;
-    /// Holds all nodes which have excess mass.
-    std::map<Node,T> massExcess;
+    /// Holds all nodes which have excess mass from interface->fluid conversion.
+    std::map<Node,T> filledMassExcess;
+    /// Holds all nodes which have excess mass from interface->empty conversion.
+    std::map<Node,T> emptiedMassExcess;
     /// Holds all nodes that need to change status from interface to fluid.
     std::set<Node>   interfaceToFluid;
     /// Holds all nodes that need to change status from interface to empty.
@@ -279,7 +283,8 @@ public:
         return val;
     }
 
-    std::map<Node,T>& massExcess() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> massExcess; }
+    std::map<Node,T>& filledMassExcess() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> filledMassExcess; }
+    std::map<Node,T>& emptiedMassExcess() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> emptiedMassExcess; }
     std::set<Node>& interfaceToFluid() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> interfaceToFluid; }
     std::set<Node>& interfaceToEmpty() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> interfaceToEmpty; }
     std::set<Node>& emptyToInterface() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> emptyToInterface; }

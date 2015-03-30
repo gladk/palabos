@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,7 +40,7 @@ namespace fd {
     T ctl_diff(T u_p1, T u_m1) {
         return (u_p1 - u_m1) / (T)2;
     }
-
+    
     /// Second-order forward gradient (u_1 = u(x+1))
     template<typename T>
     T fwd_diff(T u_0, T u_1, T u_2) {
@@ -69,6 +69,22 @@ namespace fd {
     template<typename T>
     T linearInterpolate(T u_0, T u_1, T pos) {
         return ((T)1-pos)*u_0 + pos*u_1;
+    }
+    
+    /// Third order corner gradient (a_p1=a(x+1/2), a_p2=a(x+3/2)), returns a(x)
+    template<typename T>
+    inline T cornerThreePointsInterp(T a_m1, T a_p1, T a_p2) {
+        //   o -x- o --- o //
+        // a_m1    a_p1  a_p2, with x the point that is interpolated
+        return 0.375*a_m1+(T)0.75*a_p1-(T)0.125*a_p2;
+    }
+    
+    /// Fourth order central gradient (a_p1=a(x+1/2), a_p2=a(x+3/2)), returns a(x)
+    template<typename T>
+    inline T centralFourPointsInterp(T a_m2, T a_m1, T a_p1, T a_p2) {
+        //   o --- o -x- o --- o //
+        // a_m1    a    a_p1  a_p2, with x the point that is interpolated
+        return -(T)0.0625 * (a_m2 + a_p2) + (T)0.5625*(a_m1 + a_p1);
     }
 
 }  // namespace fd

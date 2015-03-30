@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,7 @@
 #include "core/globalDefs.h"
 #include "core/cell.h"
 #include "core/util.h"
+#include "latticeBoltzmann/dynamicsTemplates.h"
 #include "latticeBoltzmann/offEquilibriumTemplates.h"
 #include "latticeBoltzmann/offEquilibriumAdvectionDiffusionTemplates.h"
 
@@ -93,6 +94,21 @@ static T no_corr_rlb_collision(Cell<T,Descriptor>& cell, T rhoBar,
 {
     return advectionDiffusionDynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
         ::no_corr_rlb_collision(cell.getRawPopulations(), rhoBar, jEq, jNeq, omega, sourceTerm);
+}
+
+static T complete_mrt_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j, T omega, T omegaNonPhys)
+{
+    return dynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_mrt_ma2_ext_rhoBar_j_collision(cell.getRawPopulations(), rhoBar, j, omega, omegaNonPhys, Descriptor<T>::d);
+}
+
+static void complete_bgk_ma2_regularize(Cell<T,Descriptor>& cell, T rhoPhiBar, T rhoBar,
+                                        Array<T,Descriptor<T>::d> const& jEq, Array<T,Descriptor<T>::d> const& jNeq, 
+                                        const Array<T,SymmetricTensor<T,Descriptor>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
+{
+    
+    return advectionDiffusionDynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_regularize(cell.getRawPopulations(), rhoPhiBar, rhoBar, jEq, jNeq, piNeq, omega, omegaNonPhys, omegaFluid, omegaFluidNonPhys);
 }
 
 };  // struct advectionDiffusionDynamicsTemplates
@@ -201,6 +217,13 @@ static T no_corr_rlb_collision (
         f[iPop] += fNeq + Descriptor::t[iPop] * sourceTerm;
     }
     return jSqr*invRho*invRho;
+}
+
+static void complete_bgk_ma2_regularize(Array<T,Descriptor::q>& f, T rhoPhiBar, T rhoBar,
+                                        Array<T,Descriptor::d> const& jEq, Array<T,Descriptor::d> const& jNeq, 
+                                        const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
+{
+    PLB_ASSERT(false);
 }
 
 };  // struct advectionDiffusionDynamicsTemplatesImpl

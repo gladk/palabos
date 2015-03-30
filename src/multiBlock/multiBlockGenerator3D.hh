@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,6 +24,12 @@
 
 /** \file
  * Copy 3D multiblocks on a new parallel distribution -- generic implementation.
+ */
+
+/*
+ * All functions that take as an argument a Box3D, or compute intersections, or join,
+ * or crop, do not adjust periodicity of the newly created blocks by default. The user
+ * is responsible to take care of this matter explicitly.
  */
 
 #ifndef MULTI_BLOCK_GENERATOR_3D_HH
@@ -113,28 +119,32 @@ std::auto_ptr<MultiScalarField3D<T> > generateMultiScalarField (
         MultiBlock3D& multiBlock, plint envelopeWidth )
 {
     MultiBlockManagement3D sparseBlockManagement(multiBlock.getMultiBlockManagement());
-    return std::auto_ptr<MultiScalarField3D<T> > (
-        new MultiScalarField3D<T> (
+    MultiScalarField3D<T>* field = new MultiScalarField3D<T> (
             MultiBlockManagement3D (
                 sparseBlockManagement.getSparseBlockStructure(),
                 sparseBlockManagement.getThreadAttribution().clone(),
-                envelopeWidth ),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
             defaultMultiBlockPolicy3D().getBlockCommunicator(),
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
-            defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() )
-    );
+            defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+    field->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return std::auto_ptr<MultiScalarField3D<T> >(field);
 }
 
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > defaultGenerateMultiScalarField3D (
-        MultiBlockManagement3D const& management, plint nDim )
+        MultiBlockManagement3D const& management, T iniVal )
 {
     return std::auto_ptr<MultiScalarField3D<T> > (
         new MultiScalarField3D<T> (
             management,
             defaultMultiBlockPolicy3D().getBlockCommunicator(),
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
-            defaultMultiBlockPolicy3D().getMultiScalarAccess<T>(), T() )
+            defaultMultiBlockPolicy3D().getMultiScalarAccess<T>(), iniVal )
     );
 }
 
@@ -258,18 +268,26 @@ std::auto_ptr<MultiScalarField3D<T> > except (
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > redistribute (
         MultiScalarField3D<T> const& originalField,
-        SparseBlockStructure3D const& newBlockStructure )
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiScalarField3D<T> > newField (
         new MultiScalarField3D<T> (
             MultiBlockManagement3D (
                 newBlockStructure,
                 originalField.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalField.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalField.getMultiBlockManagement().getEnvelopeWidth(),
+                originalField.getMultiBlockManagement().getRefinementLevel() ),
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() )
     );
+
+    if (adjustPeriodicity) {
+        newField->periodicity().toggle(0, originalField.periodicity().get(0));
+        newField->periodicity().toggle(1, originalField.periodicity().get(1));
+        newField->periodicity().toggle(2, originalField.periodicity().get(2));
+    }
 
     transferScalarFieldNonLocal(originalField, *newField, originalField.getBoundingBox());
 
@@ -282,7 +300,8 @@ std::auto_ptr<MultiScalarField3D<T> > redistribute (
         SparseBlockStructure3D const& newBlockStructure,
         Box3D const& intersection, bool crop )
 {
-    return redistribute(originalField, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalField, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 template<typename T>
@@ -298,6 +317,10 @@ std::auto_ptr<MultiScalarField3D<T> > align (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferScalarFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -327,6 +350,10 @@ std::auto_ptr<MultiScalarField3D<T> > reparallelize (
             defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() )
     );
 
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
+
     transferScalarFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
 
@@ -345,7 +372,6 @@ std::auto_ptr<MultiNTensorField3D<T> > defaultGenerateMultiNTensorField3D (
         defaultMultiBlockPolicy3D().getBlockCommunicator(),
         defaultMultiBlockPolicy3D().getCombinedStatistics(),
         defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    field->periodicity().toggleAll(true);
     return std::auto_ptr<MultiNTensorField3D<T> >(field);
 }
 
@@ -354,7 +380,7 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D (
         MultiBlock3D& multiBlock, plint envelopeWidth, plint ndim )
 {
     MultiBlockManagement3D sparseBlockManagement(multiBlock.getMultiBlockManagement());
-    return new MultiNTensorField3D<T> (
+    MultiNTensorField3D<T>* field = new MultiNTensorField3D<T> (
             ndim,
             MultiBlockManagement3D (
                 sparseBlockManagement.getSparseBlockStructure(),
@@ -364,6 +390,12 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D (
             defaultMultiBlockPolicy3D().getBlockCommunicator(),
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+    field->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return field;
 }
 
 template<typename T>
@@ -376,7 +408,6 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint n
         defaultMultiBlockPolicy3D().getBlockCommunicator(),
         defaultMultiBlockPolicy3D().getCombinedStatistics(),
         defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    field->periodicity().toggleAll(true);
     return field;
 }
 
@@ -409,7 +440,6 @@ MultiNTensorField3D<T>* clone (
 {
     MultiNTensorField3D<T>* clonedField =
             generateMultiNTensorField<T>(originalField, subDomain, crop);
-    clonedField->periodicity()=originalField.periodicity();
 
     transferNTensorFieldLocal( originalField, *clonedField,
                                originalField.getBoundingBox() );
@@ -428,7 +458,6 @@ MultiNTensorField3D<T>* generateMultiNTensorField (
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField.periodicity();
     return newField;
 }
 
@@ -439,7 +468,6 @@ MultiNTensorField3D<T2>*
             Box3D const& intersection, plint nDim )
 {
     MultiNTensorField3D<T2>* newField = generateMultiNTensorField<T2>(field, intersection, nDim);
-    newField->periodicity() = field.periodicity();
     return newField;
 }
 
@@ -450,7 +478,6 @@ MultiNTensorField3D<T1>*
             Box3D const& intersection, plint nDim )
 {
     MultiNTensorField3D<T1>* newField = generateMultiNTensorField<T1>(lattice, intersection, nDim);
-    newField->periodicity() = lattice.periodicity();
     return newField;
 }
 
@@ -467,7 +494,6 @@ MultiNTensorField3D<T>* generateIntersectMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -488,7 +514,6 @@ MultiNTensorField3D<T>* generateIntersectMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -505,7 +530,6 @@ MultiNTensorField3D<T>* generateJoinMultiNTensorField (
             originalField1.getBlockCommunicator().clone(),
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newField->periodicity() = originalField1.periodicity();
     return newField;
 }
 
@@ -520,7 +544,6 @@ MultiNTensorField3D<T>* extend (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
 
     transferNTensorFieldLocal( originalBlock, *newBlock,
                                originalBlock.getBoundingBox() );
@@ -540,7 +563,6 @@ MultiNTensorField3D<T>* except (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
 
     transferNTensorFieldLocal( originalBlock, *newBlock,
                                originalBlock.getBoundingBox() );
@@ -561,7 +583,10 @@ MultiNTensorField3D<T>* align (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferNTensorFieldNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -580,7 +605,10 @@ MultiNTensorField3D<T>* reparallelize (
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
-    newBlock->periodicity() = originalBlock.periodicity();
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferNTensorFieldNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -643,16 +671,21 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > generateMultiTensorField (
         MultiBlock3D& multiBlock, plint envelopeWidth )
 {
     MultiBlockManagement3D sparseBlockManagement(multiBlock.getMultiBlockManagement());
-    return std::auto_ptr<MultiTensorField3D<T,nDim> > (
-        new MultiTensorField3D<T,nDim> (
+    MultiTensorField3D<T,nDim>* field = new MultiTensorField3D<T,nDim> (
             MultiBlockManagement3D (
                 sparseBlockManagement.getSparseBlockStructure(),
                 sparseBlockManagement.getThreadAttribution().clone(),
-                envelopeWidth ),
+                envelopeWidth,
+                sparseBlockManagement.getRefinementLevel() ),
             defaultMultiBlockPolicy3D().getBlockCommunicator(),
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
-            defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() )
-    );
+            defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+    field->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return std::auto_ptr<MultiTensorField3D<T,nDim> >(field);
 }
 
 template<typename T, int nDim>
@@ -789,18 +822,27 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > except (
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > redistribute (
         MultiTensorField3D<T,nDim> const& originalField,
-        SparseBlockStructure3D const& newBlockStructure )
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiTensorField3D<T,nDim> > newField (
         new MultiTensorField3D<T,nDim> (
             MultiBlockManagement3D (
                 newBlockStructure,
                 originalField.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalField.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalField.getMultiBlockManagement().getEnvelopeWidth(),
+                originalField.getMultiBlockManagement().getRefinementLevel() ),
             originalField.getBlockCommunicator().clone(),
             originalField.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() )
     );
+
+    if (adjustPeriodicity) {
+        newField->periodicity().toggle(0, originalField.periodicity().get(0));
+        newField->periodicity().toggle(1, originalField.periodicity().get(1));
+        newField->periodicity().toggle(2, originalField.periodicity().get(2));
+    }
+
     transferTensorFieldNonLocal(originalField, *newField, originalField.getBoundingBox());
 
     return newField;
@@ -812,7 +854,8 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > redistribute (
         SparseBlockStructure3D const& newBlockStructure,
         Box3D const& intersection, bool crop  )
 {
-    return redistribute(originalField, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalField, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 
@@ -829,6 +872,10 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > align (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferTensorFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -857,6 +904,10 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > reparallelize (
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferTensorFieldNonLocal( originalBlock, *newBlock,
                                  originalBlock.getBoundingBox() );
@@ -939,8 +990,7 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
         Dynamics<T,Descriptor>* backgroundDynamics )
 {
     MultiBlockManagement3D sparseBlockManagement(multiBlock.getMultiBlockManagement());
-    return std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > (
-        new MultiBlockLattice3D<T,Descriptor> (
+    MultiBlockLattice3D<T,Descriptor>* newBlock = new MultiBlockLattice3D<T,Descriptor> (
             MultiBlockManagement3D (
                 sparseBlockManagement.getSparseBlockStructure(),
                 sparseBlockManagement.getThreadAttribution().clone(),
@@ -949,8 +999,13 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
             defaultMultiBlockPolicy3D().getBlockCommunicator(),
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
             defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(),
-            backgroundDynamics )
-    );
+            backgroundDynamics );
+
+    newBlock->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, multiBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return std::auto_ptr<MultiBlockLattice3D<T,Descriptor> >(newBlock);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1064,19 +1119,27 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > except (
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > redistribute (
         MultiBlockLattice3D<T,Descriptor> const& originalBlock,
-        SparseBlockStructure3D const& newBlockStructure )
+        SparseBlockStructure3D const& newBlockStructure,
+        bool adjustPeriodicity )
 {
     std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > newBlock (
         new MultiBlockLattice3D<T,Descriptor> (
             MultiBlockManagement3D (
                 newBlockStructure,
                 originalBlock.getMultiBlockManagement().getThreadAttribution().clone(),
-                originalBlock.getMultiBlockManagement().getEnvelopeWidth() ),
+                originalBlock.getMultiBlockManagement().getEnvelopeWidth(),
+                originalBlock.getMultiBlockManagement().getRefinementLevel() ),
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(),
             originalBlock.getBackgroundDynamics().clone() )
     );
+
+    if (adjustPeriodicity) {
+        newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+        newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+        newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
+    }
 
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -1090,7 +1153,8 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > redistribute (
         SparseBlockStructure3D const& newBlockStructure,
         Box3D const& intersection, bool crop )
 {
-    return redistribute(originalBlock, intersect(newBlockStructure, intersection, crop));
+    bool adjustPeriodicity = false;
+    return redistribute(originalBlock, intersect(newBlockStructure, intersection, crop), adjustPeriodicity);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1107,6 +1171,10 @@ std::auto_ptr<MultiBlockLattice3D<T, Descriptor> > align (
             defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(),
             originalBlock.getBackgroundDynamics().clone() )
     );
+
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
 
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
@@ -1137,6 +1205,10 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > reparallelize (
             originalBlock.getBackgroundDynamics().clone() )
     );
 
+    newBlock->periodicity().toggle(0, originalBlock.periodicity().get(0));
+    newBlock->periodicity().toggle(1, originalBlock.periodicity().get(1));
+    newBlock->periodicity().toggle(2, originalBlock.periodicity().get(2));
+
     transferBlockLatticeNonLocal( originalBlock, *newBlock,
                                   originalBlock.getBoundingBox() );
 
@@ -1156,6 +1228,36 @@ std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > > genera
             defaultMultiBlockPolicy3D().getMultiBlockManagement(boundingBox, envelopeWidth),
             defaultMultiBlockPolicy3D().getCombinedStatistics() )
     );
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        Box3D boundingBox, plint envelopeWidth )
+{
+    return std::auto_ptr<MultiParticleField3D<ParticleFieldT> > (
+        new MultiParticleField3D<ParticleFieldT> (
+            defaultMultiBlockPolicy3D().getMultiBlockManagement(boundingBox, envelopeWidth),
+            defaultMultiBlockPolicy3D().getCombinedStatistics() )
+    );
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlock3D& multiBlock, plint envelopeWidth )
+{
+    MultiBlockManagement3D sparseBlockManagement(multiBlock.getMultiBlockManagement());
+    MultiParticleField3D<ParticleFieldT>* field = new MultiParticleField3D<ParticleFieldT> (
+            MultiBlockManagement3D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy3D().getCombinedStatistics() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+    field->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return std::auto_ptr<MultiParticleField3D<ParticleFieldT> >(field);
 }
 
 }  // namespace plb

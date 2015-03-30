@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -231,8 +231,6 @@ template<typename T, template<typename U> class Descriptor>
 void IsoThermalBulkDynamics<T,Descriptor>::recomposeOrder1 (
         Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
 {
-    typedef Descriptor<T> L;
-
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
     Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
@@ -242,15 +240,7 @@ void IsoThermalBulkDynamics<T,Descriptor>::recomposeOrder1 (
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     PiNeq.from_cArray(&rawData[1+Descriptor<T>::d]);
 
-    cell[0] = this->computeEquilibrium(0, rhoBar, j, jSqr)
-                + offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(0, PiNeq);
-    for (plint iPop=1; iPop<=L::q/2; ++iPop) {
-        cell[iPop] = this->computeEquilibrium(iPop, rhoBar, j, jSqr);
-        cell[iPop+L::q/2] = this->computeEquilibrium(iPop+L::q/2, rhoBar, j, jSqr);
-        T fNeq = offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, PiNeq);
-        cell[iPop] += fNeq;
-        cell[iPop+L::q/2] += fNeq;
-    }
+    this->regularize(cell,rhoBar,j,jSqr,PiNeq);
 
     int offset = 1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n;
     for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
@@ -353,6 +343,733 @@ T BGKdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,De
 {
     T invRho = Descriptor<T>::invRho(rhoBar);
     return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BGKdynamics<T,Descriptor>::decomposeOrder0 (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    rawData[0] = rhoBar;
+    j.to_cArray(&rawData[1]);
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        rawData[1+Descriptor<T>::d+iPop] =
+            cell[iPop] - fEq[iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        rawData[offset+iExt] = *cell.getExternal(iExt);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BGKdynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        *cell.getExternal(iExt) = rawData[offset+iExt];
+    }
+}
+
+/* *************** Class CompleteBGKdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteBGKdynamics<T,Descriptor>::id =
+    meta::registerOneParamDynamics<T,Descriptor,CompleteBGKdynamics<T,Descriptor> >("Complete_BGK");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+CompleteBGKdynamics<T,Descriptor>::CompleteBGKdynamics(T omega_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteBGKdynamics<T,Descriptor>* CompleteBGKdynamics<T,Descriptor>::clone() const {
+    return new CompleteBGKdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T uSqr = dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_collision(cell, rhoBar, Descriptor<T>::invRho(rhoBar), j, this->getOmega());
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_collision(cell, rhoBar, Descriptor<T>::invRho(rhoBar), j, this->getOmega());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar ) const
+{
+    
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, invRho, j, jSqr, fEq );
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteBGKdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                                T jSqr, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_regularize(cell,rhoBar,invRho,j,jSqr,PiNeq);
+} 
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::decomposeOrder0 (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    rawData[0] = rhoBar;
+    j.to_cArray(&rawData[1]);
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        rawData[1+Descriptor<T>::d+iPop] =
+            cell[iPop] - fEq[iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        rawData[offset+iExt] = *cell.getExternal(iExt);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteBGKdynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        *cell.getExternal(iExt) = rawData[offset+iExt];
+    }
+}
+
+/* *************** Class CompleteTRTdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteTRTdynamics<T,Descriptor>::id =
+    meta::registerTwoParamDynamics<T,Descriptor,CompleteTRTdynamics<T,Descriptor> >("Complete_TRT");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+CompleteTRTdynamics<T,Descriptor>::CompleteTRTdynamics(T omega_, T psi_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_), psi(psi_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteTRTdynamics<T,Descriptor>::CompleteTRTdynamics(T omega_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
+{ 
+    psi = dynamicsTemplates<T,Descriptor>::computePsiComplete(this->getOmega());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    // The order is important: it must be the same as the parameters of the
+    // constructor, because otherwise the TwoParamGenerator fails.
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+    psi = unserializer.readValue<T>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+CompleteTRTdynamics<T,Descriptor>* CompleteTRTdynamics<T,Descriptor>::clone() const {
+    return new CompleteTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T uSqr = dynamicsTemplates<T,Descriptor>::complete_mrt_ma2_collision(cell, this->getOmega(), psi);
+
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, momentTemplates<T,Descriptor>::get_rhoBar(cell), uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    dynamicsTemplates<T,Descriptor>::complete_mrt_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, this->getOmega(), psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar ) const
+{
+    
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, invRho, j, jSqr, fEq );
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteTRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                                T jSqr, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_regularize(cell,rhoBar,invRho,j,jSqr,PiNeq, this->getOmega(), psi);
+} 
+
+template<typename T, template<typename U> class Descriptor>
+Array<T, Descriptor<T>::q> CompleteTRTdynamics<T,Descriptor>::getRelaxationFrequencies() const
+{
+    Array<T,Descriptor<T>::q> frequencies;
+    for (plint i=0; i<=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n; ++i) {
+        frequencies[i] = this->getOmega();
+    }
+    for (plint i=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n+1; i<Descriptor<T>::q; ++i) {
+        frequencies[i] = psi;
+    }
+    return frequencies;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies) {
+    this->setOmega(frequencies[0]);
+    setPsi(frequencies[1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n]);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteTRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : return this->getOmega();
+        case dynamicParams::psi             : return this->getPsi();
+    };
+    return 0.;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::setParameter(plint whichParameter, T value) {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : this->setOmega(value);
+        case dynamicParams::psi             : setPsi(value);
+    };
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteTRTdynamics<T,Descriptor>::getPsi() const {
+    return psi;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::setPsi(T psi_) {
+    psi = psi_;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::decomposeOrder0 (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    rawData[0] = rhoBar;
+    j.to_cArray(&rawData[1]);
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        rawData[1+Descriptor<T>::d+iPop] =
+            cell[iPop] - fEq[iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        rawData[offset+iExt] = *cell.getExternal(iExt);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteTRTdynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        *cell.getExternal(iExt) = rawData[offset+iExt];
+    }
+}
+
+/* *************** Class CompleteRegularizedTRTdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedTRTdynamics<T,Descriptor>::id =
+    meta::registerTwoParamDynamics<T,Descriptor,CompleteRegularizedTRTdynamics<T,Descriptor> >("Complete_Regularized_TRT");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedTRTdynamics<T,Descriptor>::CompleteRegularizedTRTdynamics(T omega_, T psi_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_), psi(psi_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedTRTdynamics<T,Descriptor>::CompleteRegularizedTRTdynamics(T omega_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
+{ 
+    psi = dynamicsTemplates<T,Descriptor>::computePsiComplete(this->getOmega());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    // The order is important: it must be the same as the parameters of the
+    // constructor, because otherwise the TwoParamGenerator fails.
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+    psi = unserializer.readValue<T>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedTRTdynamics<T,Descriptor>* CompleteRegularizedTRTdynamics<T,Descriptor>::clone() const {
+    return new CompleteRegularizedTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar; 
+    Array<T,Descriptor<T>::d> j;
+    Array<T,SymmetricTensor<T,Descriptor>::n> piNeq;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell,rhoBar,j,piNeq);
+    T uSqr = dynamicsTemplates<T,Descriptor>::complete_regularized_mrt_ma2_collision(cell, rhoBar, j, piNeq, this->getOmega(), psi);
+
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, momentTemplates<T,Descriptor>::get_rhoBar(cell), uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    T rhoBarLb; 
+    Array<T,Descriptor<T>::d> jLb;
+    Array<T,SymmetricTensor<T,Descriptor>::n> piNeqLb;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell,rhoBarLb,jLb,piNeqLb);
+    T jSqrLb = VectorTemplate<T,Descriptor>::normSqr(jLb);
+    regularize(cell,rhoBarLb,jLb,jSqrLb,piNeqLb);
+
+    dynamicsTemplates<T,Descriptor>::complete_mrt_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, this->getOmega(), psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar ) const
+{
+    
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, invRho, j, jSqr, fEq );
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteRegularizedTRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                                T jSqr, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_regularize(cell,rhoBar,invRho,j,jSqr,PiNeq, this->getOmega(), psi);
+} 
+
+template<typename T, template<typename U> class Descriptor>
+Array<T, Descriptor<T>::q> CompleteRegularizedTRTdynamics<T,Descriptor>::getRelaxationFrequencies() const
+{
+    Array<T,Descriptor<T>::q> frequencies;
+    for (plint i=0; i<=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n; ++i) {
+        frequencies[i] = this->getOmega();
+    }
+    for (plint i=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n+1; i<Descriptor<T>::q; ++i) {
+        frequencies[i] = psi;
+    }
+    return frequencies;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies) {
+    this->setOmega(frequencies[0]);
+    setPsi(frequencies[1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n]);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteRegularizedTRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : return this->getOmega();
+        case dynamicParams::psi             : return this->getPsi();
+    };
+    return 0.;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::setParameter(plint whichParameter, T value) {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : this->setOmega(value);
+        case dynamicParams::psi             : setPsi(value);
+    };
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteRegularizedTRTdynamics<T,Descriptor>::getPsi() const {
+    return psi;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::setPsi(T psi_) {
+    psi = psi_;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::decomposeOrder0 (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    rawData[0] = rhoBar;
+    j.to_cArray(&rawData[1]);
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        rawData[1+Descriptor<T>::d+iPop] =
+            cell[iPop] - fEq[iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        rawData[offset+iExt] = *cell.getExternal(iExt);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedTRTdynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        *cell.getExternal(iExt) = rawData[offset+iExt];
+    }
+}
+
+
+
+/* *************** Class TruncatedTRTdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int TruncatedTRTdynamics<T,Descriptor>::id =
+    meta::registerTwoParamDynamics<T,Descriptor,TruncatedTRTdynamics<T,Descriptor> >("Truncated_TRT");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+TruncatedTRTdynamics<T,Descriptor>::TruncatedTRTdynamics(T omega_, T psi_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_), psi(psi_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+TruncatedTRTdynamics<T,Descriptor>::TruncatedTRTdynamics(T omega_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
+{ 
+    psi = dynamicsTemplates<T,Descriptor>::computePsiTruncated(this->getOmega());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    // The order is important: it must be the same as the parameters of the
+    // constructor, because otherwise the TwoParamGenerator fails.
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+    psi = unserializer.readValue<T>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+TruncatedTRTdynamics<T,Descriptor>* TruncatedTRTdynamics<T,Descriptor>::clone() const {
+    return new TruncatedTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int TruncatedTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T uSqr = dynamicsTemplates<T,Descriptor>::truncated_mrt_ma2_collision(cell, this->getOmega(), psi);
+
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, momentTemplates<T,Descriptor>::get_rhoBar(cell), uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar,
+        Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
+{
+    dynamicsTemplates<T,Descriptor>::truncated_mrt_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, this->getOmega(), psi);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar ) const
+{
+    
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria( rhoBar, invRho, j, jSqr, fEq );
+}
+
+template<typename T, template<typename U> class Descriptor>
+T TruncatedTRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                                T jSqr, T thetaBar) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+Array<T, Descriptor<T>::q> TruncatedTRTdynamics<T,Descriptor>::getRelaxationFrequencies() const
+{
+    Array<T,Descriptor<T>::q> frequencies;
+    for (plint i=0; i<=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n; ++i) {
+        frequencies[i] = this->getOmega();
+    }
+    for (plint i=Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n+1; i<Descriptor<T>::q; ++i) {
+        frequencies[i] = psi;
+    }
+    return frequencies;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies) 
+{
+    this->setOmega(frequencies[0]);
+    setPsi(frequencies[1+Descriptor<T>::d+SymmetricTensor<T,Descriptor>::n]);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T TruncatedTRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : return this->getOmega();
+        case dynamicParams::psi             : return this->getPsi();
+    };
+    return 0.;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::setParameter(plint whichParameter, T value) {
+    switch (whichParameter) {
+        case dynamicParams::omega_shear     : this->setOmega(value);
+        case dynamicParams::psi             : setPsi(value);
+    };
+}
+
+template<typename T, template<typename U> class Descriptor>
+T TruncatedTRTdynamics<T,Descriptor>::getPsi() const {
+    return psi;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::setPsi(T psi_) {
+    psi = psi_;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::decomposeOrder0 (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    rawData[0] = rhoBar;
+    j.to_cArray(&rawData[1]);
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        rawData[1+Descriptor<T>::d+iPop] =
+            cell[iPop] - fEq[iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        rawData[offset+iExt] = *cell.getExternal(iExt);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TruncatedTRTdynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    
+    Array<T,Descriptor<T>::q> fEq;
+    dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibria( rhoBar, Descriptor<T>::invRho(rhoBar), j, jSqr, fEq );
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+
+    int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+    for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+        *cell.getExternal(iExt) = rawData[offset+iExt];
+    }
 }
 
 
@@ -961,7 +1678,7 @@ template<typename T, template<typename U> class Descriptor>
 void SecuredRegularizedBGKdynamics<T,Descriptor>::constrainValue (
         T& value, T softLimit, T hardLimit )
 {
-    T fvalue = fabs(value);
+    T fvalue = std::fabs(value);
     plint sign = fvalue > 0 ? +1 : -1;
     if (fvalue>softLimit) {
         if (fvalue>hardLimit) {

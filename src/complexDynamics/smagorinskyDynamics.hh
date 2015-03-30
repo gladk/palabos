@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -49,13 +49,79 @@ struct SmagoOperations {
     static T computeOmega(T omega0, T preFactor, T rhoBar, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq)
     {
         T PiNeqNormSqr = SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq);
-        T PiNeqNorm    = sqrt(PiNeqNormSqr);
+        T PiNeqNorm    = std::sqrt(PiNeqNormSqr);
         T alpha        = preFactor * Descriptor<T>::invRho(rhoBar);
         T linearTerm   = alpha*PiNeqNorm;
         T squareTerm   = (T)2*alpha*alpha*PiNeqNormSqr;
         // In the following formula, the square-root appearing in the explicit form of
         //   omega is developed to second-order.
         return omega0*(1-linearTerm+squareTerm);
+    }
+    
+    // In the consistent formulation for SGS terms
+    // the turbulence modelling is done by adding a term
+    // of the form t_i/(2*tau_0*cs^4)*H_i^2:T to the collision, where 
+    // T = \overline{rho u u}-\bar{rho} \bar{u} \bar{u}.
+    static Array<T,Descriptor<T>::q > computeSgsTensorTerm(
+        T rho, const Array<T,SymmetricTensor<T,Descriptor>::n > &PiNeq, T cSmago, T omega0) 
+    {
+        T tau = (T)1/omega0;
+        
+        //     Array<T,SymmetricTensor<T,Descriptor>::n> S = -PiNeq;
+        
+        T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+        normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+        Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+        if (normPiNeq != T()) { // test to avoid division per 0
+            S = -(-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+        }
+        T sNorm = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
+        T preFactor = (T)0.5*Descriptor<T>::invCs2*Descriptor<T>::invCs2*omega0*cSmago*cSmago*sNorm;
+        
+        Array<T,Descriptor<T>::q > sgsTerm;
+        for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+            Array<T,SymmetricTensor<T,Descriptor>::n> H2 = HermiteTemplate<T,Descriptor>::order2(iPop);
+            T H_S = SymmetricTensor<T,Descriptor>::contractIndexes(H2, S);
+            sgsTerm[iPop] = -Descriptor<T>::t[iPop]*preFactor*H_S;
+        }
+        return sgsTerm;
+    }
+    
+    // In the consistent formulation for SGS terms
+    // the turbulence modelling is done by adding a term
+    // of the form t_i/(2*tau_0*cs^4)*H_i^2:T to the collision, where 
+    // T = \overline{rho u u}-\bar{rho} \bar{u} \bar{u}.
+    static Array<T,SymmetricTensor<T,Descriptor>::n > computeSmagorinskyTensorTerm(
+        T rho, const Array<T,SymmetricTensor<T,Descriptor>::n > &PiNeq, T cSmago, T omega0) 
+    {
+        T tau = (T)1/omega0;
+
+        T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+        normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+        Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+        if (normPiNeq != T()) { // test to avoid division per 0
+            S = -(-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+        }
+        T sNorm = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
+        return omega0*cSmago*cSmago*sNorm*S;
+    }
+    
+    // In the consistent formulation for SGS terms
+    // the turbulence modelling is done by adding a term
+    // of the form t_i/(2*tau_0*cs^4)*H_i^2:T to the collision, where 
+    // T = \overline{rho u u}-\bar{rho} \bar{u} \bar{u}.
+    static Array<T,Descriptor<T>::q > computeSgsTensorTerm(
+        const Array<T,SymmetricTensor<T,Descriptor>::n > &PiNeq, T omega0) 
+    {
+        T preFactor = (T)0.5*Descriptor<T>::invCs2*Descriptor<T>::invCs2*omega0;
+        
+        Array<T,Descriptor<T>::q > sgsTerm;
+        for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+            Array<T,SymmetricTensor<T,Descriptor>::n> H2 = HermiteTemplate<T,Descriptor>::order2(iPop);
+            T H_PiNeq = SymmetricTensor<T,Descriptor>::contractIndexes(H2, PiNeq);
+            sgsTerm[iPop] = Descriptor<T>::t[iPop]*preFactor*H_PiNeq;
+        }
+        return sgsTerm;
     }
 };
 
@@ -175,6 +241,25 @@ T SmagorinskyBGKdynamics<T,Descriptor>::getOmega() const {
 }
 
 template<typename T, template<typename U> class Descriptor>
+T SmagorinskyBGKdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                omega0, preFactor, rhoBar, PiNeq );
+        return omega;
+    } else if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    }
+    else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 SmagorinskyBGKdynamics<T,Descriptor>* SmagorinskyBGKdynamics<T,Descriptor>::clone() const {
     return new SmagorinskyBGKdynamics<T,Descriptor>(*this);
 }
@@ -235,6 +320,604 @@ void SmagorinskyBGKdynamics<T,Descriptor>::collideExternal (
 
 template<typename T, template<typename U> class Descriptor>
 T SmagorinskyBGKdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+
+/* *************** Class ConsistentSmagorinskyBGKdynamics ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyBGKdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyBGKdynamics<T,Descriptor> >("BGK_Consistent_Smagorinsky");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyBGKdynamics<T,Descriptor>::ConsistentSmagorinskyBGKdynamics (
+        T omega0_, T cSmago_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_),
+      omega0(omega0_),
+      cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyBGKdynamics<T,Descriptor>::ConsistentSmagorinskyBGKdynamics (
+        HierarchicUnserializer& unserializer )
+    : IsoThermalBulkDynamics<T,Descriptor>(T()),
+      omega0(T()),
+      cSmago(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyBGKdynamics<T,Descriptor>::getOmega() const {
+    return omega0;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyBGKdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                omega0, preFactor, rhoBar, PiNeq );
+        return omega;
+    }
+    else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyBGKdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch(whichParameter) {
+        case dynamicParams::omega_shear: return omega0;
+        case dynamicParams::smagorinskyConstant: return cSmago;
+        default: return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyBGKdynamics<T,Descriptor>* ConsistentSmagorinskyBGKdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSmagorinskyBGKdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyBGKdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(omega0);
+    serializer.addValue(cSmago);
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyBGKdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(omega0);
+    unserializer.readValue(cSmago);
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyBGKdynamics<T,Descriptor>::setOmega(T omega0_)
+{
+    omega0 = omega0_;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    
+    Array<T,Descriptor<T>::q> sgsTerm = 
+        SmagoOperations<T,Descriptor>::computeSgsTensorTerm(rho,PiNeq, cSmago, this->getOmega());
+    
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma2_collision(cell, rhoBar, j, omega0);
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        cell[iPop] += sgsTerm[iPop];
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyBGKdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    momentTemplates<T,Descriptor>::compute_PiNeq(cell, rhoBar, j, PiNeq);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    
+    T tau = (T)1/this->getOmega();
+    
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+    if (normPiNeq != T()) { // test to avoid division per 0
+        S = (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+    }
+    T sNorm = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
+    T preFactor = (T)0.5*Descriptor<T>::invCs2*Descriptor<T>::invCs2*omega0*cSmago*cSmago*sNorm;
+    
+    
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma2_collision(cell, rhoBar, j, omega0);
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        Array<T,SymmetricTensor<T,Descriptor>::n> H2 = HermiteTemplate<T,Descriptor>::order2(iPop);
+        T H_S = SymmetricTensor<T,Descriptor>::contractIndexes(H2, S);
+        cell[iPop] += Descriptor<T>::t[iPop]*preFactor*H_S;
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyBGKdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+
+/* *************** Class ConsistentSmagorinskyCompleteTRTdynamics ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor> >("CompleteTRT_Consistent_Smagorinsky");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteTRTdynamics (T omega_, T psi_, T cSmago_ )
+    : CompleteTRTdynamics<T,Descriptor>(omega_, psi_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteTRTdynamics (T omega_, T cSmago_ )
+    : CompleteTRTdynamics<T,Descriptor>(omega_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteTRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : CompleteTRTdynamics<T,Descriptor>(T(), T()), cSmago(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T preFactor = SmagoOperations<T,Descriptor>::computePrefactor(this->getOmega(),cSmago);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                this->getOmega(), preFactor, rhoBar, PiNeq );
+        return omega;
+    }
+    else {
+        return CompleteTRTdynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(cSmago);
+    CompleteTRTdynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(cSmago);
+    CompleteTRTdynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>* ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T jSqr = dynamicsTemplates<T,Descriptor>::complete_mrt_smagorinsky_ma2_collision(cell, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        T rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    T uSqr = dynamicsTemplates<T,Descriptor>::complete_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
+}
+
+
+/* *************** Class ConsistentSmagorinskyCompleteRegularizedTRTdynamics ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor> >("RegularizedCompleteTRT_Consistent_Smagorinsky");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteRegularizedTRTdynamics (T omega_, T psi_, T cSmago_ )
+    : CompleteRegularizedTRTdynamics<T,Descriptor>(omega_, psi_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteRegularizedTRTdynamics (T omega_, T cSmago_ )
+    : CompleteRegularizedTRTdynamics<T,Descriptor>(omega_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyCompleteRegularizedTRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : CompleteRegularizedTRTdynamics<T,Descriptor>(T(), T()), cSmago(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T preFactor = SmagoOperations<T,Descriptor>::computePrefactor(this->getOmega(),cSmago);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                this->getOmega(), preFactor, rhoBar, PiNeq );
+        return omega;
+    }
+    else {
+        return CompleteRegularizedTRTdynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(cSmago);
+    CompleteRegularizedTRTdynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(cSmago);
+    CompleteRegularizedTRTdynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>* ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T jSqr = dynamicsTemplates<T,Descriptor>::consistent_smagorinsky_complete_regularized_mrt_ma2_collision(cell, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        T rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    T rhoBarLb; 
+    Array<T,Descriptor<T>::d> jLb;
+    Array<T,SymmetricTensor<T,Descriptor>::n> piNeqLb;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell,rhoBarLb,jLb,piNeqLb);
+    T jSqrLb = VectorTemplate<T,Descriptor>::normSqr(jLb);
+    this->regularize(cell,rhoBarLb,jLb,jSqrLb,piNeqLb);
+
+    T uSqr = dynamicsTemplates<T,Descriptor>::complete_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
+}
+
+
+/* *************** Class ConsistentSmagorinskyTruncatedTRTdynamics ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor> >("TruncatedTRT_Consistent_Smagorinsky");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyTruncatedTRTdynamics (T omega_, T psi_, T cSmago_ )
+    : TruncatedTRTdynamics<T,Descriptor>(omega_, psi_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyTruncatedTRTdynamics (T omega_, T cSmago_ )
+    : TruncatedTRTdynamics<T,Descriptor>(omega_), cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::ConsistentSmagorinskyTruncatedTRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : TruncatedTRTdynamics<T,Descriptor>(T(), T()), cSmago(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T preFactor = SmagoOperations<T,Descriptor>::computePrefactor(this->getOmega(),cSmago);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                this->getOmega(), preFactor, rhoBar, PiNeq );
+        return omega;
+    }
+    else {
+        return TruncatedTRTdynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(cSmago);
+    TruncatedTRTdynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(cSmago);
+    TruncatedTRTdynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>* ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T jSqr = dynamicsTemplates<T,Descriptor>::truncated_mrt_smagorinsky_ma2_collision(cell, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        T rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyTruncatedTRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    T uSqr = dynamicsTemplates<T,Descriptor>::truncated_mrt_smagorinsky_ma2_ext_rhoBar_j_collision(cell, rhoBar, j, cSmago, this->getOmega(), this->getPsi());
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
+}
+
+
+/* *************** Class ConsistentSgsBGKdynamics ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSgsBGKdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSgsBGKdynamics<T,Descriptor> >("BGK_Consistent_Sgs");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSgsBGKdynamics<T,Descriptor>::ConsistentSgsBGKdynamics (T omega0_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_),
+      omega0(omega0_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSgsBGKdynamics<T,Descriptor>::ConsistentSgsBGKdynamics (
+        HierarchicUnserializer& unserializer )
+    : IsoThermalBulkDynamics<T,Descriptor>(T()),
+      omega0(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSgsBGKdynamics<T,Descriptor>::getOmega() const {
+    return omega0;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSgsBGKdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+//     if (whichParameter==dynamicParams::dynamicOmega) {
+//         T rhoBar;
+//         Array<T,Descriptor<T>::d> j;
+//         Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+//         momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+//         T preFactor = (SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago));
+//         T omega = SmagoOperations<T,Descriptor>::computeOmega (
+//                 omega0, preFactor, rhoBar, PiNeq );
+//         return omega;
+//     }
+//     else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+//     }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSgsBGKdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch(whichParameter) {
+        case dynamicParams::omega_shear: return omega0;
+        default: return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSgsBGKdynamics<T,Descriptor>* ConsistentSgsBGKdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSgsBGKdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSgsBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSgsBGKdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(omega0);
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSgsBGKdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(omega0);
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSgsBGKdynamics<T,Descriptor>::setOmega(T omega0_)
+{
+    omega0 = omega0_;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSgsBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;    
+    PiNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::tensorBeginsAt));
+    Array<T,Descriptor<T>::q> sgsTerm = 
+        SmagoOperations<T,Descriptor>::computeSgsTensorTerm(PiNeq, omega0);
+    
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma2_collision(cell, rhoBar, j, omega0);
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        cell[iPop] += sgsTerm[iPop];
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSgsBGKdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    PiNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::tensorBeginsAt));
+    Array<T,Descriptor<T>::q> sgsTerm = 
+        SmagoOperations<T,Descriptor>::computeSgsTensorTerm(PiNeq, omega0);
+    
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma2_collision(cell, rhoBar, j, omega0);
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        cell[iPop] += sgsTerm[iPop];
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSgsBGKdynamics<T,Descriptor>::computeEquilibrium (
         plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
         T jSqr, T thetaBar ) const
 {
@@ -460,19 +1143,20 @@ void SmagorinskyIncBGKdynamics<T,Descriptor>::unserialize(HierarchicUnserializer
     unserializer.readValue(omega0);
     unserializer.readValue(cSmago);
     unserializer.readValue(invRho0);
-    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
     preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyIncBGKdynamics<T,Descriptor>::setOmega(T omega0_)
 {
     omega0 = omega0_;
+    preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
 }
 
 template<typename T, template<typename U> class Descriptor>
 T SmagorinskyIncBGKdynamics<T,Descriptor>::getOmega() const {
-    return IsoThermalBulkDynamics<T,Descriptor>::getOmega();
+    return omega0;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -687,15 +1371,15 @@ void IncGuoExternalForceSmagorinskyBGKdynamics<T,Descriptor>::collide (
     }
     PiNeq += forceCorr * (T)0.5;
 
-    T normPiNeq = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
     normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
 
     T tauSGS = T();
     if (normPiNeq != T()) { // test to avoid division per 0
         Array<T,SymmetricTensor<T,Descriptor>::n> S =
-                (-rho*tau*Descriptor<T>::cs2+sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+                (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
 
-        T sNorm = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
+        T sNorm = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
 
         tauSGS = cSmago*cSmago*sNorm*Descriptor<T>::invCs2;
     }
@@ -947,7 +1631,7 @@ template<typename T, template<typename U> class Descriptor>
 void SecuredSmagorinskyRegularizedDynamics<T,Descriptor>::constrainValue (
         T& value, T softLimit, T hardLimit )
 {
-    T fvalue = fabs(value);
+    T fvalue = std::fabs(value);
     plint sign = fvalue > 0 ? +1 : -1;
     if (fvalue>softLimit) {
         if (fvalue>hardLimit) {
@@ -1002,75 +1686,70 @@ T SecuredSmagorinskyRegularizedDynamics<T,Descriptor>::computeEquilibrium (
 }
 
 
-/* *************** Class SmagorinskyMRTdynamics *********************************************** */
+/* *************** Class SmagorinskyMRTdynamics ************************************** */
 
 template<typename T, template<typename U> class Descriptor>
 int SmagorinskyMRTdynamics<T,Descriptor>::id =
     meta::registerGeneralDynamics<T,Descriptor,SmagorinskyMRTdynamics<T,Descriptor> >("MRT_Smagorinsky");
 
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
 template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics(plint externalParam_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(mrtParam<T,Descriptor>().get(externalParam_).getOmega()),
-      param(0),
-      externalParam(externalParam_),
-      cSmago(cSmago_)
+SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics (
+        T omega0_, T cSmago_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_),
+      omega0(omega0_),
+      cSmago(cSmago_),
+      preFactor(SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago))
 { }
 
 template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(param_->getOmega()),
-      param(param_),
-      externalParam(-1),
-      cSmago(cSmago_)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics(HierarchicUnserializer& unserializer)
+SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics (
+        HierarchicUnserializer& unserializer )
     : IsoThermalBulkDynamics<T,Descriptor>(T()),
-      param(0),
-      externalParam(-1)
+      omega0(T()),
+      cSmago(T()),
+      preFactor(T())
 {
     unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>::SmagorinskyMRTdynamics(SmagorinskyMRTdynamics<T,Descriptor> const& rhs)
-    : IsoThermalBulkDynamics<T,Descriptor>(rhs),
-      param(rhs.param ? rhs.param->clone() : 0),
-      externalParam(rhs.externalParam),
-      cSmago(rhs.cSmago)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>&
-    SmagorinskyMRTdynamics<T,Descriptor>::operator=(SmagorinskyMRTdynamics<T,Descriptor> const& rhs)
+void SmagorinskyMRTdynamics<T,Descriptor>::setOmega(T omega0_)
 {
-    SmagorinskyMRTdynamics<T,Descriptor>(rhs).swap(*this);
-    return *this;
+    omega0 = omega0_;
+    preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
 }
 
 template<typename T, template<typename U> class Descriptor>
-SmagorinskyMRTdynamics<T,Descriptor>::~SmagorinskyMRTdynamics()
-{
-    delete param;
+T SmagorinskyMRTdynamics<T,Descriptor>::getOmega() const {
+    return omega0;
 }
 
 template<typename T, template<typename U> class Descriptor>
-void SmagorinskyMRTdynamics<T,Descriptor>::swap(SmagorinskyMRTdynamics<T,Descriptor>& rhs)
+T SmagorinskyMRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
 {
-    std::swap(param, rhs.param);
-    std::swap(externalParam, rhs.externalParam);
-    T tmpOmega = this->getOmega();
-    this->setOmega(rhs.getOmega());
-    rhs.setOmega(tmpOmega);
-    std::swap(cSmago,rhs.cSmago_);
+    if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                omega0, preFactor, rhoBar, PiNeq );
+        return omega;
+    } else if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    }
+    else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
 SmagorinskyMRTdynamics<T,Descriptor>* SmagorinskyMRTdynamics<T,Descriptor>::clone() const {
     return new SmagorinskyMRTdynamics<T,Descriptor>(*this);
 }
-
+ 
 template<typename T, template<typename U> class Descriptor>
 int SmagorinskyMRTdynamics<T,Descriptor>::getId() const {
     return id;
@@ -1079,14 +1758,7 @@ int SmagorinskyMRTdynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    int useExternalParamFlag = param ? 0:1;
-    serializer.addValue(useExternalParamFlag);
-    if (param) {
-        param->serialize(serializer);
-    }
-    else {
-        serializer.addValue(externalParam);
-    }
+    serializer.addValue(omega0);
     serializer.addValue(cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
 }
@@ -1094,137 +1766,56 @@ void SmagorinskyMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& seria
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyMRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
-    int useExternalParamFlag = unserializer.readValue<int>();
-    if (useExternalParamFlag) {
-        externalParam = unserializer.readValue<plint>();
-        param = 0;
-    }
-    else {
-        delete param;
-        param = new MRTparam<T,Descriptor>(unserializer);
-        externalParam = -1;
-    }
+    unserializer.readValue(omega0);
     unserializer.readValue(cSmago);
+    preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyMRTdynamics<T,Descriptor>::collide (
-        Cell<T,Descriptor>& cell, BlockStatistics& statistics )
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
 {
     typedef mrtTemplates<T,Descriptor> mrtTemp;
-
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-
+    
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
     Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
     momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
-    T rho = Descriptor<T>::fullRho(rhoBar);
-
-    T tau = (T)1/parameter->getOmega();
-
-    T normPiNeq = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
-    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
-
-    T tauSGS = T();
-    if (normPiNeq != T()) { // test to avoid division per 0
-        Array<T,SymmetricTensor<T,Descriptor>::n> S =
-                (-rho*tau*Descriptor<T>::cs2+sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
-
-        T sNorm = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
-
-        tauSGS = cSmago*cSmago*sNorm*Descriptor<T>::invCs2;
-    }
-    T omega = (T)1/(tau+tauSGS);
-
-    std::vector<T> newS = parameter->getS();
-    for (plint iPop  = 0; iPop < Descriptor<T>::shearIndexes; ++iPop) {
-        newS[Descriptor<T>::shearViscIndexes[iPop]] = omega;
-    }
-
-    T invM_S[Descriptor<T>::q][Descriptor<T>::q];
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-        for (plint jPop = 0; jPop < Descriptor<T>::q; ++jPop) {
-            invM_S[iPop][jPop] = Descriptor<T>::invM[iPop][jPop] * newS[jPop];
-        }
-    }
-
-    T jSqr = mrtTemp::mrtCollision(cell, rhoBar, j, invM_S);
-
+    T omega = SmagoOperations<T,Descriptor>::computeOmega (
+            omega0, preFactor, rhoBar, PiNeq );
+    T jSqr = mrtTemp::mrtCollision(cell, omega);
     if (cell.takesStatistics()) {
         T invRho = Descriptor<T>::invRho(rhoBar);
         gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
     }
 }
 
-
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyMRTdynamics<T,Descriptor>::collideExternal (
-            Cell<T,Descriptor>& cell, T rhoBar,
-            Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat)
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
 {
-    typedef mrtTemplates<T,Descriptor> mrtTemp;
-
+    typedef mrtTemplates<T,Descriptor> mrtTemp; 
+    
     Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
     momentTemplates<T,Descriptor>::compute_PiNeq(cell, rhoBar, j, PiNeq);
-
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-
-    T rho = Descriptor<T>::fullRho(rhoBar);
-    T tau = (T)1/parameter->getOmega();
-
-    T normPiNeq = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
-    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
-
-    T tauSGS = T();
-    if (normPiNeq != T()) { // test to avoid division per 0
-        Array<T,SymmetricTensor<T,Descriptor>::n> S =
-                (-rho*tau*Descriptor<T>::cs2+sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
-
-        T sNorm = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(S));
-
-        tauSGS = cSmago*cSmago*sNorm*Descriptor<T>::invCs2;
-    }
-    T omega = (T)1/(tau+tauSGS);
-
-    std::vector<T> newS = parameter->getS();
-    for (plint iPop  = 0; iPop < Descriptor<T>::shearIndexes; ++iPop) {
-        newS[Descriptor<T>::shearViscIndexes[iPop]] = omega;
-    }
-
-    T invM_S[Descriptor<T>::q][Descriptor<T>::q];
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-        for (plint jPop = 0; jPop < Descriptor<T>::q; ++jPop) {
-            invM_S[iPop][jPop] = T();
-            for (plint kPop = 0; kPop < Descriptor<T>::q; ++kPop) {
-                if (kPop == jPop) {
-                    invM_S[iPop][jPop] += Descriptor<T>::invM[iPop][kPop] * newS[kPop];
-                }
-            }
-        }
-    }
-
-    T jSqr = mrtTemp::mrtCollision(cell, rhoBar, j, invM_S);
-
+    T omega = SmagoOperations<T,Descriptor>::computeOmega (
+            omega0, preFactor, rhoBar, PiNeq );
+    T uSqr = mrtTemp::mrtCollision(cell, rhoBar, j, omega);
     if (cell.takesStatistics()) {
-        T invRho = Descriptor<T>::invRho(rhoBar);
-        gatherStatistics(stat, rhoBar, jSqr*invRho*invRho);
+        gatherStatistics(stat, rhoBar, uSqr);
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-T SmagorinskyMRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                                T jSqr, T thetaBar) const
+T SmagorinskyMRTdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
 {
     T invRho = Descriptor<T>::invRho(rhoBar);
     return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
-}
-
-template<typename T, template<typename U> class Descriptor>
-MRTparam<T,Descriptor> const& SmagorinskyMRTdynamics<T,Descriptor>::getMrtParameter() const {
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-    return *parameter;
 }
 
 /* *************** Class ConsistentSmagorinskyMRTdynamics *********************************************** */
@@ -1233,69 +1824,56 @@ template<typename T, template<typename U> class Descriptor>
 int ConsistentSmagorinskyMRTdynamics<T,Descriptor>::id =
     meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyMRTdynamics<T,Descriptor> >("Consistent_MRT_Smagorinsky");
 
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics(plint externalParam_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(mrtParam<T,Descriptor>().get(externalParam_).getOmega()),
-      param(0),
-      externalParam(externalParam_),
+ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics (
+        T omega0_, T cSmago_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_),
       cSmago(cSmago_)
 { }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(param_->getOmega()),
-      param(param_),
-      externalParam(-1),
-      cSmago(cSmago_)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics(HierarchicUnserializer& unserializer)
-    : IsoThermalBulkDynamics<T,Descriptor>(T()),
-      param(0),
-      externalParam(-1)
+ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : IsoThermalBulkDynamics<T,Descriptor>(T()), cSmago(T())
 {
     unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>::ConsistentSmagorinskyMRTdynamics(ConsistentSmagorinskyMRTdynamics<T,Descriptor> const& rhs)
-    : IsoThermalBulkDynamics<T,Descriptor>(rhs),
-      param(rhs.param ? rhs.param->clone() : 0),
-      externalParam(rhs.externalParam),
-      cSmago(rhs.cSmago)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>&
-    ConsistentSmagorinskyMRTdynamics<T,Descriptor>::operator=(ConsistentSmagorinskyMRTdynamics<T,Descriptor> const& rhs)
+T ConsistentSmagorinskyMRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
 {
-    ConsistentSmagorinskyMRTdynamics<T,Descriptor>(rhs).swap(*this);
-    return *this;
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+        momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+        T preFactor = (SmagoOperations<T,Descriptor>::computePrefactor(this->getOmega(),cSmago));
+        T omega = SmagoOperations<T,Descriptor>::computeOmega (
+                this->getOmega(), preFactor, rhoBar, PiNeq );
+        return omega;
+    }
+    else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyMRTdynamics<T,Descriptor>::~ConsistentSmagorinskyMRTdynamics()
-{
-    delete param;
-}
-
-template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::swap(ConsistentSmagorinskyMRTdynamics<T,Descriptor>& rhs)
-{
-    std::swap(param, rhs.param);
-    std::swap(externalParam, rhs.externalParam);
-    T tmpOmega = this->getOmega();
-    this->setOmega(rhs.getOmega());
-    rhs.setOmega(tmpOmega);
-    std::swap(cSmago,rhs.cSmago_);
+T ConsistentSmagorinskyMRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch(whichParameter) {
+        case dynamicParams::smagorinskyConstant: return cSmago;
+        default: return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
 ConsistentSmagorinskyMRTdynamics<T,Descriptor>* ConsistentSmagorinskyMRTdynamics<T,Descriptor>::clone() const {
     return new ConsistentSmagorinskyMRTdynamics<T,Descriptor>(*this);
 }
-
+ 
 template<typename T, template<typename U> class Descriptor>
 int ConsistentSmagorinskyMRTdynamics<T,Descriptor>::getId() const {
     return id;
@@ -1304,14 +1882,6 @@ int ConsistentSmagorinskyMRTdynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    int useExternalParamFlag = param ? 0:1;
-    serializer.addValue(useExternalParamFlag);
-    if (param) {
-        param->serialize(serializer);
-    }
-    else {
-        serializer.addValue(externalParam);
-    }
     serializer.addValue(cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
 }
@@ -1319,45 +1889,33 @@ void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::serialize(HierarchicSeriali
 template<typename T, template<typename U> class Descriptor>
 void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
-    int useExternalParamFlag = unserializer.readValue<int>();
-    if (useExternalParamFlag) {
-        externalParam = unserializer.readValue<plint>();
-        param = 0;
-    }
-    else {
-        delete param;
-        param = new MRTparam<T,Descriptor>(unserializer);
-        externalParam = -1;
-    }
     unserializer.readValue(cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::collide (
-        Cell<T,Descriptor>& cell, BlockStatistics& statistics )
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
 {
     typedef mrtTemplates<T,Descriptor> mrtTemp;
-    
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-    
     T rhoBar; 
     Array<T,Descriptor<T>::d> j;
     Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
     momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
     T rho = Descriptor<T>::fullRho(rhoBar);
     
-    T tau = (T)1/parameter->getOmega();
+    T tau = (T)1/this->getOmega();
     
-    T normPiNeq = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
     normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
     
     Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
     if (normPiNeq != T()) { // test to avoid division per 0
-        S = (-rho*tau*Descriptor<T>::cs2+sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+        S = (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
     }
     
-    T jSqr = mrtTemp::smagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, parameter->getInvM());
+    T jSqr = mrtTemp::smagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, this->getOmega());
     
     if (cell.takesStatistics()) {
         T invRho = Descriptor<T>::invRho(rhoBar);
@@ -1365,160 +1923,128 @@ void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::collide (
     }
 }
 
-
 template<typename T, template<typename U> class Descriptor>
 void ConsistentSmagorinskyMRTdynamics<T,Descriptor>::collideExternal (
-            Cell<T,Descriptor>& cell, T rhoBar,
-            Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat)
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
 {
-    PLB_ASSERT(false);
+    typedef mrtTemplates<T,Descriptor> mrtTemp;
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    momentTemplates<T,Descriptor>::compute_PiNeq(cell, rhoBar, j, PiNeq);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    
+    T tau = (T)1/this->getOmega();
+    
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+    if (normPiNeq != T()) { // test to avoid division per 0
+        S = (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+    }
+    
+    T jSqr = mrtTemp::smagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, this->getOmega());
+    
+    if (cell.takesStatistics()) {
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(stat, rhoBar, jSqr*invRho*invRho);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
-T ConsistentSmagorinskyMRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                                T jSqr, T thetaBar) const
+T ConsistentSmagorinskyMRTdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
 {
-    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, (T)1, j, jSqr);
-}
-
-template<typename T, template<typename U> class Descriptor>
-MRTparam<T,Descriptor> const& ConsistentSmagorinskyMRTdynamics<T,Descriptor>::getMrtParameter() const {
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-    return *parameter;
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
 }
 
 
-/* *************** Class ConsistentSmagorinskyQuasiIncMRTdynamics *********************************************** */
+/* *************** Class ConsistentSgsMRTdynamics *********************************************** */
 
 template<typename T, template<typename U> class Descriptor>
-int ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::id =
-    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor> >("Consistent_QuasiIncMRT_Smagorinsky");
+int ConsistentSgsMRTdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSgsMRTdynamics<T,Descriptor> >("Consistent_MRT_Sgs");
 
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyQuasiIncMRTdynamics(plint externalParam_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(mrtParam<T,Descriptor>().get(externalParam_).getOmega()),
-      param(0),
-      externalParam(externalParam_),
-      cSmago(cSmago_)
+ConsistentSgsMRTdynamics<T,Descriptor>::ConsistentSgsMRTdynamics (
+        T omega0_)
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_)
 { }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyQuasiIncMRTdynamics(MRTparam<T,Descriptor>* param_, T cSmago_)
-    : IsoThermalBulkDynamics<T,Descriptor>(param_->getOmega()),
-      param(param_),
-      externalParam(-1),
-      cSmago(cSmago_)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyQuasiIncMRTdynamics(HierarchicUnserializer& unserializer)
-    : IsoThermalBulkDynamics<T,Descriptor>(T()),
-      param(0),
-      externalParam(-1)
+ConsistentSgsMRTdynamics<T,Descriptor>::ConsistentSgsMRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
 {
     unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyQuasiIncMRTdynamics(ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs)
-    : IsoThermalBulkDynamics<T,Descriptor>(rhs),
-      param(rhs.param ? rhs.param->clone() : 0),
-      externalParam(rhs.externalParam),
-      cSmago(rhs.cSmago)
-{ }
-
-template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>&
-    ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::operator=(ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor> const& rhs)
+T ConsistentSgsMRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
 {
-    ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>(rhs).swap(*this);
-    return *this;
+//     if (whichParameter==dynamicParams::dynamicOmega) {
+//         T rhoBar;
+//         Array<T,Descriptor<T>::d> j;
+//         Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+//         momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+//         T preFactor = SmagoOperations<T,Descriptor>::computePrefactor(omega0,cSmago);
+//         T omega = SmagoOperations<T,Descriptor>::computeOmega (
+//                 this->getOmega(), preFactor, rhoBar, PiNeq );
+//         return omega;
+//     }
+//     else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+//     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::~ConsistentSmagorinskyQuasiIncMRTdynamics()
-{
-    delete param;
+T ConsistentSgsMRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
 }
 
 template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::swap(ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>& rhs)
-{
-    std::swap(param, rhs.param);
-    std::swap(externalParam, rhs.externalParam);
-    T tmpOmega = this->getOmega();
-    this->setOmega(rhs.getOmega());
-    rhs.setOmega(tmpOmega);
-    std::swap(cSmago,rhs.cSmago_);
+ConsistentSgsMRTdynamics<T,Descriptor>* ConsistentSgsMRTdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSgsMRTdynamics<T,Descriptor>(*this);
 }
-
+ 
 template<typename T, template<typename U> class Descriptor>
-ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>* ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::clone() const {
-    return new ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>(*this);
-}
-
-template<typename T, template<typename U> class Descriptor>
-int ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::getId() const {
+int ConsistentSgsMRTdynamics<T,Descriptor>::getId() const {
     return id;
 }
 
 template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+void ConsistentSgsMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    int useExternalParamFlag = param ? 0:1;
-    serializer.addValue(useExternalParamFlag);
-    if (param) {
-        param->serialize(serializer);
-    }
-    else {
-        serializer.addValue(externalParam);
-    }
-    serializer.addValue(cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+void ConsistentSgsMRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
-    int useExternalParamFlag = unserializer.readValue<int>();
-    if (useExternalParamFlag) {
-        externalParam = unserializer.readValue<plint>();
-        param = 0;
-    }
-    else {
-        delete param;
-        param = new MRTparam<T,Descriptor>(unserializer);
-        externalParam = -1;
-    }
-    unserializer.readValue(cSmago);
     IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::collide (
-        Cell<T,Descriptor>& cell, BlockStatistics& statistics )
+void ConsistentSgsMRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
 {
     typedef mrtTemplates<T,Descriptor> mrtTemp;
-    
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-    
     T rhoBar; 
     Array<T,Descriptor<T>::d> j;
-    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
-    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
-    T rho = Descriptor<T>::fullRho(rhoBar);
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
     
-    T tau = (T)1/parameter->getOmega();
+    T jSqr = mrtTemp::mrtCollision(cell, rhoBar, j, this->getOmega());
+    Array<T,Descriptor<T>::q> sgs, mNeq;
+    sgs.resetToZero();
+    mNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::tensorBeginsAt));
+    mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::computef_InvM_Smoments(sgs, mNeq, this->getOmega());
     
-    T normPiNeq = sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
-    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
-    
-    Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
-    if (normPiNeq != T()) { // test to avoid division per 0
-        S = (-rho*tau*Descriptor<T>::cs2+sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
-    }
-    
-    T jSqr = mrtTemp::quasiIncSmagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, parameter->getInvM());
+    for (pluint iPop = 0; iPop < Descriptor<T>::q; ++iPop) cell[iPop] += sgs[iPop];
     
     if (cell.takesStatistics()) {
         T invRho = Descriptor<T>::invRho(rhoBar);
@@ -1526,26 +2052,228 @@ void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::collide (
     }
 }
 
-
 template<typename T, template<typename U> class Descriptor>
-void ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::collideExternal (
-            Cell<T,Descriptor>& cell, T rhoBar,
-            Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat)
+void ConsistentSgsMRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
 {
-    PLB_ASSERT(false);
+    typedef mrtTemplates<T,Descriptor> mrtTemp;
+    
+    T jSqr = mrtTemp::mrtCollision(cell, rhoBar, j, this->getOmega());
+    
+    Array<T,Descriptor<T>::q> sgs, mNeq;
+    sgs.resetToZero();
+    mNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::tensorBeginsAt));
+    mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::computef_InvM_Smoments(sgs, mNeq, this->getOmega());
+    
+    for (pluint iPop = 0; iPop < Descriptor<T>::q; ++iPop) cell[iPop] += sgs[iPop];
+    
+    if (cell.takesStatistics()) {
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(stat, rhoBar, jSqr*invRho*invRho);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
-T ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                                T jSqr, T thetaBar) const
+T ConsistentSgsMRTdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+/* *************** Class GuoExternalForceConsistentSgsMRTdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::id =
+    meta::registerOneParamDynamics<T,Descriptor,GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor> >("Guo_Consistent_MRT_Sgs");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::GuoExternalForceConsistentSgsMRTdynamics (
+        T omega0_)
+    : ExternalForceDynamics<T,Descriptor>(omega0_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>* GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::clone() const {
+    return new GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    typedef mrtTemplates<T,Descriptor> mrtTemp;
+    T rhoBar = momentTemplates<T,Descriptor>::get_rhoBar(cell);
+    
+    Array<T,Descriptor<T>::d> u;
+    this->computeVelocity(cell, u);
+    
+    T jSqr = mrtTemp::mrtCollisionWithForce(cell, rhoBar, u, this->getOmega(), (T)1);
+    
+    Array<T,Descriptor<T>::q> sgs, mNeq;
+    sgs.resetToZero();
+    mNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::tensorBeginsAt));
+    mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::computef_InvM_Smoments(sgs, mNeq, this->getOmega());
+    
+    for (pluint iPop = 0; iPop < Descriptor<T>::q; ++iPop) cell[iPop] += sgs[iPop];
+    
+    if (cell.takesStatistics()) {
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
+{
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+}
+
+/* *************** Class ConsistentSmagorinskyIncMRTdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ConsistentSmagorinskyIncMRTdynamics<T,Descriptor> >("Consistent_IncMRT_Smagorinsky");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyIncMRTdynamics (
+        T omega0_, T cSmago_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega0_),
+      cSmago(cSmago_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::ConsistentSmagorinskyIncMRTdynamics (
+        HierarchicUnserializer& unserializer )
+    : IsoThermalBulkDynamics<T,Descriptor>(T()), cSmago(T())
+{
+    unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const
+{
+    if (whichParameter==dynamicParams::smagorinskyConstant) {
+        return cSmago;
+    } else if (whichParameter==dynamicParams::dynamicOmega) {
+        return this->getOmega();
+    }
+    else {
+        return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::getParameter(plint whichParameter) const {
+    switch(whichParameter) {
+        case dynamicParams::smagorinskyConstant: return cSmago;
+        default: return IsoThermalBulkDynamics<T,Descriptor>::getParameter(whichParameter);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>* ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::clone() const {
+    return new ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    serializer.addValue(cSmago);
+    IsoThermalBulkDynamics<T,Descriptor>::serialize(serializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    unserializer.readValue(cSmago);
+    IsoThermalBulkDynamics<T,Descriptor>::unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    typedef mrtTemplates<T,Descriptor> mrtTemp;
+    T rhoBar; 
+    Array<T,Descriptor<T>::d> j;
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    
+    T tau = (T)1/this->getOmega();
+    
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+    if (normPiNeq != T()) { // test to avoid division per 0
+        S = (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+    }
+    
+    T jSqr = mrtTemp::smagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, this->getOmega());
+    
+    if (cell.takesStatistics()) {
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& stat)
+{
+    typedef mrtTemplates<T,Descriptor> mrtTemp;
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    momentTemplates<T,Descriptor>::compute_PiNeq(cell, rhoBar, j, PiNeq);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    
+    T tau = (T)1/this->getOmega();
+    
+    T normPiNeq = std::sqrt((T)2*SymmetricTensor<T,Descriptor>::tensorNormSqr(PiNeq));
+    normPiNeq *= (T)2*rho*util::sqr(Descriptor<T>::cs2*cSmago*cSmago);
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> S; S.resetToZero();
+    if (normPiNeq != T()) { // test to avoid division per 0
+        S = (-rho*tau*Descriptor<T>::cs2+std::sqrt(util::sqr(rho*tau*Descriptor<T>::cs2)+normPiNeq)) / normPiNeq * PiNeq;
+    }
+    
+    T jSqr = mrtTemp::incSmagorinskyMrtCollision(cell, rhoBar, j, S, cSmago, this->getOmega());
+    
+    if (cell.takesStatistics()) {
+        T invRho = Descriptor<T>::invRho(rhoBar);
+        gatherStatistics(stat, rhoBar, jSqr*invRho*invRho);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ConsistentSmagorinskyIncMRTdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T jSqr, T thetaBar ) const
 {
     return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, (T)1, j, jSqr);
-}
-
-template<typename T, template<typename U> class Descriptor>
-MRTparam<T,Descriptor> const& ConsistentSmagorinskyQuasiIncMRTdynamics<T,Descriptor>::getMrtParameter() const {
-    MRTparam<T,Descriptor>* parameter = param ? param : &(mrtParam<T,Descriptor>().get(externalParam));
-    return *parameter;
 }
 
 } // namespace plb

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -68,7 +68,7 @@ Array<T,nDim> linearInterpolateTensorField (
     std::vector<Dot2D> pos(4);
     std::vector<T> weights(4);
     linearInterpolationCoefficients(tensorField, position, pos, weights);
-    Array<T,2> vector;
+    Array<T,nDim> vector;
     vector.resetToZero();
     for (plint iCell=0; iCell<4; ++iCell) {
         vector += weights[iCell]*tensorField.get(pos[iCell].x,pos[iCell].y);
@@ -85,7 +85,7 @@ Array<T,nDim> predictorCorrectorTensorField (
     std::vector<Dot2D> pos(4);
     std::vector<T> weights(4);
     linearInterpolationCoefficients(tensorField, position1, pos, weights);
-    Array<T,2> vector1;
+    Array<T,nDim> vector1;
     vector1.resetToZero();
     for (plint iCell=0; iCell<4; ++iCell) {
         vector1 += weights[iCell]*tensorField.get(pos[iCell].x,pos[iCell].y)*scaling;
@@ -93,7 +93,7 @@ Array<T,nDim> predictorCorrectorTensorField (
 
     Array<T,2> position2(position1+vector1);
     linearInterpolationCoefficients(tensorField, position2, pos, weights);
-    Array<T,2> vector2;
+    Array<T,nDim> vector2;
     vector2.resetToZero();
     for (plint iCell=0; iCell<4; ++iCell) {
         vector2 += weights[iCell]*tensorField.get(pos[iCell].x,pos[iCell].y)*scaling;

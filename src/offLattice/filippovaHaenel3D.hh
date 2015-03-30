@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -160,7 +160,10 @@ void FilippovaHaenelModel3D<T,Descriptor>::cellCompletion (
     typedef Descriptor<T> D;
     Cell<T,Descriptor>& s_cell =
         lattice.get( guoNode.x, guoNode.y, guoNode.z );
-    int noDynId = NoDynamics<T,Descriptor>().getId();
+#ifdef PLB_DEBUG
+    int noDynId =
+#endif
+        NoDynamics<T,Descriptor>().getId();
     PLB_ASSERT( s_cell.getDynamics().getId() == noDynId );
     for (plint iDirection=0; iDirection<(plint)dryNodeFluidDirections.size(); ++iDirection)
     {
@@ -204,7 +207,7 @@ void FilippovaHaenelModel3D<T,Descriptor>::cellCompletion (
         PLB_ASSERT( ok );
 
         Array<T,3> w_j = wall_vel*f_rho;
-        T d = sqrt(D::cNormSqr[iOpp]);
+        T d = std::sqrt(D::cNormSqr[iOpp]);
         PLB_ASSERT( wallDistance <= d );
         T delta = 1.0-wallDistance / d;
 

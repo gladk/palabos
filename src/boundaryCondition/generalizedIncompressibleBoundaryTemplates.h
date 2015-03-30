@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,12 +34,12 @@
 #include "core/dynamicsIdentifiers.h"
 #include "latticeBoltzmann/indexTemplates.h"
 #include "latticeBoltzmann/hermitePolynomialsTemplates.h"
-#include <Eigen3/Core>
-#include <Eigen3/LU>
-#include <Eigen3/QR>
-#include <Eigen3/Cholesky>
-#include <Eigen3/SVD>
-#include <Eigen3/Dense>
+#include <Eigen/Core>
+#include <Eigen/LU>
+#include <Eigen/QR>
+#include <Eigen/Cholesky>
+#include <Eigen/SVD>
+#include <Eigen/Dense>
 
 
 namespace plb {
@@ -310,7 +310,7 @@ struct generalizedIncomprBoundaryTemplates {
                          T epsilon)
     {
         for (plint iPi = 0; iPi < x.rows(); ++iPi) {
-            T res = (fabs(x[iPi]) > 1.0e-14 ? fabs(dx(iPi)/x(iPi)) : fabs(x(iPi)));
+            T res = (std::fabs(x[iPi]) > 1.0e-14 ? std::fabs(dx(iPi)/x(iPi)) : std::fabs(x(iPi)));
             
             if (res > epsilon) return false;
         }

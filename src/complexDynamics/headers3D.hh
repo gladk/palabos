@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,8 +30,10 @@
 #include "complexDynamics/advectionDiffusionBoundaryCondition3D.hh"
 #include "complexDynamics/adiabaticBoundaryProcessor3D.hh"
 #include "complexDynamics/advectionDiffusionDynamics.hh"
+#include "complexDynamics/advectionDiffusionProcessor3D.hh"
 #include "complexDynamics/entropicDynamics.hh"
 #include "complexDynamics/mrtDynamics.hh"
+#include "complexDynamics/trtDynamics.hh"
 #include "complexDynamics/variableOmegaDynamics.hh"
 #include "complexDynamics/smagorinskyDynamics.hh"
 #include "complexDynamics/carreauDynamics.hh"

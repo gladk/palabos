@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -72,6 +72,43 @@ static void get_jEq(const T& rhoBar, Array<T,Descriptor::d>& jEq, const T *u)
     T rho = Descriptor::fullRho(rhoBar);
     jEq[0] = rho * u[0];
     jEq[1] = rho * u[1];
+}
+
+};  // struct advectionDiffusionMomentTemplatesImpl
+
+// This structure forwards the calls to the appropriate helper class
+template<typename T>
+struct advectionDiffusionMomentTemplatesImpl<T,descriptors::D2Q9DescriptorBase<T> >
+{
+    
+typedef descriptors::D2Q9DescriptorBase<T> D;
+
+static void get_rhoBar_jEq(Array<T,D::q> const& f, T& rhoBar, 
+                           Array<T,D::d>& jEq, const T u[D::d] )
+{
+    rhoBar = momentTemplatesImpl<T,D>::get_rhoBar(f);
+    T rho = D::fullRho(rhoBar);
+    jEq[0] = rho * u[0];
+    jEq[1] = rho * u[1];
+}
+    
+static void get_jEq(const T& rhoBar, Array<T,D::d>& jEq, const T *u)
+{
+    T rho = D::fullRho(rhoBar);
+    jEq[0] = rho * u[0];
+    jEq[1] = rho * u[1];
+}
+
+static void get_rhoBar_jEq_jNeq(Array<T,D::q> const& f, T& rhoBar, 
+                                Array<T,D::d>& jEq, Array<T,D::d>& jNeq,
+                                const T *u)
+{
+    momentTemplatesImpl<T,D>::get_rhoBar_j(f, rhoBar, jNeq );
+    T rho = D::fullRho(rhoBar);
+    jEq[0] = rho * u[0];
+    jEq[1] = rho * u[1];
+    
+    jNeq[0] -= jEq[0]; jNeq[1] -= jEq[1];
 }
 
 };  // struct advectionDiffusionMomentTemplatesImpl

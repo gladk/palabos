@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,12 +57,12 @@ void cavitySetup( MultiBlockLattice2D<T,DESCRIPTOR>& lattice,
 
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
-    setBoundaryVelocity(lattice, lattice.getBoundingBox(), Array<T,2>(0.,0.) );
-    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), 1., Array<T,2>(0.,0.) );
+    setBoundaryVelocity(lattice, lattice.getBoundingBox(), Array<T,2>((T)0.,(T)0.) );
+    initializeAtEquilibrium(lattice, lattice.getBoundingBox(), (T)1., Array<T,2>((T)0.,(T)0.) );
 
     T u = parameters.getLatticeU();
-    setBoundaryVelocity(lattice, Box2D(1, nx-2, ny-1, ny-1), Array<T,2>(u,0.) );
-    initializeAtEquilibrium(lattice, Box2D(1, nx-2, ny-1, ny-1), 1., Array<T,2>(u,0.) );
+    setBoundaryVelocity(lattice, Box2D(1, nx-2, ny-1, ny-1), Array<T,2>(u,(T)0.) );
+    initializeAtEquilibrium(lattice, Box2D(1, nx-2, ny-1, ny-1), (T)1., Array<T,2>(u,(T)0.) );
 
     lattice.initialize();
 }
@@ -77,7 +77,7 @@ void writeGif(BlockLatticeT& lattice, plint iter)
                                *computeVelocityNorm(lattice),
                                imSize, imSize );
     imageWriter.writeScaledGif(createFileName("logUnorm", iter, 6),
-                               *computeLog(*add(1.e-8,*computeVelocityNorm(lattice))),
+                               *computeLog(*add((T)1.e-8,*computeVelocityNorm(lattice))),
                                imSize, imSize );
 }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -121,6 +121,10 @@ MultiBlockManagement3D block_union( MultiBlockManagement3D const& management1,
 ///   data processors with partnerManagement.
 MultiBlockManagement3D align( MultiBlockManagement3D const& originalManagement,
                               MultiBlockManagement3D const& partnerManagement );
+
+MultiBlockManagement3D align( std::vector<Box3D> const& originalDomain,
+                              MultiBlockManagement3D const& alignWith,
+                              plint envelopeWidth, plint refinementLevel, bool crop=true );
 
 /// Re-create a block-management by covering the sparse structure with regular blocks.
 /** The parameters blockLx, blockLy, and blockLz indicate the approximate size of the

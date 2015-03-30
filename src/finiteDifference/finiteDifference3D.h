@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -86,11 +86,11 @@ namespace fd {
                                          plint iX, plint iY, plint iZ)
         {
             // note that the derivative runs along direction.
-            T rho0 = blockLattice.get(iX,iY,iZ).computeRho();
+            T rho0 = blockLattice.get(iX,iY,iZ).computeDensity();
             T rho1 = blockLattice.get (
                         iX+(direction==0 ? (-orientation):0),
                         iY+(direction==1 ? (-orientation):0),
-                        iZ+(direction==2 ? (-orientation):0)  ).computeRho();
+                        iZ+(direction==2 ? (-orientation):0)  ).computeDensity();
             rhoDeriv = -orientation * fd::o1_fwd_diff(rho0, rho1);
         }
 
@@ -120,15 +120,15 @@ namespace fd {
                                          plint iX, plint iY, plint iZ)
         {
             // note that the derivative runs along direction.
-            T rho0 = blockLattice.get(iX,iY,iZ).computeRho();
+            T rho0 = blockLattice.get(iX,iY,iZ).computeDensity();
             T rho1 = blockLattice.get (
                         iX+(direction==0 ? (-orientation):0),
                         iY+(direction==1 ? (-orientation):0),
-                        iZ+(direction==2 ? (-orientation):0)  ).computeRho();
+                        iZ+(direction==2 ? (-orientation):0)  ).computeDensity();
             T rho2 = blockLattice.get (
                         iX+(direction==0 ? (-2*orientation):0),
                         iY+(direction==1 ? (-2*orientation):0),
-                        iZ+(direction==2 ? (-2*orientation):0) ).computeRho();
+                        iZ+(direction==2 ? (-2*orientation):0) ).computeDensity();
 
             rhoDeriv = -orientation * fd::fwd_diff(rho0, rho1, rho2);
         }
@@ -181,17 +181,15 @@ namespace fd {
                                           BlockLattice3D<T,Descriptor> const& blockLattice,
                                           plint iX, plint iY, plint iZ)
         {
-            typedef Descriptor<T> L;
-
             T rho_p1 = blockLattice.get (
                         iX+(deriveDirection==0 ? 1:0),
                         iY+(deriveDirection==1 ? 1:0),
-                        iZ+(deriveDirection==2 ? 1:0) ).computeRho();
+                        iZ+(deriveDirection==2 ? 1:0) ).computeDensity();
 
             T rho_m1 = blockLattice.get (
                         iX+(deriveDirection==0 ? (-1):0),
                         iY+(deriveDirection==1 ? (-1):0),
-                        iZ+(deriveDirection==2 ? (-1):0) ).computeRho();
+                        iZ+(deriveDirection==2 ? (-1):0) ).computeDensity();
 
             rhoDeriv = fd::ctl_diff(rho_p1, rho_m1);
         }

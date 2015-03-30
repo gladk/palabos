@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,6 +44,7 @@ using namespace std;
 typedef double T;
 typedef Array<T,3> Velocity;
 #define DESCRIPTOR descriptors::D3Q19Descriptor
+typedef DenseParticleField3D<T,DESCRIPTOR> ParticleFieldT;
 
 #define PADDING 8
 
@@ -150,10 +151,16 @@ struct Param
         dx = ly / (resolution - 1.0);
         dt = (uLB/inletVelocity) * dx;
         T nuLB = nu * dt/(dx*dx);
-        omega = 1.0/(3.0*nuLB+0.5);
-        nx = util::roundToInt(lx/dx);
-        ny = util::roundToInt(ly/dx);
-        nz = util::roundToInt(lz/dx);
+        omega = 1.0/(DESCRIPTOR<T>::invCs2*nuLB+0.5);
+        if (lateralFreeSlip) {
+            nx = util::roundToInt(lx/dx) + 1;
+            ny = util::roundToInt(ly/dx) + 1;
+            nz = util::roundToInt(lz/dx) + 1;
+        } else {
+            nx = util::roundToInt(lx/dx) + 1;
+            ny = util::roundToInt(ly/dx);
+            nz = util::roundToInt(lz/dx);
+        }
         cxLB = util::roundToInt(cx/dx);
         cyLB = util::roundToInt(cy/dx);
         czLB = util::roundToInt(cz/dx);
@@ -178,7 +185,7 @@ struct Param
 
     T getInletVelocity(plint iIter)
     {
-        static T pi = acos(-1.0);
+        static T pi = std::acos((T) -1.0);
 
         if (iIter >= initialIter) {
             return uLB;
@@ -188,7 +195,7 @@ struct Param
             iIter = 0;
         }
 
-        return uLB * sin(pi * iIter / (2.0 * initialIter));
+        return uLB * std::sin(pi * iIter / (2.0 * initialIter));
     }
 };
 
@@ -216,6 +223,10 @@ void outerDomainBoundaries(MultiBlockLattice3D<T,DESCRIPTOR> *lattice,
         bc->setVelocityConditionOnBlockBoundaries(*lattice, param.lateral2, boundary::freeslip);
         bc->setVelocityConditionOnBlockBoundaries(*lattice, param.lateral3, boundary::freeslip);
         bc->setVelocityConditionOnBlockBoundaries(*lattice, param.lateral4, boundary::freeslip);
+        setBoundaryVelocity(*lattice, param.lateral1, uBoundary);
+        setBoundaryVelocity(*lattice, param.lateral2, uBoundary);
+        setBoundaryVelocity(*lattice, param.lateral3, uBoundary);
+        setBoundaryVelocity(*lattice, param.lateral4, uBoundary);
 
         // The VirtualOutlet is a sophisticated outflow boundary condition.
         Box3D globalDomain(lattice->getBoundingBox());
@@ -227,6 +238,7 @@ void outerDomainBoundaries(MultiBlockLattice3D<T,DESCRIPTOR> *lattice,
         int bcType = 1;
         integrateProcessingFunctional(new VirtualOutlet<T,DESCRIPTOR>(outsideDensity, globalDomain, bcType),
                 param.outlet, bcargs, 2);
+        setBoundaryVelocity(*lattice, param.outlet, uBoundary);
     } else {
         pcout << "Periodic lateral boundaries." << std::endl;
 
@@ -258,6 +270,7 @@ void outerDomainBoundaries(MultiBlockLattice3D<T,DESCRIPTOR> *lattice,
         int bcType = 1;
         integrateProcessingFunctional(new VirtualOutlet<T,DESCRIPTOR>(outsideDensity, globalDomain, bcType),
                 param.outlet, bcargs, 2);
+        setBoundaryVelocity(*lattice, param.outlet, uBoundary);
     }
 }
 
@@ -304,7 +317,7 @@ void runProgram()
     // the point, say (0, 0, 0), then the following variable
     // "obstacleCenter" must be set to (0, 0, 0) manually.
     Cuboid<T> bCuboid = triangleSet.getBoundingCuboid();
-    Array<T,3> obstacleCenter = 0.5 * (bCuboid.lowerLeftCorner + bCuboid.upperRightCorner);
+    Array<T,3> obstacleCenter = (T) 0.5 * (bCuboid.lowerLeftCorner + bCuboid.upperRightCorner);
     triangleSet.translate(-obstacleCenter);
     triangleSet.scale(1.0/param.dx); // In lattice units from now on...
     triangleSet.translate(centerLB);
@@ -364,24 +377,10 @@ void runProgram()
     // The rhoBar and j fields are used at both the collision and at the implementation of the
     // outflow boundary condition.
     plint envelopeWidth = 1;
-    MultiScalarField3D<T> *rhoBar = new MultiScalarField3D<T> (
-            MultiBlockManagement3D (
-                sparseBlockManagement.getSparseBlockStructure(),
-                sparseBlockManagement.getThreadAttribution().clone(),
-                envelopeWidth ),
-            defaultMultiBlockPolicy3D().getBlockCommunicator(),
-            defaultMultiBlockPolicy3D().getCombinedStatistics(),
-            defaultMultiBlockPolicy3D().getMultiScalarAccess<T>() );
+    MultiScalarField3D<T> *rhoBar = generateMultiScalarField<T>((MultiBlock3D&) *lattice, envelopeWidth).release();
     rhoBar->toggleInternalStatistics(false);
 
-    MultiTensorField3D<T,3> *j = new MultiTensorField3D<T,3> (
-            MultiBlockManagement3D (
-                sparseBlockManagement.getSparseBlockStructure(),
-                sparseBlockManagement.getThreadAttribution().clone(),
-                envelopeWidth ),
-            defaultMultiBlockPolicy3D().getBlockCommunicator(),
-            defaultMultiBlockPolicy3D().getCombinedStatistics(),
-            defaultMultiBlockPolicy3D().getMultiTensorAccess<T,3>() );
+    MultiTensorField3D<T,3> *j = generateMultiTensorField<T,3>((MultiBlock3D&) *lattice, envelopeWidth).release();
     j->toggleInternalStatistics(false);
 
     std::vector<MultiBlock3D*> lattice_rho_bar_j_arg;
@@ -443,7 +442,7 @@ void runProgram()
             pcout << "Generating an outlet Smagorinsky sponge zone." << std::endl;
             bulkValue = param.cSmago;
         } else {
-            pcout << "Error: uknown type of sponge zone." << std::endl;
+            pcout << "Error: unknown type of sponge zone." << std::endl;
             exit(-1);
         }
 
@@ -478,11 +477,14 @@ void runProgram()
      */
 
     // Initial condition: Constant pressure and velocity-at-infinity everywhere.
-    Array<T,3> uBoundary(param.getInletVelocity(0), 0.0, 0.0);
-    initializeAtEquilibrium(*lattice, lattice->getBoundingBox(), 1.0, uBoundary);
-    lattice->executeInternalProcessors(1); // Execute all processors except the ones at level 0.
-    lattice->executeInternalProcessors(2);
-    lattice->executeInternalProcessors(3);
+    Array<T,3> uBoundary(param.getInletVelocity(0), (T)0.0, (T)0.0);
+    initializeAtEquilibrium(*lattice, lattice->getBoundingBox(), (T)1.0, uBoundary);
+    applyProcessingFunctional(
+            new BoxRhoBarJfunctional3D<T,DESCRIPTOR>(),
+            lattice->getBoundingBox(), lattice_rho_bar_j_arg); // Compute rhoBar and j before VirtualOutlet is executed.
+    //lattice->executeInternalProcessors(1); // Execute all processors except the ones at level 0.
+    //lattice->executeInternalProcessors(2);
+    //lattice->executeInternalProcessors(3);
 
     /*
      * Particles (streamlines).
@@ -492,10 +494,10 @@ void runProgram()
     // purposes. Particles are used to compute streamlines essentially.
 
     // Definition of a particle field.
-    MultiParticleField3D<DenseParticleField3D<T,DESCRIPTOR> >* particles = 0;
+    MultiParticleField3D<ParticleFieldT>* particles = 0;
 
     if (param.useParticles) {
-        particles = new MultiParticleField3D<DenseParticleField3D<T,DESCRIPTOR> > (
+        particles = new MultiParticleField3D<ParticleFieldT> (
             lattice->getMultiBlockManagement(),
             defaultMultiBlockPolicy3D().getCombinedStatistics() );
 
@@ -571,8 +573,9 @@ void runProgram()
             pcout << "Writing VTK at time t = " << i*param.dt << endl;
             writeVTK(*boundaryCondition, i);
             if (param.useParticles) {
-                writeParticleVtk(*particles, createFileName(outputDir+"particles_", i, PADDING) + ".vtk",
-                        param.maxNumParticlesToWrite);
+                writeParticleVtk<T,DESCRIPTOR> (
+                        *particles, createFileName(outputDir+"particles_", i, PADDING) + ".vtk",
+                        param.maxNumParticlesToWrite );
             }
         }
 

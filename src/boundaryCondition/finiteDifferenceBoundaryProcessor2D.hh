@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -49,7 +49,6 @@ void StraightFdBoundaryFunctional2D<T,Descriptor,direction,orientation>::process
     typedef SymmetricTensorImpl<T,Descriptor<T>::d> S;
     Array<T,Descriptor<T>::d> dx_u, dy_u;
     Cell<T,Descriptor>& cell = lattice.get(iX,iY);
-    Dynamics<T,Descriptor>& dynamics = cell.getDynamics();
 
     T rho = cell.computeDensity();
     Array<T,Descriptor<T>::d> vel;
@@ -77,10 +76,7 @@ void StraightFdBoundaryFunctional2D<T,Descriptor,direction,orientation>::process
     // Computation of the particle distribution functions
     // according to the regularized formula
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-      cell[iPop] = dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
-                       offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
-    }
+    cell.getDynamics().regularize(cell,Descriptor<T>::rhoBar(rho),j,jSqr, pi);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -139,8 +135,7 @@ void OuterVelocityCornerFunctional2D<T, Descriptor, xNormal, yNormal>::processCe
     T dy_uy = dy_u[1];
 
     Cell<T,Descriptor>& cell = lattice.get(iX,iY);
-    Dynamics<T,Descriptor>& dynamics = cell.getDynamics();
-    T omega = dynamics.getOmega();
+    T omega = cell.getDynamics().getOmega();
 
     T sToPi = - rho / Descriptor<T>::invCs2 / omega;
     Array<T,SymmetricTensor<T,Descriptor>::n> pi;
@@ -161,12 +156,8 @@ void OuterVelocityCornerFunctional2D<T, Descriptor, xNormal, yNormal>::processCe
         }
     }
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
-
-    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
-        cell[iPop] =
-            dynamics.computeEquilibrium(iPop,Descriptor<T>::rhoBar(rho),j,jSqr) +
-                offEquilibriumTemplates<T,Descriptor>::fromPiToFneq(iPop, pi);
-    }
+    
+    cell.getDynamics().regularize(cell,Descriptor<T>::rhoBar(rho),j,jSqr, pi);
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>

@@ -1,25 +1,25 @@
 /* This file is part of the Palabos library.
  *
-* Copyright (C) 2011-2013 FlowKit Sarl
-* Route d'Oron 2
-* 11010 Lausanne, Switzerland
-* E-mail contact: contact@flowkit.com
-*
-* The most recent release of Palabos can be downloaded at 
-* <http://www.palabos.org/>
-*
-* The library Palabos is free software: you can redistribute it and/or
-* modify it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* The library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) 2011-2015 FlowKit Sarl
+ * Route d'Oron 2
+ * 1010 Lausanne, Switzerland
+ * E-mail contact: contact@flowkit.com
+ *
+ * The most recent release of Palabos can be downloaded at 
+ * <http://www.palabos.org/>
+ *
+ * The library Palabos is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * The library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /* Main author : Etienne Vergnault
@@ -124,11 +124,17 @@ void VtkStructuredImageOutput2D<T>::writeFooter() {
 template<typename T>
 template<typename TConv>
 void VtkStructuredImageOutput2D<T>::writeData( ScalarField2D<T> & scalarField,
-                                    std::string scalarFieldName, TConv scalingFactor )
+                                    std::string scalarFieldName, TConv scalingFactor,
+                                    TConv additiveOffset )
 {
     writeHeader(scalarField.getNx(), scalarField.getNy());
     std::auto_ptr<ScalarField2D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   scalarFieldName, 1 );
@@ -137,11 +143,17 @@ void VtkStructuredImageOutput2D<T>::writeData( ScalarField2D<T> & scalarField,
 template<typename T>
 template<typename TConv>
 void VtkStructuredImageOutput2D<T>::writeData( MultiScalarField2D<T> & scalarField,
-                                    std::string scalarFieldName, TConv scalingFactor )
+                                    std::string scalarFieldName, TConv scalingFactor,
+                                    TConv additiveOffset )
 {
     writeHeader(scalarField.getNx(), scalarField.getNy());
     std::auto_ptr<MultiScalarField2D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   scalarFieldName, 1);
@@ -154,7 +166,9 @@ void VtkStructuredImageOutput2D<T>::writeData( TensorField2D<T,n> & tensorField,
 {
     writeHeader(tensorField.getNx(), tensorField.getNy());
     std::auto_ptr<TensorField2D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   tensorFieldName, n );
@@ -167,7 +181,9 @@ void VtkStructuredImageOutput2D<T>::writeData( MultiTensorField2D<T,n> & tensorF
 {
     writeHeader(tensorField.getNx(), tensorField.getNy());
     std::auto_ptr<MultiTensorField2D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   tensorFieldName, n);
@@ -221,11 +237,17 @@ void VtkStructuredImageOutput3D<T>::writeFooter() {
 template<typename T>
 template<typename TConv>
 void VtkStructuredImageOutput3D<T>::writeData( ScalarField3D<T> & scalarField,
-                                    std::string scalarFieldName, TConv scalingFactor )
+                                    std::string scalarFieldName, TConv scalingFactor,
+                                    TConv additiveOffset )
 {
     writeHeader(scalarField.getNx(), scalarField.getNy(), scalarField.getNz());
     std::auto_ptr<ScalarField3D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   scalarFieldName,  1 );
@@ -234,11 +256,17 @@ void VtkStructuredImageOutput3D<T>::writeData( ScalarField3D<T> & scalarField,
 template<typename T>
 template<typename TConv>
 void VtkStructuredImageOutput3D<T>::writeData( MultiScalarField3D<T> & scalarField,
-                                    std::string scalarFieldName, TConv scalingFactor )
+                                    std::string scalarFieldName, TConv scalingFactor,
+                                    TConv additiveOffset )
 {
     writeHeader(scalarField.getNx(), scalarField.getNy(), scalarField.getNz());
     std::auto_ptr<MultiScalarField3D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   scalarFieldName, 1 );
@@ -251,7 +279,9 @@ void VtkStructuredImageOutput3D<T>::writeData( TensorField3D<T,n> & tensorField,
 {
     writeHeader(tensorField.getNx(), tensorField.getNy(), tensorField.getNz());
     std::auto_ptr<TensorField3D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   tensorFieldName, n );
@@ -264,7 +294,9 @@ void VtkStructuredImageOutput3D<T>::writeData( MultiTensorField3D<T,n> & tensorF
 {
     writeHeader(tensorField.getNx(), tensorField.getNy(), tensorField.getNz());
     std::auto_ptr<MultiTensorField3D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
-    multiplyInPlace(*transformedField, scalingFactor);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
     vtkOut.writeDataField<TConv> (
     transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
                                   tensorFieldName, n );

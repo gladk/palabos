@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -208,26 +208,17 @@ void MultiFreeSurfaceVelocityContinuityCoupling3D<T,Descriptor>
 template<typename T,template<typename U> class Descriptor>
 T MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>::deltaFunction(T r, T h)
 {
-    Precision precision;
-    if (sizeof(T) == sizeof(float))
-        precision = FLT;
-    else if (sizeof(T) == sizeof(double))
-        precision = DBL;
-    else if (sizeof(T) == sizeof(long double))
-        precision = LDBL;
-    else
-        PLB_ASSERT(false);
-
+    Precision precision = floatingPointPrecision<T>();
     T eps = getEpsilon<T>(precision);
 
-    PLB_ASSERT(r > (T) 0 || fabs(r) <= eps);
-    PLB_ASSERT(h > (T) 0 && fabs(h) >  eps);
+    PLB_ASSERT(r > (T) 0 || std::fabs(r) <= eps);
+    PLB_ASSERT(h > (T) 0 && std::fabs(h) >  eps);
 
-    static T pi = acos((T) -1.0);
+    static T pi = std::acos((T) -1.0);
 
     T delta = 0.0;
-    if (r < h || fabs(r - h) <= eps) {
-        delta = 0.5 * (1.0 + cos(pi * r / h));
+    if (r < h || std::fabs(r - h) <= eps) {
+        delta = 0.5 * (1.0 + std::cos(pi * r / h));
     }
 
     return delta;
@@ -276,7 +267,7 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
                                     if (VFdiff>(T)0.0) {
                                         Array<T,3> outwardNormalToFluid1 = param1.getNormal(I,J,K) - param2.getNormal(I,J,K);
                                         outwardNormalToFluid1 /= norm(outwardNormalToFluid1);
-                                        T r = sqrt(i*i + j*j + k*k);
+                                        T r = std::sqrt((T)i*i + (T)j*j + (T)k*k);
                                         T delta = deltaFunction(r, (T) 3); // h is 3 because envelope is 3.
                                         force1 += -VFdiff*delta*outwardNormalToFluid1;
                                     }
@@ -406,26 +397,17 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
 template<typename T,template<typename U> class Descriptor>
 T MultiFreeSurfaceComplexCoupling3D<T,Descriptor>::deltaFunction(T r, T h)
 {
-    Precision precision;
-    if (sizeof(T) == sizeof(float))
-        precision = FLT;
-    else if (sizeof(T) == sizeof(double))
-        precision = DBL;
-    else if (sizeof(T) == sizeof(long double))
-        precision = LDBL;
-    else
-        PLB_ASSERT(false);
-
+    Precision precision = floatingPointPrecision<T>();
     T eps = getEpsilon<T>(precision);
 
-    PLB_ASSERT(r > (T) 0 || fabs(r) <= eps);
-    PLB_ASSERT(h > (T) 0 && fabs(h) >  eps);
+    PLB_ASSERT(r > (T) 0 || std::fabs(r) <= eps);
+    PLB_ASSERT(h > (T) 0 && std::fabs(h) >  eps);
 
-    static T pi = acos((T) -1.0);
+    static T pi = std::acos((T) -1.0);
 
     T delta = 0.0;
-    if (r < h || fabs(r - h) <= eps) {
-        delta = 0.5 * (1.0 + cos(pi * r / h));
+    if (r < h || std::fabs(r - h) <= eps) {
+        delta = 0.5 * (1.0 + std::cos(pi * r / h));
     }
 
     return delta;
@@ -490,7 +472,7 @@ void MultiFreeSurfaceComplexCoupling3D<T,Descriptor>
                                     if (VFdiff>(T)0.0) {
                                         Array<T,3> outwardNormalToFluid1 = param1.getNormal(I,J,K) - param2.getNormal(I,J,K);
                                         outwardNormalToFluid1 /= norm(outwardNormalToFluid1);
-                                        T r = sqrt(i*i + j*j + k*k);
+                                        T r = std::sqrt((T)i*i + (T)j*j + (T)k*k);
                                         T delta = deltaFunction(r, (T) 3); // h is 3 because envelope is 3.
                                         force1 += -VFdiff*delta*outwardNormalToFluid1;
                                     }

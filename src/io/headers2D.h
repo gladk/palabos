@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,9 +23,9 @@
 */
 
 /** \file
- * #include "core/globalDefs.h"
  * Groups all the 2D include files for the directory io.
  */
+
 #include "io/base64.h"
 #include "io/serializerIO.h"
 #include "io/serializerIO_2D.h"
@@ -38,3 +38,5 @@
 #include "io/plbFiles.h"
 #include "io/multiBlockReader2D.h"
 #include "io/multiBlockWriter2D.h"
+#include "io/utilIO_2D.h"
+

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,6 +34,7 @@
 #include "complexDynamics/advectionDiffusionUnits.h"
 #include "complexDynamics/entropicDynamics.h"
 #include "complexDynamics/mrtDynamics.h"
+#include "complexDynamics/trtDynamics.h"
 #include "complexDynamics/externalForceMrtDynamics.h"
 #include "complexDynamics/variableOmegaDynamics.h"
 #include "complexDynamics/smagorinskyDynamics2D.h"

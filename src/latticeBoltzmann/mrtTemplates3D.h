@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,9 +41,10 @@ namespace plb {
 template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorBase<T> > {
     
     typedef descriptors::D3Q19DescriptorBase<T> Descriptor; 
+    typedef descriptors::MRTD3Q19DescriptorBase<T> MRTDescriptor; 
 
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeEquilibrium( Array<T,Descriptor::q>& momentsEq,
+    static void computeEquilibriumMoments( Array<T,Descriptor::q>& momentsEq,
                                     T rhoBar, Array<T,3> const& j, T jSqr )
     {
         T invRho = Descriptor::invRho(rhoBar);
@@ -71,8 +72,8 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     }
     
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeSmagorinskyEquilibrium( Array<T,Descriptor::q>& momentsEq,
-                                                       T rhoBar, Array<T,3> const& j, T jSqr, const Array<T,6> &strain, T cSmago )
+    static void computeSmagorinskyEquilibriumMoments( Array<T,Descriptor::q>& momentsEq,
+                                               T rhoBar, Array<T,3> const& j, T jSqr, const Array<T,6> &strain, T cSmago )
     {
         typedef SymmetricTensorImpl<T,3> S;
         
@@ -80,7 +81,7 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
         T rho = Descriptor::fullRho(rhoBar);
         T rho2 = rho*rho;
         
-        T sNorm = sqrt((T)2*SymmetricTensorImpl<T,3>::tensorNormSqr(strain));
+        T sNorm = std::sqrt((T)2*SymmetricTensorImpl<T,3>::tensorNormSqr(strain));
         T smagoFactor = (T)2*cSmago * cSmago * sNorm;
         
         T ux2 = rho2 * smagoFactor * strain[S::xx];
@@ -139,252 +140,130 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
         
     }
     
-    /// MRT collision step
-    static T mrtCollision( Array<T,Descriptor::q>& f,
-                           const T &rhoBar, const Array<T,3> & j,
-                           const T invM_S[19][19] )
+    static void computef_InvM_Smoments(Array<T,19>& f, const Array<T,19> &moments, const T &omega) 
     {
+        T mom0 = moments[0] * MRTDescriptor::S[0];
+        T mom1 = moments[1] * MRTDescriptor::S[1];
+        T mom2 = moments[2] * MRTDescriptor::S[2];
+        T mom3 = moments[3] * MRTDescriptor::S[3];
+        T mom4 = moments[4] * MRTDescriptor::S[4];
+        T mom5 = moments[5] * MRTDescriptor::S[5];
+        T mom6 = moments[6] * MRTDescriptor::S[6];
+        T mom7 = moments[7] * MRTDescriptor::S[7];
+        T mom8 = moments[8] * MRTDescriptor::S[8];
+        T mom9 = moments[9] * omega;
+        T mom10 = moments[10] * MRTDescriptor::S[10];
+        T mom11 = moments[11] * omega;
+        T mom12 = moments[12] * MRTDescriptor::S[12];
+        T mom13 = moments[13] * omega;
+        T mom14 = moments[14] * omega;
+        T mom15 = moments[15] * omega;
+        T mom16 = moments[16] * MRTDescriptor::S[16];
+        T mom17 = moments[17] * MRTDescriptor::S[17];
+        T mom18 = moments[18] * MRTDescriptor::S[18];
         
+        T mom0tmp = mom0 / (T)19;
+        
+        f[0] -= mom0tmp-5/(T)399*mom1+1/(T)21*mom2;
+        
+        T mom1tmp = (T)11/(T)2394*mom1;
+        T mom2tmp = mom2/(T)63;
+        T mom3_m4 = (T)0.1*(mom3-mom4);
+        T mom9_m10 = (mom9-mom10)/(T)18;
+        f[1] -= mom0tmp-mom1tmp-mom2tmp-mom3_m4+mom9_m10;
+        f[10] -= mom0tmp-mom1tmp-mom2tmp+mom3_m4+mom9_m10;
+        
+        T mom5_m6 = (T)0.1*(mom5-mom6);
+        T mom7_m8 = (T)0.1*(mom7-mom8);
+        mom9_m10 *= (T)0.5;
+        T mom11_m12 = (mom11-mom12)/(T)12;
+        f[2] -= mom0tmp-mom1tmp-mom2tmp-mom5_m6-mom9_m10+mom11_m12;
+        f[3] -= mom0tmp-mom1tmp-mom2tmp-mom7_m8-mom9_m10-mom11_m12;
+        f[11] -= mom0tmp-mom1tmp-mom2tmp+mom5_m6-mom9_m10+mom11_m12;
+        f[12] -= mom0tmp-mom1tmp-mom2tmp+mom7_m8-mom9_m10-mom11_m12;
+        
+        mom1tmp = (T)4/(T)1197*mom1;
+        mom2tmp *= (T)0.25;
+        T mom5_p6 = (T)0.1*mom5+(T)0.025*mom6;
+        T mom7_p8 = (T)0.1*mom7+(T)0.025*mom8;
+        T mom9_p10 = (mom9+mom10*(T)0.5)/(T)18;
+        mom14 *= (T)0.25;
+        mom17 *= (T)0.125;
+        mom18 *= (T)0.125;
+        f[8] -= mom0tmp+mom1tmp+mom2tmp-mom5_p6-mom7_p8-mom9_p10+mom14-mom17+mom18;
+        f[9] -= mom0tmp+mom1tmp+mom2tmp-mom5_p6+mom7_p8-mom9_p10-mom14-mom17-mom18;
+        f[17] -= mom0tmp+mom1tmp+mom2tmp+mom5_p6+mom7_p8-mom9_p10+mom14+mom17-mom18;
+        f[18] -= mom0tmp+mom1tmp+mom2tmp+mom5_p6-mom7_p8-mom9_p10-mom14+mom17+mom18;
+        
+        T mom3_p4 = (T)0.1*mom3+(T)0.025*mom4;
+        mom9_p10 *= (T)0.5;
+        T mom11_p12 = (mom11+(T)0.5*mom12)/(T)12;
+        mom13 *= (T)0.25;
+        mom16 *= (T)0.125;
+        f[4] -= mom0tmp+mom1tmp+mom2tmp-mom3_p4-mom5_p6+mom9_p10+mom11_p12+mom13-mom16+mom17;
+        f[5] -= mom0tmp+mom1tmp+mom2tmp-mom3_p4+mom5_p6+mom9_p10+mom11_p12-mom13-mom16-mom17;
+        f[13] -= mom0tmp+mom1tmp+mom2tmp+mom3_p4+mom5_p6+mom9_p10+mom11_p12+mom13+mom16-mom17;
+        f[14] -= mom0tmp+mom1tmp+mom2tmp+mom3_p4-mom5_p6+mom9_p10+mom11_p12-mom13+mom16+mom17;
+        
+        mom15 *= (T)0.25;
+        f[15] -= mom0tmp+mom1tmp+mom2tmp+mom3_p4+mom7_p8+mom9_p10-mom11_p12+mom15-mom16+mom18;
+        f[16] -= mom0tmp+mom1tmp+mom2tmp+mom3_p4-mom7_p8+mom9_p10-mom11_p12-mom15-mom16-mom18;
+        f[6] -= mom0tmp+mom1tmp+mom2tmp-mom3_p4-mom7_p8+mom9_p10-mom11_p12+mom15+mom16-mom18;
+        f[7] -= mom0tmp+mom1tmp+mom2tmp-mom3_p4+mom7_p8+mom9_p10-mom11_p12-mom15+mom16+mom18;
+    }
+    
+    static void computeMneqInPlace(Array<T,19> &moments, const Array<T,19> &momentsEq) {
+        moments[0] -= momentsEq[0];
+        moments[1] -= momentsEq[1];
+        moments[2] -= momentsEq[2];
+        moments[3] -= momentsEq[3];
+        moments[4] -= momentsEq[4];
+        moments[5] -= momentsEq[5];
+        moments[6] -= momentsEq[6];
+        moments[7] -= momentsEq[7];
+        moments[8] -= momentsEq[8];
+        moments[9] -= momentsEq[9];
+        moments[10] -= momentsEq[10];
+        moments[11] -= momentsEq[11];
+        moments[12] -= momentsEq[12];
+        moments[13] -= momentsEq[13];
+        moments[14] -= momentsEq[14];
+        moments[15] -= momentsEq[15];
+        moments[16] -= momentsEq[16];
+        moments[17] -= momentsEq[17];
+        moments[18] -= momentsEq[18];
+    }
+    
+    /// MRT collision step
+    static T mrtCollision( Array<T,Descriptor::q>& f, const T &omega )
+    {
         Array<T,19> moments, momentsEq;
         
         computeMoments(moments,f);
-        
+        T rhoBar = moments[0];
+        Array<T,3> j(moments[MRTDescriptor::momentumIndexes[0]],moments[MRTDescriptor::momentumIndexes[1]],moments[MRTDescriptor::momentumIndexes[2]]);
         T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
         
-        computeEquilibrium(momentsEq,rhoBar,j,jSqr);
+        computeEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
-        T mom1 = moments[1] - momentsEq[1];
-        T mom2 = moments[2] - momentsEq[2];
-        T mom3 = moments[3] - momentsEq[3];
-        T mom4 = moments[4] - momentsEq[4];
-        T mom5 = moments[5] - momentsEq[5];
-        T mom6 = moments[6] - momentsEq[6];
-        T mom7 = moments[7] - momentsEq[7];
-        T mom8 = moments[8] - momentsEq[8];
-        T mom9 = moments[9] - momentsEq[9];
-        T mom10 = moments[10] - momentsEq[10];
-        T mom11 = moments[11] - momentsEq[11];
-        T mom12 = moments[12] - momentsEq[12];
-        T mom13 = moments[13] - momentsEq[13];
-        T mom14 = moments[14] - momentsEq[14];
-        T mom15 = moments[15] - momentsEq[15];
-        T mom16 = moments[16];
-        T mom17 = moments[17];
-        T mom18 = moments[18];
+        return jSqr;
         
+    }
+    
+    /// MRT collision step
+    static T mrtCollision( Array<T,Descriptor::q>& f,
+                           const T &rhoBar, const Array<T,3> & j,
+                           const T omega )
+    {
+        Array<T,19> moments, momentsEq;
         
-        f[0] -= invM_S[0][1]*mom1
-        +invM_S[0][2]*mom2;
-        
-        f[1] -= invM_S[1][1]*mom1
-        +invM_S[1][2]*mom2
-        +invM_S[1][3]*mom3
-        +invM_S[1][4]*mom4
-        +invM_S[1][9]*mom9
-        +invM_S[1][10]*mom10;
-        
-        f[2] -= invM_S[2][1]*mom1
-        +invM_S[2][2]*mom2
-        +invM_S[2][5]*mom5
-        +invM_S[2][6]*mom6
-        +invM_S[2][9]*mom9
-        +invM_S[2][10]*mom10
-        +invM_S[2][11]*mom11
-        +invM_S[2][12]*mom12;
-        
-        f[3] -= invM_S[3][1]*mom1
-        +invM_S[3][2]*mom2
-        +invM_S[3][7]*mom7
-        +invM_S[3][8]*mom8
-        +invM_S[3][9]*mom9
-        +invM_S[3][10]*mom10
-        +invM_S[3][11]*mom11
-        +invM_S[3][12]*mom12;
-        
-        f[4] -= invM_S[4][1]*mom1
-        +invM_S[4][2]*mom2
-        +invM_S[4][3]*mom3
-        +invM_S[4][4]*mom4
-        +invM_S[4][5]*mom5
-        +invM_S[4][6]*mom6
-        +invM_S[4][9]*mom9
-        +invM_S[4][10]*mom10
-        +invM_S[4][11]*mom11
-        +invM_S[4][12]*mom12
-        +invM_S[4][13]*mom13
-        +invM_S[4][16]*mom16
-        +invM_S[4][17]*mom17;
-        
-        f[5] -= invM_S[5][1]*mom1
-        +invM_S[5][2]*mom2
-        +invM_S[5][3]*mom3
-        +invM_S[5][4]*mom4
-        +invM_S[5][5]*mom5
-        +invM_S[5][6]*mom6
-        +invM_S[5][9]*mom9
-        +invM_S[5][10]*mom10
-        +invM_S[5][11]*mom11
-        +invM_S[5][12]*mom12
-        +invM_S[5][13]*mom13
-        +invM_S[5][16]*mom16
-        +invM_S[5][17]*mom17;
-        
-        f[6] -= invM_S[6][1]*mom1
-        +invM_S[6][2]*mom2
-        +invM_S[6][3]*mom3
-        +invM_S[6][4]*mom4
-        +invM_S[6][7]*mom7
-        +invM_S[6][8]*mom8
-        +invM_S[6][9]*mom9
-        +invM_S[6][10]*mom10
-        +invM_S[6][11]*mom11
-        +invM_S[6][12]*mom12
-        +invM_S[6][15]*mom15
-        +invM_S[6][16]*mom16
-        +invM_S[6][18]*mom18;
-        
-        f[7] -= invM_S[7][1]*mom1
-        +invM_S[7][2]*mom2
-        +invM_S[7][3]*mom3
-        +invM_S[7][4]*mom4
-        +invM_S[7][7]*mom7
-        +invM_S[7][8]*mom8
-        +invM_S[7][9]*mom9
-        +invM_S[7][10]*mom10
-        +invM_S[7][11]*mom11
-        +invM_S[7][12]*mom12
-        +invM_S[7][15]*mom15
-        +invM_S[7][16]*mom16
-        +invM_S[7][18]*mom18;
-        
-        f[8] -= invM_S[8][1]*mom1
-        +invM_S[8][2]*mom2
-        +invM_S[8][5]*mom5
-        +invM_S[8][6]*mom6
-        +invM_S[8][7]*mom7
-        +invM_S[8][8]*mom8
-        +invM_S[8][9]*mom9
-        +invM_S[8][10]*mom10
-        +invM_S[8][14]*mom14
-        +invM_S[8][17]*mom17
-        +invM_S[8][18]*mom18;
-        
-        f[9] -= invM_S[9][1]*mom1
-        +invM_S[9][2]*mom2
-        +invM_S[9][5]*mom5
-        +invM_S[9][6]*mom6
-        +invM_S[9][7]*mom7
-        +invM_S[9][8]*mom8
-        +invM_S[9][9]*mom9
-        +invM_S[9][10]*mom10
-        +invM_S[9][14]*mom14
-        +invM_S[9][17]*mom17
-        +invM_S[9][18]*mom18;
-        
-        f[10] -= invM_S[10][1]*mom1
-        +invM_S[10][2]*mom2
-        +invM_S[10][3]*mom3
-        +invM_S[10][4]*mom4
-        +invM_S[10][9]*mom9
-        +invM_S[10][10]*mom10;
-        
-        f[11] -= invM_S[11][1]*mom1
-        +invM_S[11][2]*mom2
-        +invM_S[11][5]*mom5
-        +invM_S[11][6]*mom6
-        +invM_S[11][9]*mom9
-        +invM_S[11][10]*mom10
-        +invM_S[11][11]*mom11
-        +invM_S[11][12]*mom12;
-        
-        f[12] -= invM_S[12][1]*mom1
-        +invM_S[12][2]*mom2
-        +invM_S[12][7]*mom7
-        +invM_S[12][8]*mom8
-        +invM_S[12][9]*mom9
-        +invM_S[12][10]*mom10
-        +invM_S[12][11]*mom11
-        +invM_S[12][12]*mom12;
-        
-        f[13] -= invM_S[13][1]*mom1
-        +invM_S[13][2]*mom2
-        +invM_S[13][3]*mom3
-        +invM_S[13][4]*mom4
-        +invM_S[13][5]*mom5
-        +invM_S[13][6]*mom6
-        +invM_S[13][9]*mom9
-        +invM_S[13][10]*mom10
-        +invM_S[13][11]*mom11
-        +invM_S[13][12]*mom12
-        +invM_S[13][13]*mom13
-        +invM_S[13][16]*mom16
-        +invM_S[13][17]*mom17;
-        
-        f[14] -= invM_S[14][1]*mom1
-        +invM_S[14][2]*mom2
-        +invM_S[14][3]*mom3
-        +invM_S[14][4]*mom4
-        +invM_S[14][5]*mom5
-        +invM_S[14][6]*mom6
-        +invM_S[14][9]*mom9
-        +invM_S[14][10]*mom10
-        +invM_S[14][11]*mom11
-        +invM_S[14][12]*mom12
-        +invM_S[14][13]*mom13
-        +invM_S[14][16]*mom16
-        +invM_S[14][17]*mom17;
-        
-        f[15] -= invM_S[15][1]*mom1
-        +invM_S[15][2]*mom2
-        +invM_S[15][3]*mom3
-        +invM_S[15][4]*mom4
-        +invM_S[15][7]*mom7
-        +invM_S[15][8]*mom8
-        +invM_S[15][9]*mom9
-        +invM_S[15][10]*mom10
-        +invM_S[15][11]*mom11
-        +invM_S[15][12]*mom12
-        +invM_S[15][15]*mom15
-        +invM_S[15][16]*mom16
-        +invM_S[15][18]*mom18;
-        
-        f[16] -= invM_S[16][1]*mom1
-        +invM_S[16][2]*mom2
-        +invM_S[16][3]*mom3
-        +invM_S[16][4]*mom4
-        +invM_S[16][7]*mom7
-        +invM_S[16][8]*mom8
-        +invM_S[16][9]*mom9
-        +invM_S[16][10]*mom10
-        +invM_S[16][11]*mom11
-        +invM_S[16][12]*mom12
-        +invM_S[16][15]*mom15
-        +invM_S[16][16]*mom16
-        +invM_S[16][18]*mom18;
-        
-        f[17] -= invM_S[17][1]*mom1
-        +invM_S[17][2]*mom2
-        +invM_S[17][5]*mom5
-        +invM_S[17][6]*mom6
-        +invM_S[17][7]*mom7
-        +invM_S[17][8]*mom8
-        +invM_S[17][9]*mom9
-        +invM_S[17][10]*mom10
-        +invM_S[17][14]*mom14
-        +invM_S[17][17]*mom17
-        +invM_S[17][18]*mom18;
-        
-        f[18] -= invM_S[18][1]*mom1
-        +invM_S[18][2]*mom2
-        +invM_S[18][5]*mom5
-        +invM_S[18][6]*mom6
-        +invM_S[18][7]*mom7
-        +invM_S[18][8]*mom8
-        +invM_S[18][9]*mom9
-        +invM_S[18][10]*mom10
-        +invM_S[18][14]*mom14
-        +invM_S[18][17]*mom17
-        +invM_S[18][18]*mom18;
+        computeMoments(moments,f);
+        T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
+        computeEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
         return jSqr;
     }
@@ -392,1103 +271,394 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     /// MRT collision step
     static T smagorinskyMrtCollision( Array<T,Descriptor::q>& f,
                            const T &rhoBar, const Array<T,3> & j,
-                           const T invM_S[19][19], const Array<T,6> &strain, T cSmago )
+                           const T &omega, const Array<T,6> &strain, T cSmago )
     {
         
         Array<T,19> moments, momentsEq;
-
         computeMoments(moments,f);
-        
         T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
         
-        computeSmagorinskyEquilibrium( momentsEq, rhoBar, j, jSqr, strain, cSmago );
-        
-        T mom1 = moments[1] - momentsEq[1];
-        T mom2 = moments[2] - momentsEq[2];
-        T mom3 = moments[3] - momentsEq[3];
-        T mom4 = moments[4] - momentsEq[4];
-        T mom5 = moments[5] - momentsEq[5];
-        T mom6 = moments[6] - momentsEq[6];
-        T mom7 = moments[7] - momentsEq[7];
-        T mom8 = moments[8] - momentsEq[8];
-        T mom9 = moments[9] - momentsEq[9];
-        T mom10 = moments[10] - momentsEq[10];
-        T mom11 = moments[11] - momentsEq[11];
-        T mom12 = moments[12] - momentsEq[12];
-        T mom13 = moments[13] - momentsEq[13];
-        T mom14 = moments[14] - momentsEq[14];
-        T mom15 = moments[15] - momentsEq[15];
-        T mom16 = moments[16];
-        T mom17 = moments[17];
-        T mom18 = moments[18];
-
-        
-        f[0] -= invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
-        
-        f[1] -= invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][3]*mom3
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] -= invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][5]*mom5
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] -= invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][7]*mom7
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] -= invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][3]*mom3
-                +invM_S[4][4]*mom4
-                +invM_S[4][5]*mom5
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13
-                +invM_S[4][16]*mom16
-                +invM_S[4][17]*mom17;
-        
-        f[5] -= invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][3]*mom3
-                +invM_S[5][4]*mom4
-                +invM_S[5][5]*mom5
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13
-                +invM_S[5][16]*mom16
-                +invM_S[5][17]*mom17;
-        
-        f[6] -= invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][3]*mom3
-                +invM_S[6][4]*mom4
-                +invM_S[6][7]*mom7
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15
-                +invM_S[6][16]*mom16
-                +invM_S[6][18]*mom18;
-        
-        f[7] -= invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][3]*mom3
-                +invM_S[7][4]*mom4
-                +invM_S[7][7]*mom7
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15
-                +invM_S[7][16]*mom16
-                +invM_S[7][18]*mom18;
-        
-        f[8] -= invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][5]*mom5
-                +invM_S[8][6]*mom6
-                +invM_S[8][7]*mom7
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14
-                +invM_S[8][17]*mom17
-                +invM_S[8][18]*mom18;
-        
-        f[9] -= invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][5]*mom5
-                +invM_S[9][6]*mom6
-                +invM_S[9][7]*mom7
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14
-                +invM_S[9][17]*mom17
-                +invM_S[9][18]*mom18;
-        
-        f[10] -= invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][3]*mom3
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] -= invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][5]*mom5
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] -= invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][7]*mom7
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] -= invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][3]*mom3
-                +invM_S[13][4]*mom4
-                +invM_S[13][5]*mom5
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13
-                +invM_S[13][16]*mom16
-                +invM_S[13][17]*mom17;
-        
-        f[14] -= invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][3]*mom3
-                +invM_S[14][4]*mom4
-                +invM_S[14][5]*mom5
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13
-                +invM_S[14][16]*mom16
-                +invM_S[14][17]*mom17;
-        
-        f[15] -= invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][3]*mom3
-                +invM_S[15][4]*mom4
-                +invM_S[15][7]*mom7
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15
-                +invM_S[15][16]*mom16
-                +invM_S[15][18]*mom18;
-        
-        f[16] -= invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][3]*mom3
-                +invM_S[16][4]*mom4
-                +invM_S[16][7]*mom7
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15
-                +invM_S[16][16]*mom16
-                +invM_S[16][18]*mom18;
-        
-        f[17] -= invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][5]*mom5
-                +invM_S[17][6]*mom6
-                +invM_S[17][7]*mom7
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14
-                +invM_S[17][17]*mom17
-                +invM_S[17][18]*mom18;
-        
-        f[18] -= invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][5]*mom5
-                +invM_S[18][6]*mom6
-                +invM_S[18][7]*mom7
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14
-                +invM_S[18][17]*mom17
-                +invM_S[18][18]*mom18;
+        computeSmagorinskyEquilibriumMoments( momentsEq, rhoBar, j, jSqr, strain, cSmago );
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
         return jSqr;
     }
     
-    static T variableOmegaMrtCollision( Array<T,Descriptor::q>& f,
-                           const T &rhoBar, const Array<T,3> & j,
-                           const T invM_S[19][19], T omega )
+    /// MRT collision step
+    static T smagorinskyMrtCollision( Array<T,Descriptor::q>& f,
+                           const T &omega, const Array<T,6> &strain, T cSmago )
     {
         
         Array<T,19> moments, momentsEq;
-
         computeMoments(moments,f);
-        
+        T rhoBar = moments[0];
+        Array<T,3> j(moments[MRTDescriptor::momentumIndexes[0]],moments[MRTDescriptor::momentumIndexes[1]],moments[MRTDescriptor::momentumIndexes[2]]);
         T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
         
-        computeEquilibrium(momentsEq,rhoBar,j,jSqr);
-        
-        T mom1 = moments[1] - momentsEq[1];
-        T mom2 = moments[2] - momentsEq[2];
-        T mom3 = moments[3] - momentsEq[3];
-        T mom4 = moments[4] - momentsEq[4];
-        T mom5 = moments[5] - momentsEq[5];
-        T mom6 = moments[6] - momentsEq[6];
-        T mom7 = moments[7] - momentsEq[7];
-        T mom8 = moments[8] - momentsEq[8];
-        T mom9 = moments[9] - momentsEq[9];
-        T mom10 = moments[10] - momentsEq[10];
-        T mom11 = moments[11] - momentsEq[11];
-        T mom12 = moments[12] - momentsEq[12];
-        T mom13 = moments[13] - momentsEq[13];
-        T mom14 = moments[14] - momentsEq[14];
-        T mom15 = moments[15] - momentsEq[15];
-        T mom16 = moments[16];
-        T mom17 = moments[17];
-        T mom18 = moments[18];
-
-        // Multiply shear-viscosity indices by omega.
-        mom9  *= omega;
-        mom11 *= omega;
-        mom13 *= omega;
-        mom14 *= omega;
-        mom15 *= omega;
-        
-        f[0] -= invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
-        
-        f[1] -= invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][3]*mom3
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] -= invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][5]*mom5
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] -= invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][7]*mom7
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] -= invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][3]*mom3
-                +invM_S[4][4]*mom4
-                +invM_S[4][5]*mom5
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13
-                +invM_S[4][16]*mom16
-                +invM_S[4][17]*mom17;
-        
-        f[5] -= invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][3]*mom3
-                +invM_S[5][4]*mom4
-                +invM_S[5][5]*mom5
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13
-                +invM_S[5][16]*mom16
-                +invM_S[5][17]*mom17;
-        
-        f[6] -= invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][3]*mom3
-                +invM_S[6][4]*mom4
-                +invM_S[6][7]*mom7
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15
-                +invM_S[6][16]*mom16
-                +invM_S[6][18]*mom18;
-        
-        f[7] -= invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][3]*mom3
-                +invM_S[7][4]*mom4
-                +invM_S[7][7]*mom7
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15
-                +invM_S[7][16]*mom16
-                +invM_S[7][18]*mom18;
-        
-        f[8] -= invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][5]*mom5
-                +invM_S[8][6]*mom6
-                +invM_S[8][7]*mom7
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14
-                +invM_S[8][17]*mom17
-                +invM_S[8][18]*mom18;
-        
-        f[9] -= invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][5]*mom5
-                +invM_S[9][6]*mom6
-                +invM_S[9][7]*mom7
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14
-                +invM_S[9][17]*mom17
-                +invM_S[9][18]*mom18;
-        
-        f[10] -= invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][3]*mom3
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] -= invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][5]*mom5
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] -= invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][7]*mom7
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] -= invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][3]*mom3
-                +invM_S[13][4]*mom4
-                +invM_S[13][5]*mom5
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13
-                +invM_S[13][16]*mom16
-                +invM_S[13][17]*mom17;
-        
-        f[14] -= invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][3]*mom3
-                +invM_S[14][4]*mom4
-                +invM_S[14][5]*mom5
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13
-                +invM_S[14][16]*mom16
-                +invM_S[14][17]*mom17;
-        
-        f[15] -= invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][3]*mom3
-                +invM_S[15][4]*mom4
-                +invM_S[15][7]*mom7
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15
-                +invM_S[15][16]*mom16
-                +invM_S[15][18]*mom18;
-        
-        f[16] -= invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][3]*mom3
-                +invM_S[16][4]*mom4
-                +invM_S[16][7]*mom7
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15
-                +invM_S[16][16]*mom16
-                +invM_S[16][18]*mom18;
-        
-        f[17] -= invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][5]*mom5
-                +invM_S[17][6]*mom6
-                +invM_S[17][7]*mom7
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14
-                +invM_S[17][17]*mom17
-                +invM_S[17][18]*mom18;
-        
-        f[18] -= invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][5]*mom5
-                +invM_S[18][6]*mom6
-                +invM_S[18][7]*mom7
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14
-                +invM_S[18][17]*mom17
-                +invM_S[18][18]*mom18;
+        computeSmagorinskyEquilibriumMoments( momentsEq, rhoBar, j, jSqr, strain, cSmago );
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
         return jSqr;
     }
     
-    static void addGuoForce( Array<T,Descriptor::q>& f, const Array<T,Descriptor::d>& force,
+    static void addGuoForce( Array<T,Descriptor::q>& f, const Array<T,Descriptor::d>& g,
                              Array<T,Descriptor::d> const& u,
-                             T invM_S[Descriptor::q][Descriptor::q], T amplitude )
+                             const T &omega, T amplitude )
     {
-        Array<T,Descriptor::q> forcing;
-        T g_u   = force[0] * u[0] + force[1] * u[1] + force[2] * u[2];
+        Array<T,Descriptor::q> forcing, momForce;
+        T gx = amplitude * g[0];
+        T gy = amplitude * g[1];
+        T gz = amplitude * g[2];
+
+        T g_u   = gx * u[0] + gy * u[1] + gz * u[2];
         
-        T mom1 = -(T)19*g_u;
-        T mom2 = (T)5.5*g_u;
-        T mom3 = -(T)0.5*force[0];
-        T mom4 = force[0] / (T)3;
-        T mom5 = -(T)0.5*force[1];
-        T mom6 = force[1] / (T)3;
-        T mom7 = -(T)0.5*force[2];
-        T mom8 = force[2] / (T)3;
-        T mom9 = -(2*force[0]*u[0]-force[1]*u[1]-force[2]*u[2]);
-        T mom10 = (T)0.5*(2*force[0]*u[0]-force[1]*u[1]-force[2]*u[2]);
-        T mom11 = -(force[1]*u[1]-force[2]*u[2]);
-        T mom12 = (T)0.5*(force[1]*u[1]-force[2]*u[2]);
-        T mom13 = -(T)0.5*(force[0]*u[1]+force[1]*u[0]);
-        T mom14 = -(T)0.5*(force[2]*u[1]+force[1]*u[2]);
-        T mom15 = -(T)0.5*(force[0]*u[2]+force[2]*u[0]);
+        momForce[0] = 0;
+        momForce[1] = 38*g_u;
+        momForce[2] = -11*g_u;
+        momForce[3] = gx;
+        momForce[4] = -(T)2/3*gx;
+        momForce[5] = gy;
+        momForce[6] = -(T)2/3*gy;
+        momForce[7] = gz;
+        momForce[8] = -(T)2/3*gz;
+        momForce[9] = 4*gx*u[0]-2*gy*u[1]-2*gz*u[2];
+        momForce[10] = -2*gx*u[0]+gy*u[1]+gz*u[2];
+        momForce[11] = 2*gy*u[1]-2*gz*u[2];
+        momForce[12] = -gy*u[1]+gz*u[2];
+        momForce[13] = gx*u[1]+gy*u[0];
+        momForce[14] = gy*u[2]+gz*u[1];
+        momForce[15] = gx*u[2]+gz*u[0];
+        momForce[16] = 0;
+        momForce[17] = 0;
+        momForce[18] = 0;
         
+        momForce[0] *= (T)0.5;
+        momForce[1] *= (T)0.5;
+        momForce[2] *= (T)0.5;
+        momForce[3] *= (T)0.5;
+        momForce[4] *= (T)0.5;
+        momForce[5] *= (T)0.5;
+        momForce[6] *= (T)0.5;
+        momForce[7] *= (T)0.5;
+        momForce[8] *= (T)0.5;
+        momForce[9] *= (T)0.5;
+        momForce[10] *= (T)0.5;
+        momForce[11] *= (T)0.5;
+        momForce[12] *= (T)0.5;
+        momForce[13] *= (T)0.5;
+        momForce[14] *= (T)0.5;
+        momForce[15] *= (T)0.5;
+        momForce[16] *= (T)0.5;
+        momForce[17] *= (T)0.5;
+        momForce[18] *= (T)0.5;
         
-        f[0] += invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
+        computef_InvM_Smoments(f, momForce, omega);
         
-        f[1] += invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][3]*mom3
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] += invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][5]*mom5
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] += invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][7]*mom7
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] += invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][3]*mom3
-                +invM_S[4][4]*mom4
-                +invM_S[4][5]*mom5
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13;
-        
-        f[5] += invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][3]*mom3
-                +invM_S[5][4]*mom4
-                +invM_S[5][5]*mom5
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13;
-        
-        f[6] += invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][3]*mom3
-                +invM_S[6][4]*mom4
-                +invM_S[6][7]*mom7
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15;
-        
-        f[7] += invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][3]*mom3
-                +invM_S[7][4]*mom4
-                +invM_S[7][7]*mom7
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15;
-        
-        f[8] += invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][5]*mom5
-                +invM_S[8][6]*mom6
-                +invM_S[8][7]*mom7
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14;
-        
-        f[9] += invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][5]*mom5
-                +invM_S[9][6]*mom6
-                +invM_S[9][7]*mom7
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14;
-        
-        f[10] += invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][3]*mom3
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] += invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][5]*mom5
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] += invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][7]*mom7
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] += invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][3]*mom3
-                +invM_S[13][4]*mom4
-                +invM_S[13][5]*mom5
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13;
-        
-        f[14] += invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][3]*mom3
-                +invM_S[14][4]*mom4
-                +invM_S[14][5]*mom5
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13;
-        
-        f[15] += invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][3]*mom3
-                +invM_S[15][4]*mom4
-                +invM_S[15][7]*mom7
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15;
-        
-        f[16] += invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][3]*mom3
-                +invM_S[16][4]*mom4
-                +invM_S[16][7]*mom7
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15;
-        
-        f[17] += invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][5]*mom5
-                +invM_S[17][6]*mom6
-                +invM_S[17][7]*mom7
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14;
-        
-        f[18] += invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][5]*mom5
-                +invM_S[18][6]*mom6
-                +invM_S[18][7]*mom7
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14;
-                
-                
         static const T oneOver6 = (T)1/(T)6;
         static const T oneOver12 = (T)1/(T)12;
         
-        f[0] += -g_u;
+        f[0]  += -g_u;
         
-        f[1] += oneOver6*(force[0]*(-(T)1+2*u[0])-force[1]*u[1]-force[2]*u[2]);
+        f[1]  +=  oneOver6*(gx*(-(T)1+2*u[0])-gy*u[1]-gz*u[2]);
+        f[10] +=  oneOver6*(gx*((T)1+2*u[0]) -gy*u[1] -gz*u[2]);
         
-        f[2] += -oneOver6*(force[0]*u[0]+force[1]*((T)1-2*u[1])+force[2]*u[2]);
+        f[2]  += -oneOver6*(gx*u[0]+gy*((T)1-2*u[1])+gz*u[2]);
+        f[3]  += -oneOver6*(gx*u[0] + gy*u[1] + gz*((T)1-2*u[2]));
+        f[11] += -oneOver6*(gx*u[0] +gy*(-(T)1-2*u[1]) +gz*u[2]);
+        f[12] += -oneOver6*(gx*u[0] + gy*u[1] + gz*(-(T)1-2*u[2]));
         
-        f[3] += -oneOver6*(force[0]*u[0]
-                            + force[1]*u[1]
-                            + force[2]*((T)1-2*u[2]));
-        
-        f[4] += oneOver12*(force[0]*(-(T)1+2*u[0]+3*u[1])
-                            + force[1]*(-(T)1+2*u[1]+3*u[0])
-                            - force[2]*u[2]);
-        
-        f[5] += oneOver12*( force[0]*(-(T)1+2*u[0]-3*u[1])
-                                + force[1]*((T)1+2*u[1]-3*u[0])
-                                - force[2]*u[2]);
-        
-        f[6] += oneOver12*(force[0]*(-(T)1+2*u[0]+3*u[2])
-                            - force[1]*u[1]
-                            + force[2]*(-(T)1+2*u[2]+3*u[0]));
-        
-        f[7] += oneOver12*(force[0]*(-(T)1+2*u[0]-3*u[2])
-                            - force[1]*u[1]
-                            + force[2]*((T)1+2*u[2]-3*u[0]));
-        
-        f[8] += -oneOver12*(force[0]*u[0]
-                                + force[1]*((T)1-2*u[1]-3*u[2])
-                                + force[2]*((T)1-2*u[2]-3*u[1]));
-        
-        f[9] += -oneOver12*(force[0]*u[0]
-                                + force[1]*((T)1-2*u[1]+3*u[2])
-                                + force[2]*(-(T)1-2*u[2]+3*u[1]));
-        
-        f[10] += oneOver6*(force[0]*((T)1+2*u[0])
-                                -force[1]*u[1]
-                                -force[2]*u[2]);
-        
-        f[11] += -oneOver6*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1])
-                                +force[2]*u[2]);
-        
-        f[12] += -oneOver6*(force[0]*u[0]
-                                +force[1]*u[1]
-                                +force[2]*(-(T)1-2*u[2]));
-        
-        f[13] += oneOver12*(force[0]*((T)1+2*u[0]+3*u[1])
-                                +force[1]*((T)1+2*u[1]+3*u[0])
-                                -force[2]*u[2]);
-        
-        f[14] += oneOver12*(force[0]*((T)1+2*u[0]-3*u[1])
-                                +force[1]*(-(T)1+2*u[1]-3*u[0])
-                                -force[2]*u[2]);
-        
-        f[15] += oneOver12*(force[0]*((T)1+2*u[0]+3*u[2])
-                                -force[1]*u[1]
-                                +force[2]*((T)1+2*u[2]+3*u[0]));
-        
-        f[16] += oneOver12*(force[0]*((T)1+2*u[0]-3*u[2])
-                                -force[1]*u[1]
-                                +force[2]*(-(T)1+2*u[2]-3*u[0]));
-        
-        f[17] += -oneOver12*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1]-3*u[2])
-                                +force[2]*(-(T)1-2*u[2]-3*u[1]));
-        
-        f[18] += -oneOver12*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1]+3*u[2])
-                                +force[2]*((T)1-2*u[2]+3*u[1]));
-    }
-    
-    static void variableOmegaAddGuoForce (
-            Array<T,Descriptor::q>& f, const Array<T,Descriptor::d>& force,
-            Array<T,Descriptor::d> const& u, T invM_S[Descriptor::q][Descriptor::q],
-            T amplitude, T omega )
-    {
-        Array<T,Descriptor::q> forcing;
-        T g_u   = force[0] * u[0] + force[1] * u[1] + force[2] * u[2];
-        
-        T mom1 = -(T)19*g_u;
-        T mom2 = (T)5.5*g_u;
-        T mom3 = -(T)0.5*force[0];
-        T mom4 = force[0] / (T)3;
-        T mom5 = -(T)0.5*force[1];
-        T mom6 = force[1] / (T)3;
-        T mom7 = -(T)0.5*force[2];
-        T mom8 = force[2] / (T)3;
-        T mom9 = -(2*force[0]*u[0]-force[1]*u[1]-force[2]*u[2]);
-        T mom10 = (T)0.5*(2*force[0]*u[0]-force[1]*u[1]-force[2]*u[2]);
-        T mom11 = -(force[1]*u[1]-force[2]*u[2]);
-        T mom12 = (T)0.5*(force[1]*u[1]-force[2]*u[2]);
-        T mom13 = -(T)0.5*(force[0]*u[1]+force[1]*u[0]);
-        T mom14 = -(T)0.5*(force[2]*u[1]+force[1]*u[2]);
-        T mom15 = -(T)0.5*(force[0]*u[2]+force[2]*u[0]);
-        
-        // Multiply shear-viscosity indices by omega.
-        mom9  *= omega;
-        mom11 *= omega;
-        mom13 *= omega;
-        mom14 *= omega;
-        mom15 *= omega;
-        
-        f[0] += invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
-        
-        f[1] += invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][3]*mom3
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] += invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][5]*mom5
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] += invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][7]*mom7
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] += invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][3]*mom3
-                +invM_S[4][4]*mom4
-                +invM_S[4][5]*mom5
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13;
-        
-        f[5] += invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][3]*mom3
-                +invM_S[5][4]*mom4
-                +invM_S[5][5]*mom5
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13;
-        
-        f[6] += invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][3]*mom3
-                +invM_S[6][4]*mom4
-                +invM_S[6][7]*mom7
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15;
-        
-        f[7] += invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][3]*mom3
-                +invM_S[7][4]*mom4
-                +invM_S[7][7]*mom7
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15;
-        
-        f[8] += invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][5]*mom5
-                +invM_S[8][6]*mom6
-                +invM_S[8][7]*mom7
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14;
-        
-        f[9] += invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][5]*mom5
-                +invM_S[9][6]*mom6
-                +invM_S[9][7]*mom7
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14;
-        
-        f[10] += invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][3]*mom3
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] += invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][5]*mom5
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] += invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][7]*mom7
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] += invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][3]*mom3
-                +invM_S[13][4]*mom4
-                +invM_S[13][5]*mom5
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13;
-        
-        f[14] += invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][3]*mom3
-                +invM_S[14][4]*mom4
-                +invM_S[14][5]*mom5
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13;
-        
-        f[15] += invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][3]*mom3
-                +invM_S[15][4]*mom4
-                +invM_S[15][7]*mom7
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15;
-        
-        f[16] += invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][3]*mom3
-                +invM_S[16][4]*mom4
-                +invM_S[16][7]*mom7
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15;
-        
-        f[17] += invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][5]*mom5
-                +invM_S[17][6]*mom6
-                +invM_S[17][7]*mom7
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14;
-        
-        f[18] += invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][5]*mom5
-                +invM_S[18][6]*mom6
-                +invM_S[18][7]*mom7
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14;
-                
-                
-        static const T oneOver6 = (T)1/(T)6;
-        static const T oneOver12 = (T)1/(T)12;
-        
-        f[0] += -g_u;
-        
-        f[1] += oneOver6*(force[0]*(-(T)1+2*u[0])-force[1]*u[1]-force[2]*u[2]);
-        
-        f[2] += -oneOver6*(force[0]*u[0]+force[1]*((T)1-2*u[1])+force[2]*u[2]);
-        
-        f[3] += -oneOver6*(force[0]*u[0]
-                            + force[1]*u[1]
-                            + force[2]*((T)1-2*u[2]));
-        
-        f[4] += oneOver12*(force[0]*(-(T)1+2*u[0]+3*u[1])
-                            + force[1]*(-(T)1+2*u[1]+3*u[0])
-                            - force[2]*u[2]);
-        
-        f[5] += oneOver12*( force[0]*(-(T)1+2*u[0]-3*u[1])
-                                + force[1]*((T)1+2*u[1]-3*u[0])
-                                - force[2]*u[2]);
-        
-        f[6] += oneOver12*(force[0]*(-(T)1+2*u[0]+3*u[2])
-                            - force[1]*u[1]
-                            + force[2]*(-(T)1+2*u[2]+3*u[0]));
-        
-        f[7] += oneOver12*(force[0]*(-(T)1+2*u[0]-3*u[2])
-                            - force[1]*u[1]
-                            + force[2]*((T)1+2*u[2]-3*u[0]));
-        
-        f[8] += -oneOver12*(force[0]*u[0]
-                                + force[1]*((T)1-2*u[1]-3*u[2])
-                                + force[2]*((T)1-2*u[2]-3*u[1]));
-        
-        f[9] += -oneOver12*(force[0]*u[0]
-                                + force[1]*((T)1-2*u[1]+3*u[2])
-                                + force[2]*(-(T)1-2*u[2]+3*u[1]));
-        
-        f[10] += oneOver6*(force[0]*((T)1+2*u[0])
-                                -force[1]*u[1]
-                                -force[2]*u[2]);
-        
-        f[11] += -oneOver6*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1])
-                                +force[2]*u[2]);
-        
-        f[12] += -oneOver6*(force[0]*u[0]
-                                +force[1]*u[1]
-                                +force[2]*(-(T)1-2*u[2]));
-        
-        f[13] += oneOver12*(force[0]*((T)1+2*u[0]+3*u[1])
-                                +force[1]*((T)1+2*u[1]+3*u[0])
-                                -force[2]*u[2]);
-        
-        f[14] += oneOver12*(force[0]*((T)1+2*u[0]-3*u[1])
-                                +force[1]*(-(T)1+2*u[1]-3*u[0])
-                                -force[2]*u[2]);
-        
-        f[15] += oneOver12*(force[0]*((T)1+2*u[0]+3*u[2])
-                                -force[1]*u[1]
-                                +force[2]*((T)1+2*u[2]+3*u[0]));
-        
-        f[16] += oneOver12*(force[0]*((T)1+2*u[0]-3*u[2])
-                                -force[1]*u[1]
-                                +force[2]*(-(T)1+2*u[2]-3*u[0]));
-        
-        f[17] += -oneOver12*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1]-3*u[2])
-                                +force[2]*(-(T)1-2*u[2]-3*u[1]));
-        
-        f[18] += -oneOver12*(force[0]*u[0]
-                                +force[1]*(-(T)1-2*u[1]+3*u[2])
-                                +force[2]*((T)1-2*u[2]+3*u[1]));
+        f[4]  +=  oneOver12*( gx*(-(T)1+2*u[0]+3*u[1]) + gy*(-(T)1+2*u[1]+3*u[0]) - gz*u[2]);
+        f[5]  +=  oneOver12*( gx*(-(T)1+2*u[0]-3*u[1]) + gy*((T)1+2*u[1]-3*u[0]) - gz*u[2]);
+        f[6]  +=  oneOver12*(gx*(-(T)1+2*u[0]+3*u[2]) - gy*u[1] + gz*(-(T)1+2*u[2]+3*u[0]));
+        f[7]  +=  oneOver12*(gx*(-(T)1+2*u[0]-3*u[2]) - gy*u[1] + gz*((T)1+2*u[2]-3*u[0]));
+        f[8]  += -oneOver12*(gx*u[0] + gy*((T)1-2*u[1]-3*u[2]) + gz*((T)1-2*u[2]-3*u[1]));
+        f[9]  += -oneOver12*(gx*u[0] + gy*((T)1-2*u[1]+3*u[2]) + gz*(-(T)1-2*u[2]+3*u[1]));
+        f[13] +=  oneOver12*(gx*((T)1+2*u[0]+3*u[1]) + gy*((T)1+2*u[1]+3*u[0]) - gz*u[2]);
+        f[14] +=  oneOver12*(gx*((T)1+2*u[0]-3*u[1]) + gy*(-(T)1+2*u[1]-3*u[0]) - gz*u[2]);
+        f[15] +=  oneOver12*(gx*((T)1+2*u[0]+3*u[2]) - gy*u[1] + gz*((T)1+2*u[2]+3*u[0]));
+        f[16] +=  oneOver12*(gx*((T)1+2*u[0]-3*u[2]) - gy*u[1] + gz*(-(T)1+2*u[2]-3*u[0]));
+        f[17] += -oneOver12*(gx*u[0] + gy*(-(T)1-2*u[1]-3*u[2]) + gz*(-(T)1-2*u[2]-3*u[1]));
+        f[18] += -oneOver12*(gx*u[0] + gy*(-(T)1-2*u[1]+3*u[2]) + gz*((T)1-2*u[2]+3*u[1]));
     }
     
     /// MRT collision step
     static T mrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                     const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                    T invM_S[Descriptor::q][Descriptor::q], 
+                                    const T &omega, 
                                     const Array<T,Descriptor::d> &force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = mrtCollision( f, rhoBar, j, invM_S );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = mrtCollision( f, rhoBar, j, omega );
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
+    
+    
+    
+    	static void addHeForce( Array<T,Descriptor::q>& f, const Array<T,Descriptor::d>& force,
+                             const T &rhoBar, Array<T,Descriptor::d> const& uLB,
+                             const T &omega, T amplitude )
+    {
+     		
+		///////////// new 
+		// NOW WE CALCULATE THE moments of the forcing (HE forcing) 
+	
+		T rhoFull	= Descriptor::fullRho(rhoBar);
+        T invRho 	= Descriptor::invRho(rhoBar);
+        T uSqrLB 	= VectorTemplateImpl<T,Descriptor::d>::normSqr(uLB);
+		
+		T c_u_1 = -uLB[0];
+		T c_u_2 = -uLB[1];
+		T c_u_3 = -uLB[2];
+		
+		T c_u_4 = -uLB[0] - uLB[1];
+		T c_u_5 = -uLB[0] + uLB[1];
+		T c_u_6 = -uLB[0] - uLB[2];
+		
+		T c_u_7 = -uLB[0] + uLB[2]; // {-1, 0, 1}
+		T c_u_8 = -uLB[1] - uLB[2]; // { 0,-1,-1}
+		T c_u_9 = -uLB[1] + uLB[2]; // { 0,-1, 1}
+		
+		T c_u_10 = uLB[0] ; // { 1, 0, 0}
+		T c_u_11 = uLB[1]; // { 0, 1, 0}
+		T c_u_12 = uLB[2]; // { 0, 0, 1}
+		
+		T c_u_13 = uLB[0] + uLB[1]; // { 1, 1, 0}
+		T c_u_14 = uLB[0] - uLB[1]; //  { 1,-1, 0}
+		T c_u_15 = uLB[0] + uLB[2]; // { 1, 0, 1}
+		
+		T c_u_16 = uLB[0] - uLB[2]; //  { 1, 0,-1}
+		T c_u_17 = uLB[1] + uLB[2]; //  { 0, 1, 1}
+		T c_u_18 = uLB[1] - uLB[2]; // { 0, 1,-1}
+		
+		
+		// common terms fo ug_i calculations
+		T uLB0_force0 = uLB[0]*force[0];
+		T uLB1_force1 = uLB[1]*force[1];
+		T uLB2_force2 = uLB[2]*force[2];
+		
+		T mines_force_0 = (T(-1)-uLB[0])*force[0];
+		T mines_force_1 = (T(-1)-uLB[1])*force[1];
+		T mines_force_2 = (T(-1)-uLB[2])*force[2];
+		
+		T plus_force_0 = (T(1)-uLB[0])*force[0];
+		T plus_force_1 = (T(1)-uLB[1])*force[1];
+		T plus_force_2 = (T(1)-uLB[2])*force[2];
+		
+		
+		T ug_0  = -uLB0_force0 -uLB1_force1 - uLB2_force2 ; //{0, 0, 0}
+		T ug_1  =  mines_force_0  -uLB1_force1 - uLB2_force2 ; //{-1, 0, 0}
+		T ug_2  = -uLB0_force0 + mines_force_1 - uLB2_force2 ; //{ 0,-1, 0}
+		T ug_3  = -uLB0_force0 - uLB1_force1 + mines_force_2 ; //{ 0, 0,-1}
+		
+		T ug_4  = mines_force_0 + mines_force_1 - uLB2_force2 ; //{-1,-1, 0}
+		T ug_5  = mines_force_0 + plus_force_1 - uLB2_force2 ; //{-1, 1, 0}
+		T ug_6  = mines_force_0 - uLB1_force1 + mines_force_2 ; //{-1, 0,-1}
+		
+		T ug_7  = mines_force_0  -uLB1_force1 + plus_force_2 ; //{-1, 0, 1}
+		T ug_8  = -uLB0_force0 + mines_force_1 + mines_force_2 ; // { 0,-1,-1}
+		T ug_9  = -uLB0_force0 + mines_force_1 + plus_force_2 ; //{ 0,-1, 1}
+		
+		T ug_10  = plus_force_0 -uLB1_force1 - uLB2_force2 ; //{1, 0, 0}
+		T ug_11  = -uLB0_force0 + plus_force_1 - uLB2_force2 ; //{ 0,1, 0}
+		T ug_12  = -uLB0_force0 - uLB1_force1 + plus_force_2 ; //{ 0, 0,1}
+		
+		T ug_13  = plus_force_0 + plus_force_1 - uLB2_force2 ; //   { 1, 1, 0}
+		T ug_14  = plus_force_0 + mines_force_1 - uLB2_force2 ; //  { 1,-1, 0}
+		T ug_15  = plus_force_0 -uLB1_force1 + plus_force_2 ; // { 1, 0, 1}
+		
+		T ug_16  = plus_force_0  -uLB1_force1 + mines_force_2 ; //   { 1, 0,-1}
+		T ug_17  = -uLB0_force0 + plus_force_1 + plus_force_2 ; //  { 0, 1, 1}
+		T ug_18  = -uLB0_force0 + plus_force_1 + mines_force_2 ; // { 0, 1,-1}
+		
+		
+		
+		// for equilibrium
+		T invCs2_term 		= rhoFull*Descriptor::invCs2;
+		T invCs2_sqr_term 	= rhoFull*(0.5*Descriptor::invCs2*Descriptor::invCs2);
+		T common_eq_term 	= rhoFull*(1 - 0.5*Descriptor::invCs2*uSqrLB);
+		
+		
+		T eqContribution_0 = Descriptor::t[0]*common_eq_term;
+		T eqContribution_1 = Descriptor::t[1]*(common_eq_term + invCs2_term*c_u_1 
+														    + invCs2_sqr_term*c_u_1*c_u_1);
+		T eqContribution_2 = Descriptor::t[2]*(common_eq_term + invCs2_term*c_u_2 
+															+ invCs2_sqr_term*c_u_2*c_u_2);
+		T eqContribution_3 = Descriptor::t[3]*(common_eq_term + invCs2_term*c_u_3 
+															+ invCs2_sqr_term*c_u_3*c_u_3);
+		T eqContribution_4 = Descriptor::t[4]*(common_eq_term + invCs2_term*c_u_4 
+															+ invCs2_sqr_term*c_u_4*c_u_4 );
+		T eqContribution_5 = Descriptor::t[5]*(common_eq_term + invCs2_term*c_u_5 
+															+ invCs2_sqr_term*c_u_5*c_u_5 );
+		T eqContribution_6 = Descriptor::t[6]*(common_eq_term + invCs2_term*c_u_6 
+															+ invCs2_sqr_term*c_u_6*c_u_6 );
+		T eqContribution_7 = Descriptor::t[7]*(common_eq_term + invCs2_term*c_u_7 
+															+ invCs2_sqr_term*c_u_7*c_u_7 );
+		T eqContribution_8 = Descriptor::t[8]*(common_eq_term + invCs2_term*c_u_8 
+															+ invCs2_sqr_term*c_u_8*c_u_8 );
+		T eqContribution_9 = Descriptor::t[9]*(common_eq_term + invCs2_term*c_u_9 
+															+ invCs2_sqr_term*c_u_9*c_u_9 );
+		T eqContribution_10 = Descriptor::t[10]*(common_eq_term + invCs2_term*c_u_10 
+															  + invCs2_sqr_term*c_u_10*c_u_10 );
+		T eqContribution_11 = Descriptor::t[11]*(common_eq_term + invCs2_term*c_u_11 
+															  + invCs2_sqr_term*c_u_11*c_u_11 );
+		T eqContribution_12 = Descriptor::t[12]*(common_eq_term + invCs2_term*c_u_12 
+															  + invCs2_sqr_term*c_u_12*c_u_12 );
+		T eqContribution_13 = Descriptor::t[13]*(common_eq_term + invCs2_term*c_u_13 
+															  + invCs2_sqr_term*c_u_13*c_u_13 );
+		T eqContribution_14 = Descriptor::t[14]*(common_eq_term + invCs2_term*c_u_14 
+															  + invCs2_sqr_term*c_u_14*c_u_14 );
+		T eqContribution_15 = Descriptor::t[15]*(common_eq_term + invCs2_term*c_u_15 
+															  + invCs2_sqr_term*c_u_15*c_u_15 );
+		T eqContribution_16 = Descriptor::t[16]*(common_eq_term + invCs2_term*c_u_16 
+															  + invCs2_sqr_term*c_u_16*c_u_16 );
+		T eqContribution_17 = Descriptor::t[17]*(common_eq_term + invCs2_term*c_u_17 
+															  + invCs2_sqr_term*c_u_17*c_u_17 );
+		T eqContribution_18 = Descriptor::t[18]*(common_eq_term + invCs2_term*c_u_18 
+															  + invCs2_sqr_term*c_u_18*c_u_18 );
+
+		
+		Array<T,19> f_full, forceMoments, forcing;
+	 
+		forcing[0] = invRho*Descriptor::invCs2*ug_0*eqContribution_0;
+		forcing[1] = invRho*Descriptor::invCs2*ug_1*eqContribution_1;
+		forcing[2] = invRho*Descriptor::invCs2*ug_2*eqContribution_2;
+		forcing[3] = invRho*Descriptor::invCs2*ug_3*eqContribution_3;
+		forcing[4] = invRho*Descriptor::invCs2*ug_4*eqContribution_4;
+		forcing[5] = invRho*Descriptor::invCs2*ug_5*eqContribution_5;
+		forcing[6] = invRho*Descriptor::invCs2*ug_6*eqContribution_6;
+		forcing[7] = invRho*Descriptor::invCs2*ug_7*eqContribution_7;
+		forcing[8] = invRho*Descriptor::invCs2*ug_8*eqContribution_8;
+		forcing[9] = invRho*Descriptor::invCs2*ug_9*eqContribution_9;
+		forcing[10] = invRho*Descriptor::invCs2*ug_10*eqContribution_10;
+		forcing[11] = invRho*Descriptor::invCs2*ug_11*eqContribution_11;
+		forcing[12] = invRho*Descriptor::invCs2*ug_12*eqContribution_12;
+		forcing[13] = invRho*Descriptor::invCs2*ug_13*eqContribution_13;
+		forcing[14] = invRho*Descriptor::invCs2*ug_14*eqContribution_14;
+		forcing[15] = invRho*Descriptor::invCs2*ug_15*eqContribution_15;
+		forcing[16] = invRho*Descriptor::invCs2*ug_16*eqContribution_16;
+		forcing[17] = invRho*Descriptor::invCs2*ug_17*eqContribution_17;
+		forcing[18] = invRho*Descriptor::invCs2*ug_18*eqContribution_18;
+		
+	
+		computeMoments(forceMoments,forcing);
+		
+		forceMoments[0] *= 0.5;
+		forceMoments[1] *= 0.5;
+		forceMoments[2] *= 0.5;
+		forceMoments[3] *= 0.5;
+		forceMoments[4] *= 0.5;
+		forceMoments[5] *= 0.5;
+		forceMoments[6] *= 0.5;
+		forceMoments[7] *= 0.5;
+		forceMoments[8] *= 0.5;
+		forceMoments[9] *= 0.5;
+		forceMoments[10] *= 0.5;
+		forceMoments[11] *= 0.5;
+		forceMoments[12] *= 0.5;
+		forceMoments[13] *= 0.5;
+		forceMoments[14] *= 0.5;
+		forceMoments[15] *= 0.5;
+		forceMoments[16] *= 0.5;
+		forceMoments[17] *= 0.5;
+		forceMoments[18] *= 0.5;
+		
+		// move from f_bar to full_f
+		// 1. let's get full_f first
+		f_full[0]  = f[0]  + Descriptor::SkordosFactor()*Descriptor::t[0];
+		f_full[1]  = f[1]  + Descriptor::SkordosFactor()*Descriptor::t[1];
+		f_full[2]  = f[2]  + Descriptor::SkordosFactor()*Descriptor::t[2];
+		f_full[3]  = f[3]  + Descriptor::SkordosFactor()*Descriptor::t[3];
+		f_full[4]  = f[4]  + Descriptor::SkordosFactor()*Descriptor::t[4];
+		f_full[5]  = f[5]  + Descriptor::SkordosFactor()*Descriptor::t[5];
+		f_full[6]  = f[6]  + Descriptor::SkordosFactor()*Descriptor::t[6];
+		f_full[7]  = f[7]  + Descriptor::SkordosFactor()*Descriptor::t[7];
+		f_full[8]  = f[8]  + Descriptor::SkordosFactor()*Descriptor::t[8];
+		f_full[9]  = f[9]  + Descriptor::SkordosFactor()*Descriptor::t[9];
+		f_full[10] = f[10] + Descriptor::SkordosFactor()*Descriptor::t[10];
+		f_full[11] = f[11] + Descriptor::SkordosFactor()*Descriptor::t[11];
+		f_full[12] = f[12] + Descriptor::SkordosFactor()*Descriptor::t[12];
+		f_full[13] = f[13] + Descriptor::SkordosFactor()*Descriptor::t[13];
+		f_full[14] = f[14] + Descriptor::SkordosFactor()*Descriptor::t[14];
+		f_full[15] = f[15] + Descriptor::SkordosFactor()*Descriptor::t[15];
+		f_full[16] = f[16] + Descriptor::SkordosFactor()*Descriptor::t[16];
+		f_full[17] = f[17] + Descriptor::SkordosFactor()*Descriptor::t[17];
+		f_full[18] = f[18] + Descriptor::SkordosFactor()*Descriptor::t[18];
+		
+		
+		// I think that the next step is the tricky one
+		computef_InvM_Smoments(f_full, forceMoments, omega);
+				
+		f_full[0] += forcing[0];
+		f_full[1] += forcing[1];
+		f_full[2] += forcing[2];
+		f_full[3] += forcing[3];
+		f_full[4] += forcing[4];
+		f_full[5] += forcing[5];
+		f_full[6] += forcing[6];
+		f_full[7] += forcing[7];
+		f_full[8] += forcing[8];
+		f_full[9] += forcing[9];
+		f_full[10] += forcing[10];
+		f_full[11] += forcing[11];
+		f_full[12] += forcing[12];
+		f_full[13] += forcing[13];
+		f_full[14] += forcing[14];
+		f_full[15] += forcing[15];
+		f_full[16] += forcing[16];
+		f_full[17] += forcing[17];
+		f_full[18] += forcing[18];
+		
+		
+		f[0] = f_full[0] - Descriptor::SkordosFactor()*Descriptor::t[0]; 		
+		f[1] = f_full[1] - Descriptor::SkordosFactor()*Descriptor::t[1]; 
+		f[2] = f_full[2] - Descriptor::SkordosFactor()*Descriptor::t[2]; 
+		f[3] = f_full[3] - Descriptor::SkordosFactor()*Descriptor::t[3]; 
+		f[4] = f_full[4] - Descriptor::SkordosFactor()*Descriptor::t[4]; 
+		f[5] = f_full[5] - Descriptor::SkordosFactor()*Descriptor::t[5]; 
+		f[6] = f_full[6] - Descriptor::SkordosFactor()*Descriptor::t[6]; 
+		f[7] = f_full[7] - Descriptor::SkordosFactor()*Descriptor::t[7]; 
+		f[8] = f_full[8] - Descriptor::SkordosFactor()*Descriptor::t[8]; 
+		f[9] = f_full[9] - Descriptor::SkordosFactor()*Descriptor::t[9]; 
+		f[10] = f_full[10] - Descriptor::SkordosFactor()*Descriptor::t[10]; 
+		f[11] = f_full[11] - Descriptor::SkordosFactor()*Descriptor::t[11]; 
+		f[12] = f_full[12] - Descriptor::SkordosFactor()*Descriptor::t[12]; 
+		f[13] = f_full[13] - Descriptor::SkordosFactor()*Descriptor::t[13]; 
+		f[14] = f_full[14] - Descriptor::SkordosFactor()*Descriptor::t[14]; 
+		f[15] = f_full[15] - Descriptor::SkordosFactor()*Descriptor::t[15]; 
+		f[16] = f_full[16] - Descriptor::SkordosFactor()*Descriptor::t[16]; 
+		f[17] = f_full[17] - Descriptor::SkordosFactor()*Descriptor::t[17]; 
+		f[18] = f_full[18] - Descriptor::SkordosFactor()*Descriptor::t[18]; 
+		
+		
+    }
+    
+    /// MRT collision step
+    static T mrtCollisionWithHeForce( Array<T,Descriptor::q>& f,
+                                    const T &rhoBar, const Array<T,Descriptor::d> & u,
+                                    const T &omega, 
+                                    const Array<T,Descriptor::d> &force, T amplitude) 
+    {
+        Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
+        T jSqr = mrtCollision( f, rhoBar, j, omega );
+        addHeForce( f, force, rhoBar, u, omega, amplitude );
+        
+        return jSqr;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     /// Smagorinsky MRT collision step
     static T smagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
@@ -1505,46 +675,34 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     }
     
     /// MRT collision step
-    static T quasiIncMrtCollisionWithForce( Array<T,Descriptor::q>& f,
+    static T incMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                     const T &rhoBar, const Array<T,Descriptor::d> & u,
                                     T invM_S[Descriptor::q][Descriptor::q], 
                                     const Array<T,Descriptor::d> &force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = quasiIncMrtCollision( f, rhoBar, j, invM_S );
+        T jSqr = incMrtCollision( f, rhoBar, j, invM_S );
         addGuoForce( f, force, u, invM_S, amplitude );
         
         return jSqr;
     }
     
     /// Smagorinsky MRT collision step
-    static T quasiIncSmagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
+    static T incSmagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                                        const T &rhoBar, const Array<T,Descriptor::d> & u,
                                                        T invM_S[Descriptor::q][Descriptor::q], 
                                                        const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n > &strain, T cSmago, 
                                                        const Array<T,Descriptor::d> &force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = quasiIncSmagorinskyMrtCollision( f, rhoBar, j, invM_S, strain, cSmago );
+        T jSqr = incSmagorinskyMrtCollision( f, rhoBar, j, invM_S, strain, cSmago );
         addGuoForce( f, force, u, invM_S, amplitude );
         
         return jSqr;
     }
     
-    static T variableOmegaMrtCollisionWithForce (
-            Array<T,Descriptor::q>& f, const T &rhoBar,
-            const Array<T,Descriptor::d> & u, T invM_S[Descriptor::q][Descriptor::q], 
-            const Array<T,Descriptor::d> &force, T amplitude, T omega ) 
-    {
-        Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = variableOmegaMrtCollision( f, rhoBar, j, invM_S, omega );
-        variableOmegaAddGuoForce( f, force, u, invM_S, amplitude, omega );
-        
-        return jSqr;
-    }
-    
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeQuasiIncEquilibrium( Array<T,Descriptor::q>& momentsEq,
+    static void computeIncEquilibriumMoments( Array<T,Descriptor::q>& momentsEq,
                                             T rhoBar, Array<T,3> const& j, T jSqr )
     {
         momentsEq[0] = rhoBar;
@@ -1569,11 +727,11 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     }
     
     /// Computation of all equilibrium distribution (in moments space)
-    static void computeQuasiIncSmagorinskyEquilibrium( Array<T,Descriptor::q>& momentsEq,
+    static void computeIncSmagorinskyEquilibrium( Array<T,Descriptor::q>& momentsEq,
                                                        T rhoBar, Array<T,3> const& j, T jSqr, const Array<T,6> &strain, T cSmago )
     {
         typedef SymmetricTensorImpl<T,3> S;
-        T sNorm = sqrt((T)2*SymmetricTensorImpl<T,3>::tensorNormSqr(strain));
+        T sNorm = std::sqrt((T)2*SymmetricTensorImpl<T,3>::tensorNormSqr(strain));
         T smagoFactor = (T)2*cSmago * cSmago * sNorm;
         
         T ux2 = smagoFactor * strain[S::xx];
@@ -1606,444 +764,73 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     }
     
     /// MRT collision step
-    static T quasiIncMrtCollision( Array<T,Descriptor::q>& f,
-                                   const T &rhoBar, const Array<T,3> & j,
-                                   const T invM_S[19][19] )
+    static T incMrtCollision( Array<T,Descriptor::q>& f,
+                                   const T &omega )
     {
         
         Array<T,19> moments, momentsEq;
 
         computeMoments(moments,f);
-        moments[0] = rhoBar;
-        moments[3] = j[0];
-        moments[5] = j[1];
-        moments[7] = j[2];
-        
+        T rhoBar = moments[0];
+        Array<T,3> j(moments[MRTDescriptor::momentumIndexes[0]],moments[MRTDescriptor::momentumIndexes[1]],moments[MRTDescriptor::momentumIndexes[2]]);
         T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
-        
-        computeQuasiIncEquilibrium(momentsEq,rhoBar,j,jSqr);
-        
-        T mom1 = moments[1] - momentsEq[1];
-        T mom2 = moments[2] - momentsEq[2];
-        T mom4 = moments[4] - momentsEq[4];
-        T mom6 = moments[6] - momentsEq[6];
-        T mom8 = moments[8] - momentsEq[8];
-        T mom9 = moments[9] - momentsEq[9];
-        T mom10 = moments[10] - momentsEq[10];
-        T mom11 = moments[11] - momentsEq[11];
-        T mom12 = moments[12] - momentsEq[12];
-        T mom13 = moments[13] - momentsEq[13];
-        T mom14 = moments[14] - momentsEq[14];
-        T mom15 = moments[15] - momentsEq[15];
-        T mom16 = moments[16];
-        T mom17 = moments[17];
-        T mom18 = moments[18];
-
-        
-        f[0] -= invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
-        
-        f[1] -= invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] -= invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] -= invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] -= invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][4]*mom4
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13
-                +invM_S[4][16]*mom16
-                +invM_S[4][17]*mom17;
-        
-        f[5] -= invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][4]*mom4
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13
-                +invM_S[5][16]*mom16
-                +invM_S[5][17]*mom17;
-        
-        f[6] -= invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][4]*mom4
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15
-                +invM_S[6][16]*mom16
-                +invM_S[6][18]*mom18;
-        
-        f[7] -= invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][4]*mom4
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15
-                +invM_S[7][16]*mom16
-                +invM_S[7][18]*mom18;
-        
-        f[8] -= invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][6]*mom6
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14
-                +invM_S[8][17]*mom17
-                +invM_S[8][18]*mom18;
-        
-        f[9] -= invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][6]*mom6
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14
-                +invM_S[9][17]*mom17
-                +invM_S[9][18]*mom18;
-        
-        f[10] -= invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] -= invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] -= invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] -= invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][4]*mom4
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13
-                +invM_S[13][16]*mom16
-                +invM_S[13][17]*mom17;
-        
-        f[14] -= invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][4]*mom4
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13
-                +invM_S[14][16]*mom16
-                +invM_S[14][17]*mom17;
-        
-        f[15] -= invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][4]*mom4
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15
-                +invM_S[15][16]*mom16
-                +invM_S[15][18]*mom18;
-        
-        f[16] -= invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][4]*mom4
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15
-                +invM_S[16][16]*mom16
-                +invM_S[16][18]*mom18;
-        
-        f[17] -= invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][6]*mom6
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14
-                +invM_S[17][17]*mom17
-                +invM_S[17][18]*mom18;
-        
-        f[18] -= invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][6]*mom6
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14
-                +invM_S[18][17]*mom17
-                +invM_S[18][18]*mom18;
+        computeIncEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
         return jSqr;
     }
     
-    
     /// MRT collision step
-    static T quasiIncSmagorinskyMrtCollision( Array<T,Descriptor::q>& f,
-                                              const T &rhoBar, const Array<T,3> & j,
-                                              const T invM_S[19][19], const Array<T,6> &strain, T cSmago )
+    static T incMrtCollision( Array<T,Descriptor::q>& f,
+                                   const T &rhoBar, const Array<T,3> & j,
+                                   const T &omega )
     {
         
         Array<T,19> moments, momentsEq;
 
         computeMoments(moments,f);
-        moments[0] = rhoBar;
-        moments[3] = j[0];
-        moments[5] = j[1];
-        moments[7] = j[2];
+        T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
+        computeIncEquilibriumMoments(momentsEq,rhoBar,j,jSqr);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
+        return jSqr;
+    }
+    
+    /// MRT collision step
+    static T incSmagorinskyMrtCollision( Array<T,Descriptor::q>& f,
+                                              const T &omega, const Array<T,6> &strain, T cSmago )
+    {
+        
+        Array<T,19> moments, momentsEq;
+        
+        computeMoments(moments,f);
+        T rhoBar = moments[0];
+        Array<T,3> j(moments[MRTDescriptor::momentumIndexes[0]],moments[MRTDescriptor::momentumIndexes[1]],moments[MRTDescriptor::momentumIndexes[2]]);
         T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
         
-        computeQuasiIncSmagorinskyEquilibrium(momentsEq,rhoBar,j,jSqr,strain,cSmago);
+        computeIncSmagorinskyEquilibrium(momentsEq,rhoBar,j,jSqr,strain,cSmago);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
-        T mom1 = moments[1] - momentsEq[1];
-        T mom2 = moments[2] - momentsEq[2];
-        T mom4 = moments[4] - momentsEq[4];
-        T mom6 = moments[6] - momentsEq[6];
-        T mom8 = moments[8] - momentsEq[8];
-        T mom9 = moments[9] - momentsEq[9];
-        T mom10 = moments[10] - momentsEq[10];
-        T mom11 = moments[11] - momentsEq[11];
-        T mom12 = moments[12] - momentsEq[12];
-        T mom13 = moments[13] - momentsEq[13];
-        T mom14 = moments[14] - momentsEq[14];
-        T mom15 = moments[15] - momentsEq[15];
-        T mom16 = moments[16];
-        T mom17 = moments[17];
-        T mom18 = moments[18];
+        return jSqr;
+    }
+    
+    /// MRT collision step
+    static T incSmagorinskyMrtCollision( Array<T,Descriptor::q>& f,
+                                              const T &rhoBar, const Array<T,3> & j,
+                                              const T &omega, const Array<T,6> &strain, T cSmago )
+    {
+        
+        Array<T,19> moments, momentsEq;
 
+        computeMoments(moments,f);
+        T jSqr = VectorTemplateImpl<T,3>::normSqr(j);
         
-        f[0] -= invM_S[0][1]*mom1
-                +invM_S[0][2]*mom2;
-        
-        f[1] -= invM_S[1][1]*mom1
-                +invM_S[1][2]*mom2
-                +invM_S[1][4]*mom4
-                +invM_S[1][9]*mom9
-                +invM_S[1][10]*mom10;
-        
-        f[2] -= invM_S[2][1]*mom1
-                +invM_S[2][2]*mom2
-                +invM_S[2][6]*mom6
-                +invM_S[2][9]*mom9
-                +invM_S[2][10]*mom10
-                +invM_S[2][11]*mom11
-                +invM_S[2][12]*mom12;
-        
-        f[3] -= invM_S[3][1]*mom1
-                +invM_S[3][2]*mom2
-                +invM_S[3][8]*mom8
-                +invM_S[3][9]*mom9
-                +invM_S[3][10]*mom10
-                +invM_S[3][11]*mom11
-                +invM_S[3][12]*mom12;
-        
-        f[4] -= invM_S[4][1]*mom1
-                +invM_S[4][2]*mom2
-                +invM_S[4][4]*mom4
-                +invM_S[4][6]*mom6
-                +invM_S[4][9]*mom9
-                +invM_S[4][10]*mom10
-                +invM_S[4][11]*mom11
-                +invM_S[4][12]*mom12
-                +invM_S[4][13]*mom13
-                +invM_S[4][16]*mom16
-                +invM_S[4][17]*mom17;
-        
-        f[5] -= invM_S[5][1]*mom1
-                +invM_S[5][2]*mom2
-                +invM_S[5][4]*mom4
-                +invM_S[5][6]*mom6
-                +invM_S[5][9]*mom9
-                +invM_S[5][10]*mom10
-                +invM_S[5][11]*mom11
-                +invM_S[5][12]*mom12
-                +invM_S[5][13]*mom13
-                +invM_S[5][16]*mom16
-                +invM_S[5][17]*mom17;
-        
-        f[6] -= invM_S[6][1]*mom1
-                +invM_S[6][2]*mom2
-                +invM_S[6][4]*mom4
-                +invM_S[6][8]*mom8
-                +invM_S[6][9]*mom9
-                +invM_S[6][10]*mom10
-                +invM_S[6][11]*mom11
-                +invM_S[6][12]*mom12
-                +invM_S[6][15]*mom15
-                +invM_S[6][16]*mom16
-                +invM_S[6][18]*mom18;
-        
-        f[7] -= invM_S[7][1]*mom1
-                +invM_S[7][2]*mom2
-                +invM_S[7][4]*mom4
-                +invM_S[7][8]*mom8
-                +invM_S[7][9]*mom9
-                +invM_S[7][10]*mom10
-                +invM_S[7][11]*mom11
-                +invM_S[7][12]*mom12
-                +invM_S[7][15]*mom15
-                +invM_S[7][16]*mom16
-                +invM_S[7][18]*mom18;
-        
-        f[8] -= invM_S[8][1]*mom1
-                +invM_S[8][2]*mom2
-                +invM_S[8][6]*mom6
-                +invM_S[8][8]*mom8
-                +invM_S[8][9]*mom9
-                +invM_S[8][10]*mom10
-                +invM_S[8][14]*mom14
-                +invM_S[8][17]*mom17
-                +invM_S[8][18]*mom18;
-        
-        f[9] -= invM_S[9][1]*mom1
-                +invM_S[9][2]*mom2
-                +invM_S[9][6]*mom6
-                +invM_S[9][8]*mom8
-                +invM_S[9][9]*mom9
-                +invM_S[9][10]*mom10
-                +invM_S[9][14]*mom14
-                +invM_S[9][17]*mom17
-                +invM_S[9][18]*mom18;
-        
-        f[10] -= invM_S[10][1]*mom1
-                +invM_S[10][2]*mom2
-                +invM_S[10][4]*mom4
-                +invM_S[10][9]*mom9
-                +invM_S[10][10]*mom10;
-        
-        f[11] -= invM_S[11][1]*mom1
-                +invM_S[11][2]*mom2
-                +invM_S[11][6]*mom6
-                +invM_S[11][9]*mom9
-                +invM_S[11][10]*mom10
-                +invM_S[11][11]*mom11
-                +invM_S[11][12]*mom12;
-        
-        f[12] -= invM_S[12][1]*mom1
-                +invM_S[12][2]*mom2
-                +invM_S[12][8]*mom8
-                +invM_S[12][9]*mom9
-                +invM_S[12][10]*mom10
-                +invM_S[12][11]*mom11
-                +invM_S[12][12]*mom12;
-        
-        f[13] -= invM_S[13][1]*mom1
-                +invM_S[13][2]*mom2
-                +invM_S[13][4]*mom4
-                +invM_S[13][6]*mom6
-                +invM_S[13][9]*mom9
-                +invM_S[13][10]*mom10
-                +invM_S[13][11]*mom11
-                +invM_S[13][12]*mom12
-                +invM_S[13][13]*mom13
-                +invM_S[13][16]*mom16
-                +invM_S[13][17]*mom17;
-        
-        f[14] -= invM_S[14][1]*mom1
-                +invM_S[14][2]*mom2
-                +invM_S[14][4]*mom4
-                +invM_S[14][6]*mom6
-                +invM_S[14][9]*mom9
-                +invM_S[14][10]*mom10
-                +invM_S[14][11]*mom11
-                +invM_S[14][12]*mom12
-                +invM_S[14][13]*mom13
-                +invM_S[14][16]*mom16
-                +invM_S[14][17]*mom17;
-        
-        f[15] -= invM_S[15][1]*mom1
-                +invM_S[15][2]*mom2
-                +invM_S[15][4]*mom4
-                +invM_S[15][8]*mom8
-                +invM_S[15][9]*mom9
-                +invM_S[15][10]*mom10
-                +invM_S[15][11]*mom11
-                +invM_S[15][12]*mom12
-                +invM_S[15][15]*mom15
-                +invM_S[15][16]*mom16
-                +invM_S[15][18]*mom18;
-        
-        f[16] -= invM_S[16][1]*mom1
-                +invM_S[16][2]*mom2
-                +invM_S[16][4]*mom4
-                +invM_S[16][8]*mom8
-                +invM_S[16][9]*mom9
-                +invM_S[16][10]*mom10
-                +invM_S[16][11]*mom11
-                +invM_S[16][12]*mom12
-                +invM_S[16][15]*mom15
-                +invM_S[16][16]*mom16
-                +invM_S[16][18]*mom18;
-        
-        f[17] -= invM_S[17][1]*mom1
-                +invM_S[17][2]*mom2
-                +invM_S[17][6]*mom6
-                +invM_S[17][8]*mom8
-                +invM_S[17][9]*mom9
-                +invM_S[17][10]*mom10
-                +invM_S[17][14]*mom14
-                +invM_S[17][17]*mom17
-                +invM_S[17][18]*mom18;
-        
-        f[18] -= invM_S[18][1]*mom1
-                +invM_S[18][2]*mom2
-                +invM_S[18][6]*mom6
-                +invM_S[18][8]*mom8
-                +invM_S[18][9]*mom9
-                +invM_S[18][10]*mom10
-                +invM_S[18][14]*mom14
-                +invM_S[18][17]*mom17
-                +invM_S[18][18]*mom18;
+        computeIncSmagorinskyEquilibrium(momentsEq,rhoBar,j,jSqr,strain,cSmago);
+        computeMneqInPlace(moments,momentsEq); // moments become mNeq
+        computef_InvM_Smoments(f, moments, omega);
         
         return jSqr;
     }

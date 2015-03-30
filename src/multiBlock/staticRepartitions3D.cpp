@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -115,7 +115,7 @@ SparseBlockStructure3D createRegularDistribution3D (
     }
     return createRegularDistribution3D (
                  domain,
-                 repartition[0], repartition[1], repartition[2] );
+                 newRepartition[0], newRepartition[1], newRepartition[2] );
 }
 
 SparseBlockStructure3D createRegularDistribution3D (

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -269,30 +269,21 @@ struct MultiFreeSurfaceFields3D {
           interactionStrength(interactionStrength_)
     {
         delete threadAttribution;
-        Precision precision;
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        Precision precision = floatingPointPrecision<T>();
         T eps = getEpsilon<T>(precision);
         // The contact angles take values between 0 and 180 degrees. If they
         // are negative, this means that contact angle effects will not be
         // modeled.
-        PLB_ASSERT(contactAngle1 < (T) 180.0 || fabs(contactAngle1 - (T) 180.0) <= eps);
-        PLB_ASSERT(contactAngle2 < (T) 180.0 || fabs(contactAngle2 - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle1 < (T) 180.0 || std::fabs(contactAngle1 - (T) 180.0) <= eps);
+        PLB_ASSERT(contactAngle2 < (T) 180.0 || std::fabs(contactAngle2 - (T) 180.0) <= eps);
 
-        if (fabs(surfaceTension1) <= eps) {
+        if (std::fabs(surfaceTension1) <= eps) {
             useSurfaceTension1 = 0;
         } else {
             useSurfaceTension1 = 1;
         }
 
-        if (fabs(surfaceTension2) <= eps) {
+        if (std::fabs(surfaceTension2) <= eps) {
             useSurfaceTension2 = 0;
         } else {
             useSurfaceTension2 = 1;
@@ -578,20 +569,11 @@ struct MultiFreeSurfaceFields3D {
         /***** New level ******/
         pl++;
 
-        Precision precision;
-        if (sizeof(T) == sizeof(float))
-            precision = FLT;
-        else if (sizeof(T) == sizeof(double))
-            precision = DBL;
-        else if (sizeof(T) == sizeof(long double))
-            precision = LDBL;
-        else
-            PLB_ASSERT(false);
-
+        Precision precision = floatingPointPrecision<T>();
         T eps = getEpsilon<T>(precision);
 
         int useRepellingForceCoupling = 1;
-        if (fabs(interactionStrength) <= eps) {
+        if (std::fabs(interactionStrength) <= eps) {
             useRepellingForceCoupling = 0;
         }
 
@@ -618,12 +600,12 @@ struct MultiFreeSurfaceFields3D {
 
         if (useSurfaceTension1) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension1), 
+                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension1, rhoDefault1), 
                 lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
         }
         if (useSurfaceTension2) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension2), 
+                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension2, rhoDefault2), 
                 lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
         }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -63,11 +63,11 @@ void porousMediaSetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
         pcout << "Definition of inlet/outlet." << endl;
         Box3D inlet (0,0,      1,ny-2, 1,nz-2);
         boundaryCondition->addPressureBoundary0N(inlet, lattice);
-        setBoundaryDensity(lattice, inlet, 1.);
+        setBoundaryDensity(lattice, inlet, (T) 1.);
 
         Box3D outlet(nx-1,nx-1, 1,ny-2, 1,nz-2);
         boundaryCondition->addPressureBoundary0P(outlet, lattice);
-        setBoundaryDensity(lattice, outlet, 1. - deltaP*DESCRIPTOR<T>::invCs2);
+        setBoundaryDensity(lattice, outlet, (T) 1. - deltaP*DESCRIPTOR<T>::invCs2);
 
         pcout << "Definition of the geometry." << endl;
         // Where "geometry" evaluates to 1, use bounce-back.
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
         
         MultiScalarField3D<int> geometry(nx,ny,nz);
         MultiScalarField3D<int> slice(1,ny,nz);
-        for (iX=0; iX<nx-1; ++iX) {
+        for (plint iX=0; iX<nx-1; ++iX) {
             string fname = createFileName("slice_", iX, 4)+"_truc.dat";
             pcout << "Reading slice " << fname;
             plb_ifstream geometryFile(fNameIn.c_str());
@@ -186,7 +186,6 @@ int main(int argc, char **argv)
         ////////
 
         pcout << "Reading the geometry file." << endl;
-        MultiScalarField3D<int> geometry(nx,ny,nz);
         plb_ifstream geometryFile(fNameIn.c_str());
         if (!geometryFile.is_open()) {
                 pcout << "Error: could not open geometry file " << fNameIn << endl;

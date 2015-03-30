@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -139,7 +139,237 @@ public:
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
 private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
     static int id;
+};
+
+
+/// Implementation of O(Ma^2) BGK dynamics
+template<typename T, template<typename U> class Descriptor>
+class CompleteBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    CompleteBGKdynamics(T omega_);
+
+    /// Clone the object on its dynamic type.
+    virtual CompleteBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium and Regularize************************* */
+/// Re-compute particle populations from the leading moments
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;              
+private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
+    static int id;
+};
+
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+template<typename T, template<typename U> class Descriptor>
+class CompleteTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    CompleteTRTdynamics(T omega_, T psi_);
+
+    CompleteTRTdynamics(T omega_);
+
+    /// Clone the object on its dynamic type.
+    virtual CompleteTRTdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+/* *************** Collision and Equilibrium and Regularize************************* */
+/// Re-compute particle populations from the leading moments
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;         
+                                 
+    /* *************** Configurable parameters *************************** */
+
+    /// Get all relaxation frequencies (in case of an SRT model they are all equal to omega).
+    virtual Array<T, Descriptor<T>::q> getRelaxationFrequencies() const;
+    /// Set all relaxation frequencies (in case of an SRT model they should all equal omega).
+    virtual void setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies);
+    /// Set local value of any generic parameter
+    virtual void setParameter(plint whichParameter, T value);
+    /// Get local value of any generic parameter
+    virtual T getParameter(plint whichParameter) const;
+    /// Set second relaxation time
+    void setPsi(T psi_);
+    /// Get second relaxation time
+    T    getPsi() const;
+private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
+    static int id;
+    T psi;
+};
+
+
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+template<typename T, template<typename U> class Descriptor>
+class CompleteRegularizedTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    CompleteRegularizedTRTdynamics(T omega_, T psi_);
+
+    CompleteRegularizedTRTdynamics(T omega_);
+
+    /// Clone the object on its dynamic type.
+    virtual CompleteRegularizedTRTdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+/* *************** Collision and Equilibrium and Regularize************************* */
+/// Re-compute particle populations from the leading moments
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;         
+                                 
+    /* *************** Configurable parameters *************************** */
+
+    /// Get all relaxation frequencies (in case of an SRT model they are all equal to omega).
+    virtual Array<T, Descriptor<T>::q> getRelaxationFrequencies() const;
+    /// Set all relaxation frequencies (in case of an SRT model they should all equal omega).
+    virtual void setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies);
+    /// Set local value of any generic parameter
+    virtual void setParameter(plint whichParameter, T value);
+    /// Get local value of any generic parameter
+    virtual T getParameter(plint whichParameter) const;
+    /// Set second relaxation time
+    void setPsi(T psi_);
+    /// Get second relaxation time
+    T    getPsi() const;
+private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
+    static int id;
+    T psi;
+};
+
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+/// with only second order equilibrium terms.
+template<typename T, template<typename U> class Descriptor>
+class TruncatedTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    TruncatedTRTdynamics(T omega_, T psi_);
+
+    TruncatedTRTdynamics(T omega_);
+
+    /// Clone the object on its dynamic type.
+    virtual TruncatedTRTdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+/* *************** Collision and Equilibrium and Regularize************************* */
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;         
+                                 
+    /* *************** Configurable parameters *************************** */
+
+    /// Get all relaxation frequencies (in case of an SRT model they are all equal to omega).
+    virtual Array<T, Descriptor<T>::q> getRelaxationFrequencies() const;
+    /// Set all relaxation frequencies (in case of an SRT model they should all equal omega).
+    virtual void setRelaxationFrequencies(Array<T, Descriptor<T>::q> const& frequencies);
+    /// Set local value of any generic parameter
+    virtual void setParameter(plint whichParameter, T value);
+    /// Get local value of any generic parameter
+    virtual T getParameter(plint whichParameter) const;
+    /// Set second relaxation time
+    void setPsi(T psi_);
+    /// Get second relaxation time
+    T    getPsi() const;
+private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
+    static int id;
+    T psi;
 };
 
 template<typename T, template<typename U> class Descriptor>

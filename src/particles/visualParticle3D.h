@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -53,9 +53,11 @@ public:
     virtual int getId() const;
     virtual void reset(Array<T,3> const& position);
     virtual VisualParticle3D<T,Descriptor>* clone() const;
-    virtual bool getVector(plint whichVector, Array<T,3>& vector) const;
     virtual bool getScalar(plint whichScalar, T& scalar) const;
+    virtual bool setScalar(plint whichScalar, T scalar);
     virtual bool setScalars(std::vector<T> const& scalars_);
+    virtual bool getVector(plint whichVector, Array<T,3>& vector) const;
+    virtual bool setVector(plint whichVector, Array<T,3> const& vector);
     virtual bool setVectors(std::vector<Array<T,3> > const& vectors_);
 private:
     std::vector<T> scalars;
@@ -132,7 +134,6 @@ public:
     T getTimeScaling() const { return timeScaling; }
     T& getTimeScaling() { return timeScaling; }
     virtual bool passedTerminalPlane() const { return reachedTerminalPlane; }
-    virtual bool crossedTerminalPlane(T& distanceFromPlane) const;
 private:
     Plane<T> terminalPlane;
     Array<T,3> initialPosition;
@@ -142,6 +143,44 @@ private:
     bool advanceBackwardInTime;
     T timeScaling;
     bool reachedTerminalPlane;
+    static int id;
+};
+
+/*
+ * TimeRegisteringParticle3D: This particle type, stores the time it exists
+ * (its age) since passing from a user-defined plane. The way this particle is
+ * supposed to be used is the following. In the beginning the particle is
+ * injected at a position which belongs to the half space A. The time registering
+ * has not started yet. As the particle moves, at some point it will cross the
+ * plane and will pass to the half space B. Then the time registering begins, and
+ * the crossing of the plane is never again checked. The normal of the plane must
+ * point from half space A to B. The time scaling variable serves as the ratio
+ * between the time step of the particle integration, and the time step of the
+ * fluid integration.
+ */
+template<typename T, template<typename U> class Descriptor>
+class TimeRegisteringParticle3D : public PointParticle3D<T,Descriptor> {
+public:
+    TimeRegisteringParticle3D();
+    TimeRegisteringParticle3D(plint tag_, Array<T,3> const& position_,
+            Array<T,3> const& velocity_, Plane<T> const& initialPlane_,
+            T timeScaling_);
+    virtual TimeRegisteringParticle3D<T,Descriptor>* clone() const;
+    virtual int getId() const;
+    virtual void advance();
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+    virtual void rescale(int dxScale, int dtScale);
+    Plane<T> const& getInitialPlane() const { return initialPlane; }
+    T getRegisteredTime() const { return registeredTime; }
+    T getTimeScaling() const { return timeScaling; }
+    T& getTimeScaling() { return timeScaling; }
+    virtual bool passedInitialPlane() const { return reachedInitialPlane; }
+private:
+    Plane<T> initialPlane;
+    T registeredTime;
+    T timeScaling;
+    bool reachedInitialPlane;
     static int id;
 };
 

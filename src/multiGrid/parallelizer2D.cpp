@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -24,9 +24,6 @@
 
 /* Main author: Daniel Lagrava
  */
-
-#ifndef PARALLELIZER_2D_CPP
-#define PARALLELIZER_2D_CPP
 
 #include "multiGrid/parallelizer2D.h"
 #include "parallelism/mpiManager.h"
@@ -169,4 +166,3 @@ void ParallellizeBySquares2D::parallelize(){
 
 } // namespace plb
 
-#endif // PARALLELIZER_2D_CPP

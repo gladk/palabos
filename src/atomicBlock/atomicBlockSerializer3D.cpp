@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,8 +25,6 @@
 /** \file
  * Serializer and UnSerializer for atomic blocks -- generic implementation.
  */
-#ifndef ATOMIC_BLOCK_SERIALIZER_3D_HH
-#define ATOMIC_BLOCK_SERIALIZER_3D_HH
 
 #include "atomicBlock/atomicBlockSerializer3D.h"
 #include "core/plbDebug.h"
@@ -167,4 +165,3 @@ bool AtomicBlockUnSerializer3D::isFull() const {
 
 }  //  namespace plb
 
-#endif  // ATOMIC_BLOCK_SERIALIZER_3D_HH

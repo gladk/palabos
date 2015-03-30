@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -90,8 +90,8 @@ public:
     virtual void copyReceive (
                 MultiBlock2D const& fromBlock, Box2D const& fromDomain,
                 Box2D const& toDomain, modif::ModifT whichData=modif::dataStructure );
-    std::string getBlockName() const;
-    std::vector<std::string> getTypeInfo() const;
+    virtual std::string getBlockName() const;
+    virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
 private:
@@ -100,8 +100,12 @@ private:
 private:
     BlockMap fields;
     MultiScalarAccess2D<T>* multiScalarAccess;
+public:
     static const int staticId;
 };
+
+template<typename T>
+MultiScalarField2D<T>& findMultiScalarField2D(id_t id);
 
 
 template<typename T, int nDim> class MultiTensorField2D;
@@ -162,8 +166,8 @@ public:
     virtual void copyReceive (
                 MultiBlock2D const& fromBlock, Box2D const& fromDomain,
                 Box2D const& toDomain, modif::ModifT whichData=modif::dataStructure );
-    std::string getBlockName() const;
-    std::vector<std::string> getTypeInfo() const;
+    virtual std::string getBlockName() const;
+    virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
 private:
@@ -173,8 +177,12 @@ private:
 private:
     BlockMap fields;
     MultiTensorAccess2D<T,nDim>* multiTensorAccess;
+public:
     static const int staticId;
 };
+
+template<typename T, int nDim>
+MultiTensorField2D<T,nDim>& findMultiTensorField2D(id_t id);
 
 
 template<typename T> class MultiNTensorField2D;
@@ -236,8 +244,8 @@ public:
     virtual void copyReceive (
                 MultiBlock2D const& fromBlock, Box2D const& fromDomain,
                 Box2D const& toDomain, modif::ModifT whichData=modif::dataStructure );
-    std::string getBlockName() const;
-    std::vector<std::string> getTypeInfo() const;
+    virtual std::string getBlockName() const;
+    virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
 private:
@@ -247,8 +255,12 @@ private:
 private:
     BlockMap fields;
     MultiNTensorAccess2D<T>* multiNTensorAccess;
+public:
     static const int staticId;
 };
+
+template<typename T>
+MultiNTensorField2D<T>& findMultiNTensorField2D(id_t id);
 
 }  // namespace plb
 

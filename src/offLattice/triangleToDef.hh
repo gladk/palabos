@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -63,7 +63,7 @@ void TriangleToDef<T>::vsOrder() {
 template<typename T>
 inline bool TriangleToDef<T>::VsLessThan::vertexComponentLessThan(T x, T y)
 {
-    T tmp = (T) 0.5 * (fabs(x - y) + fabs(y - x));
+    T tmp = (T) 0.5 * (std::fabs(x - y) + std::fabs(y - x));
     return ((x < y) && (tmp > epsilon));
 }
 
@@ -125,6 +125,11 @@ bool TriangleToDef<T>::bvmCheck() const {
             node.t1 == -1 || node.t2 == -1 ||
             node.counter != 2)
         {
+#ifdef PLB_DEBUG
+            Array<T,3> v = vertexList[it->first];
+            pcout << "There is a problem with the boundary of the triangular surface mesh." << std::endl;
+            pcout << "The problematic vertex is: [" << v[0] << ", " << v[1] << ", " << v[2] << "]" << std::endl;
+#endif
             return true;
         }
     }

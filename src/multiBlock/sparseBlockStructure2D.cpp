@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -185,8 +185,8 @@ plint SparseBlockStructure2D::locate(plint iX, plint iY) const {
 
 void SparseBlockStructure2D::defaultGridN()
 {
-    double uniformGridN = std::pow( (double)defaultMultiBlockPolicy2D().getNumGridPoints(), 1./3. );
-    double uniformNcell = std::pow ( (double)(boundingBox.nCells()), 1./3. );
+    double uniformGridN = std::pow( (double)defaultMultiBlockPolicy2D().getNumGridPoints(), 1./2. );
+    double uniformNcell = std::pow ( (double)(boundingBox.nCells()), 1./2. );
     gridNx = (plint)(0.5+(double)boundingBox.getNx()/uniformNcell*uniformGridN);
     if (gridNx < 1) gridNx = 1;
     gridNy = (plint)(0.5+(double)boundingBox.getNy()/uniformNcell*uniformGridN);

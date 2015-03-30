@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -120,15 +120,27 @@ class ComputeParticleForce3D : public BoxProcessingFunctional3D
 public:
     ComputeParticleForce3D( TriangleBoundary3D<T> const& triangleBoundary_,
                             int flowType_, bool incompressibleModel_ );
-    /// Arguments: [0] Particle-field; [1] Fluid; [2] Voxel-Matrix.
+    /// Arguments: [0] Particle-field; [1] Scalar-field.
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual ComputeParticleForce3D<T,Descriptor>* clone() const;
-    virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     TriangleBoundary3D<T> const& triangleBoundary;
     int flowType;
     bool incompressibleModel;
+};
+
+template< typename T, template<typename U> class Descriptor >
+class ScalarFieldToParticle3D : public BoxProcessingFunctional3D
+{
+public:
+    ScalarFieldToParticle3D(plint whichScalar_=-1);
+    /// Arguments: [0] Particle-field; [1] Scalar-Field
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual ScalarFieldToParticle3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint whichScalar;
 };
 
 template<typename T, template<typename U> class Descriptor>

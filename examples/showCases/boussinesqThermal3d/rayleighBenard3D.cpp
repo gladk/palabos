@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -165,7 +165,7 @@ void rayleighBenardSetup (
     adBoundaryCondition.addTemperatureBoundary2N(bottom, adLattice);
     adBoundaryCondition.addTemperatureBoundary2P(top,    adLattice);
 
-    initializeAtEquilibrium(nsLattice, nsLattice.getBoundingBox(), 1., Array<T,3>(0.,0.,0.) );
+    initializeAtEquilibrium(nsLattice, nsLattice.getBoundingBox(), (T)1., Array<T,3>((T)0.,(T)0.,(T)0.) );
     
     applyProcessingFunctional(
             new IniTemperatureRayleighBenardProcessor3D<T,NSDESCRIPTOR,ADESCRIPTOR>(parameters), 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -127,6 +127,18 @@ bool VisualParticle2D<T,Descriptor>::getScalar(plint whichScalar, T& scalar) con
 }
 
 template<typename T, template<typename U> class Descriptor>
+bool VisualParticle2D<T,Descriptor>::setScalar(plint whichScalar, T scalar)
+{
+    if (whichScalar<(plint)scalars.size()) {
+        scalars[whichScalar] = scalar;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 bool VisualParticle2D<T,Descriptor>::setScalars(std::vector<T> const& scalars_)
 {
     scalars = scalars_;
@@ -138,6 +150,18 @@ bool VisualParticle2D<T,Descriptor>::setVectors(std::vector<Array<T,2> > const& 
 {
     vectors = vectors_;
     return true;
+}
+
+template<typename T, template<typename U> class Descriptor>
+bool VisualParticle2D<T,Descriptor>::setVector(plint whichVector, Array<T,2> const& vector)
+{
+    if (whichVector<(plint)vectors.size()) {
+        vectors[whichVector] = vector;
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 
@@ -274,7 +298,7 @@ bool VisualParticle2D<T,Descriptor>::setVectors(std::vector<Array<T,2> > const& 
 // 
 // template<typename T, template<typename U> class Descriptor>
 // T MappingParticleZslice2D<T,Descriptor>::getSurfaceDistance() const {
-//     return fabs(zSlice2 - zSlice1);
+//     return std::fabs(zSlice2 - zSlice1);
 // }
 // 
 // template<typename T, template<typename U> class Descriptor>

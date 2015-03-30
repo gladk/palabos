@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2012 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,7 +45,6 @@ const T ly = 1.0;
 const T lz = 1.0;
 
 const T rhoEmpty = T(1);
-Array<T,3> forceOrientation(T(),T(),(T)1);
     
 plint writeImagesIter   = 100;
 plint getStatisticsIter = 20;

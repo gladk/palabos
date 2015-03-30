@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,6 +43,7 @@ public:
 public:
     TriangleSet(Precision precision_ = FLT);
     TriangleSet(std::vector<Triangle> const& triangles_, Precision precision_ = FLT);
+    // Currently STL and OFF files are supported by this class.
     TriangleSet(std::string fname, Precision precision_ = FLT, SurfaceGeometryFileFormat fformat = STL);
     std::vector<Triangle> const& getTriangles() const;
     Precision getPrecision() const { return precision; }
@@ -50,8 +51,10 @@ public:
 
     /// Translate the triangle set surface mesh.
     void translate(Array<T,3> const& vector);
-    /// Scale the triangle set surface mesh.
+    /// Scale the triangle set surface mesh uniformly in all directions.
     void scale(T alpha);
+    /// Scale the triangle set surface mesh differently in each direction.
+    void scale(T alpha, T beta, T gamma);
     /// Rotate the triangle set surface mesh.
     ///   The arguments of this function are the Euler angles in radians.
     ///   The so-called "x-convention" is used, in which the rotation is
@@ -62,6 +65,9 @@ public:
     ///   3.] The third rotation is by an angle psi about the new z-axis.
     void rotate(T phi, T theta, T psi);
     void rotateAtOrigin(Array<T,3> const& normedAxis, T theta);
+
+    /// Clear the triangle mesh.
+    void clear();
 
     /// Erase the current triangle set surface mesh, and merge into it the new meshes.
     ///   This function currently does not check for duplicate
@@ -88,9 +94,28 @@ public:
     ///   joining the middle points of the original edges. The old mesh
     ///   is deleted.
     void refine();
+    /// Refine the current triangle set surface mesh by considering
+    ///   edge lengths. If the length of an edge is greater than or
+    ///   equal to the edgeLengthThreshold, then this edge is splitted
+    ///   in two. The old mesh is deleted.
+    void refine(T edgeLengthThreshold);
+    /// Refine the current triangle set surface mesh by considering
+    ///   edge lengths. If the length of an edge is greater than or
+    ///   equal to the targetMaxEdgeLength, then this edge is splitted
+    ///   in two. The procedure is repeated until the maximum edge length
+    ///   is less than the one provided, or until the maxNumIterations
+    ///   has been reached. The old mesh is deleted. The function returns
+    ///   true upon success or false otherwise.
+    bool refineRecursively(T targetMaxEdgeLength, plint maxNumIterations);
 
     /// A very simple orientation reversing function.
     void reverseOrientation();
+
+    /// Cast all coordinates to float and then back to type T.
+    void toFloatAndBack();
+
+    /// Check if the triangle set has triangles with zero area.
+    bool hasDegenerateTriangles() const;
 
     /// Export the mesh as an ASCII STL file.
     void writeAsciiSTL(std::string fname) const;
@@ -128,13 +153,19 @@ public:
     T getMaxEdgeLength() const { return maxEdgeLength; }
 
     Cuboid<T> getBoundingCuboid() const { return boundingCuboid; }
+    Array<T,3> getCentroid() const;
 
 private:
     void readSTL(std::string fname);
+    bool isAsciiSTL(FILE* fp);
     void readAsciiSTL(FILE* fp);
     void readBinarySTL(FILE* fp);
-    void check(Triangle& triangle, Array<T,3> const& n);
-    bool checkNoAbort(Triangle& triangle, Array<T,3> const& n);
+    void readOFF(std::string fname);
+    void readAsciiOFF(FILE* fp);
+    void checkForDegenerateTriangles(Triangle const& triangle, Array<T,3>& computedNormal) const;
+    bool checkForDegenerateTrianglesNoAbort(Triangle const& triangle, Array<T,3>& computedNormal) const;
+    void checkForDegenerateTrianglesAndFixOrientation(Triangle& triangle, Array<T,3> const& n) const;
+    bool checkForDegenerateTrianglesAndFixOrientationNoAbort(Triangle& triangle, Array<T,3> const& n) const;
     void computeMinMaxEdge(pluint iTriangle, T& minEdge, T& maxEdge) const;
     void computeMinMaxEdges();
     void computeBoundingCuboid();
@@ -147,6 +178,15 @@ private:
     ///   original triangle set and the plane and -1 if an error occured.
     int cutTriangleWithPlane(Plane<T> const& plane, Triangle const& triangle,
             TriangleSet<T>& newTriangleSet) const;
+    /// Skip nLines number of lines in the file.
+    void skipLines(plint nLines, FILE* fp) const;
+    /// Read the file character-by-character. This function returns 0 if a non-white-space
+    /// character is found, or EOF if the end-of-file is found. It "consumes" the
+    /// rest of the line if the "commentCharacter" is found. Obviously, it works only
+    /// with text files.
+    int readAhead(FILE *fp, char commentCharacter) const;
+    /// Check if the buffer which holds an input line of text is full.
+    bool checkForBufferOverflow(char* buf) const;
 
 private:
     std::vector<Triangle> triangles;
@@ -156,6 +196,7 @@ private:
     /// Single precision (float): FLT
     /// Double precision (double): DBL
     /// Extended precision (long double): LDBL
+    /// "Infinite" precision: INF
     Precision precision;
 };
 

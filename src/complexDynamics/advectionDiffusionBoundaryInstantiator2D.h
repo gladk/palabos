@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -94,11 +94,11 @@ void AdvectionDiffusionBoundaryConditionInstantiator2D<T,Descriptor,BoundaryMana
             lattice, domain,
             BoundaryManager::template getAdvectionDiffusionBoundaryDynamics<direction,orientation>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator2D* generator
-        = BoundaryManager::template getAdvectionDiffusionBoundaryProcessor<direction,orientation>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    // If the boundary condition has a non-local component, instantiate a corresponding data processor.
+    BoxProcessingFunctional2D_L<T,Descriptor>* functional
+        = BoundaryManager::template getAdvectionDiffusionBoundaryProcessor<direction,orientation>();
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -111,11 +111,11 @@ void AdvectionDiffusionBoundaryConditionInstantiator2D<T,Descriptor,BoundaryMana
             lattice, Box2D(x,x,y,y),
             BoundaryManager::template getAdvectionDiffusionCornerDynamics<xNormal,yNormal>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator2D* generator
-        = BoundaryManager::template getAdvectionDiffusionCornerProcessor<xNormal,yNormal>(x, y);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    // If the boundary condition has a non-local component, instantiate a corresponding data processor.
+    BoxProcessingFunctional2D_L<T,Descriptor>* functional
+        = BoundaryManager::template getAdvectionDiffusionCornerProcessor<xNormal,yNormal>();
+    if (functional) {
+        integrateProcessingFunctional(functional, Box2D(x,x,y,y), lattice);
     }
 }
 
@@ -186,12 +186,12 @@ void AdvectionDiffusionBoundaryConditionInstantiator2D<T,Descriptor,BoundaryMana
     setCompositeDynamics (
             lattice, domain,
             BoundaryManager::template getAdvectionDiffusionBoundaryDynamics<direction,orientation>(new NoDynamics<T,Descriptor>) );
-
-    DataProcessorGenerator2D* generator
-        = BoundaryManager::template getAdvectionDiffusionBoundaryProcessor<direction,orientation>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    
+    // If the boundary condition has a non-local component, instantiate a corresponding data processor.
+    BoxProcessingFunctional2D_L<T,Descriptor>* functional
+        = BoundaryManager::template getAdvectionDiffusionBoundaryProcessor<direction,orientation>();
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -203,12 +203,12 @@ void AdvectionDiffusionBoundaryConditionInstantiator2D<T,Descriptor,BoundaryMana
     setCompositeDynamics (
             lattice, Box2D(x,x,y,y),
             BoundaryManager::template getAdvectionDiffusionCornerDynamics<xNormal,yNormal>(new NoDynamics<T,Descriptor>) );
-
-    DataProcessorGenerator2D* generator
-        = BoundaryManager::template getAdvectionDiffusionCornerProcessor<xNormal,yNormal>(x, y);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    
+    // If the boundary condition has a non-local component, instantiate a corresponding data processor.
+    BoxProcessingFunctional2D_L<T,Descriptor>* functional
+        = BoundaryManager::template getAdvectionDiffusionCornerProcessor<xNormal,yNormal>();
+    if (functional) {
+        integrateProcessingFunctional(functional, Box2D(x,x,y,y), lattice);
     }
 }
 

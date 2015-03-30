@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,7 @@
 #ifndef DATA_ANALYSIS_FUNCTIONAL_2D_HH
 #define DATA_ANALYSIS_FUNCTIONAL_2D_HH
 
+#include "core/globalDefs.h"
 #include "dataProcessors/dataAnalysisFunctional2D.h"
 #include "core/blockStatistics.h"
 #include "core/plbDebug.h"
@@ -333,7 +334,7 @@ void BoxRhoBarJfunctional2D<T,Descriptor>::processGenericBlocks (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             Cell<T,Descriptor> const& cell = lattice.get(iX,iY);
-            momentTemplates<T,Descriptor>::get_rhoBar_j (
+            cell.getDynamics().computeRhoBarJ (
                     cell,
                     rhoBarField.get(iX+offset1.x,iY+offset1.y),
                     jField.get(iX+offset2.x,iY+offset2.y) );
@@ -428,8 +429,11 @@ void BoxVelocityNormFunctional2D<T,Descriptor>::process (
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             Array<T,Descriptor<T>::d> velocity;
             lattice.get(iX,iY).computeVelocity(velocity);
+            // The type cast converts the result of normSqr to type U in case T is of type Complex<U>.
+            // Otherwise, the call to std::sqrt would fail, because std::sqrt is overloaded, but not
+            // for Palabos' Complex type.
             scalarField.get(iX+offset.x,iY+offset.y)
-                = sqrt( VectorTemplate<T,Descriptor>::normSqr(velocity) );
+                = std::sqrt( (typename PlbTraits<T>::BaseType) VectorTemplate<T,Descriptor>::normSqr(velocity) );
         }
     }
 }
@@ -659,9 +663,9 @@ void BoxSoundSpeedFunctional2D<T,Descriptor>::process (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             scalarField.get(iX+offset.x,iY+offset.y)
-                = sqrt(lattice.get(iX,iY).computeTemperature()*Descriptor<T>::invCs2);
+                = std::sqrt(lattice.get(iX,iY).computeTemperature()*Descriptor<T>::invCs2);
                 // the speed of sound for a perfect gas is given by :
-                // c = sqrt(gamma*p/rho) = sqrt(gamma*c_l^2*theta)=sqrt(theta/c_l^2)
+                // c = std::sqrt(gamma*p/rho) = std::sqrt(gamma*c_l^2*theta)=std::sqrt(theta/c_l^2)
                 // => gamma = 1/cl^4
         }
     }
@@ -886,6 +890,82 @@ void BoxExternalForceFunctional2D<T,Descriptor>::getTypeOfModification(std::vect
     modified[0] = modif::nothing;
     modified[1] = modif::staticVariables;
 }
+
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalScalarFunctional2D<T,Descriptor>::BoxExternalScalarFunctional2D(int whichScalar_)
+    : whichScalar(whichScalar_)
+{
+    PLB_ASSERT(whichScalar < Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalScalarFunctional2D<T,Descriptor>::process (
+        Box2D domain, BlockLattice2D<T,Descriptor>& lattice, ScalarField2D<T>& scalarField)
+{
+    Dot2D offset = computeRelativeDisplacement(lattice, scalarField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            scalarField.get(oX,oY)
+              = *lattice.get(iX,iY).getExternal(whichScalar);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalScalarFunctional2D<T,Descriptor>* BoxExternalScalarFunctional2D<T,Descriptor>::clone() const
+{
+    return new BoxExternalScalarFunctional2D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalScalarFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalVectorFunctional2D<T,Descriptor>::BoxExternalVectorFunctional2D(int vectorBeginsAt_)
+    : vectorBeginsAt(vectorBeginsAt_)
+{
+    PLB_ASSERT( vectorBeginsAt+Descriptor<T>::d <= Descriptor<T>::ExternalField::numScalars );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalVectorFunctional2D<T,Descriptor>::process (
+        Box2D domain, BlockLattice2D<T,Descriptor>& lattice, TensorField2D<T,Descriptor<T>::d>& tensorField)
+{
+    Dot2D offset = computeRelativeDisplacement(lattice, tensorField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint oX = iX + offset.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint oY = iY + offset.y;
+            T *tensor = lattice.get(iX,iY).getExternal(vectorBeginsAt);
+            tensorField.get(oX,oY).from_cArray(tensor);
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BoxExternalVectorFunctional2D<T,Descriptor>* BoxExternalVectorFunctional2D<T,Descriptor>::clone() const
+{
+    return new BoxExternalVectorFunctional2D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BoxExternalVectorFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+template<typename T, template<typename U> class Descriptor> 
+BlockDomain::DomainT BoxExternalVectorFunctional2D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
 
 /* *************** PART II ******************************************* */
 /* *************** Analysis of the scalar-field ********************** */
@@ -1185,7 +1265,7 @@ void ComputeAbsoluteValueFunctional2D<T>::process (
     Dot2D offset = computeRelativeDisplacement(A, B);
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            B.get(iX+offset.x,iY+offset.y) = fabs(A.get(iX,iY));
+            B.get(iX+offset.x,iY+offset.y) = std::fabs(A.get(iX,iY));
         }
     }
 }
@@ -1240,7 +1320,7 @@ BlockDomain::DomainT ComputeScalarSqrtFunctional2D<T>::appliesTo() const {
     return BlockDomain::bulkAndEnvelope;
 }
 
-/* ******** compute sqrt functional 2D ************************************* */
+/* ******** compute log functional 2D ************************************* */
 
 template<typename T>
 void ComputeScalarLogFunctional2D<T>::process (
@@ -2407,6 +2487,80 @@ void ComputeSymmetricTensorTraceFunctional2D<T>::getTypeOfModification(std::vect
 template<typename T>
 BlockDomain::DomainT ComputeSymmetricTensorTraceFunctional2D<T>::appliesTo() const {
     return BlockDomain::bulkAndEnvelope;
+}
+
+
+template<typename T>
+void BoxGradientFunctional2D<T>::processBulk (
+        Box2D domain, ScalarField2D<T>& phi, TensorField2D<T,2>& gradient )
+{
+    Dot2D offset = computeRelativeDisplacement(phi, gradient);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint iX2 = iX+offset.x;
+            plint iY2 = iY+offset.y;
+            gradient.get(iX2,iY2)[0] =
+                fdDataField::bulkXderiv(phi, iX,iY);
+            gradient.get(iX2,iY2)[1] =
+                fdDataField::bulkYderiv(phi, iX,iY);
+        }
+    }
+}
+
+template<typename T>
+void BoxGradientFunctional2D<T>::processEdge (
+        int direction, int orientation, Box2D domain,
+        ScalarField2D<T>& phi, TensorField2D<T,2>& gradient )
+{
+    Dot2D offset = computeRelativeDisplacement(phi, gradient);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint iX2 = iX+offset.x;
+            plint iY2 = iY+offset.y;
+            gradient.get(iX2,iY2)[0] =
+                fdDataField::edgeXderiv(phi, direction,orientation, iX, iY);
+            gradient.get(iX2,iY2)[1] =
+                fdDataField::edgeYderiv(phi, direction,orientation, iX, iY);
+        }
+    }
+}
+
+template<typename T>
+void BoxGradientFunctional2D<T>::processCorner (
+        int normalX, int normalY,  Box2D domain,
+        ScalarField2D<T>& phi, TensorField2D<T,2>& gradient )
+{
+    Dot2D offset = computeRelativeDisplacement(phi, gradient);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint iX2 = iX+offset.x;
+            plint iY2 = iY+offset.y;
+            gradient.get(iX2,iY2)[0] =
+                fdDataField::cornerXderiv(phi, normalX,normalY, iX, iY);
+            gradient.get(iX2,iY2)[1] =
+                fdDataField::cornerYderiv(phi, normalX,normalY, iX, iY);
+        }
+    }
+}
+
+
+template<typename T>
+BoxGradientFunctional2D<T>* BoxGradientFunctional2D<T>::clone() const
+{
+    return new BoxGradientFunctional2D<T>(*this);
+}
+
+template<typename T>
+void BoxGradientFunctional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+
+template<typename T>
+BlockDomain::DomainT BoxGradientFunctional2D<T>::appliesTo() const {
+    // Don't apply to envelope, because nearest neighbors need to be accessed.
+    return BlockDomain::bulk;
 }
 
 

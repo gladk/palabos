@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2013 FlowKit Sarl
+ * Copyright (C) 2011-2015 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,8 +40,14 @@ public:
     ///   user's convenience.
     Particle3D(plint tag_, Array<T,3> const& position_);
     virtual ~Particle3D() { }
+    /// Couple velocity to particle. Requirement: fluid velocity<0.25 in lattice units.
+    /// If this condition is violated, the velocity is trimmed to a 0.25 velocity norm.
     virtual void velocityToParticle(TensorField3D<T,3>& velocityField, T scaling=1.) =0;
+    /// Couple velocity to particle. Requirement: fluid velocity<0.25 in lattice units.
+    /// If this condition is violated, the velocity is trimmed to a 0.25 velocity norm.
     virtual void rhoBarJtoParticle(NTensorField3D<T>& rhoBarJfield, bool velIsJ, T scaling=1.) =0;
+    /// Couple fluid velocity to particle. Requirement: fluid velocity<0.25 in lattice units.
+    /// If this condition is violated, the velocity is trimmed to a 0.25 velocity norm.
     virtual void fluidToParticle(BlockLattice3D<T,Descriptor>& fluid, T scaling=1.) =0;
     virtual void advance() =0;
     Array<T,3> const& getPosition() const { return position; }
@@ -57,8 +63,11 @@ public:
     void setTag(plint tag_);
     virtual Particle3D<T,Descriptor>* clone() const =0;
     virtual bool getScalar(plint whichScalar, T& scalar) const;
+    virtual bool setScalar(plint whichScalar, T scalar);
     virtual bool getVector(plint whichVector, Array<T,3>& vector) const;
+    virtual bool setVector(plint whichVector, Array<T,3> const& vector);
     virtual bool getTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,3>::n>& tensor) const;
+    virtual bool setTensor(plint whichVector, Array<T,SymmetricTensorImpl<T,3>::n> const& tensor);
     virtual bool setScalars(std::vector<T> const& scalars);
     virtual bool setVectors(std::vector<Array<T,3> > const& vectors);
     virtual bool setTensors(std::vector<Array<T,SymmetricTensorImpl<T,3>::n> > const& tensors);
