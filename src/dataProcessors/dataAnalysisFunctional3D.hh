@@ -2891,7 +2891,7 @@ void A_dividedBy_B_inplace_functional3D<T>::process (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                A.get(iX,iY,iZ) -= B.get(iX+offset.x,iY+offset.y,iZ+offset.z);
+                A.get(iX,iY,iZ) /= B.get(iX+offset.x,iY+offset.y,iZ+offset.z);
             }
         }
     }

@@ -2184,7 +2184,7 @@ void A_dividedBy_B_inplace_functional2D<T>::process (
     Dot2D offset = computeRelativeDisplacement(A,B);
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            A.get(iX,iY) -= B.get(iX+offset.x,iY+offset.y);
+            A.get(iX,iY) /= B.get(iX+offset.x,iY+offset.y);
         }
     }
 }
