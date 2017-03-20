@@ -194,7 +194,7 @@ void getFilteredDensity(MultiTensorField3D<T,nDim>& densities, MultiScalarField3
  **/
 typedef enum {undefined=-1, kinetic=1, dynamic=2, bubblePressure=3, constRho=4, freeSurface=5} TwoPhaseModel;
 
-TwoPhaseModel stringToTwoPhaseModel(std::string modelName)
+inline TwoPhaseModel stringToTwoPhaseModel(std::string modelName)
 {
     if (modelName=="kinetic") {
         return kinetic;
