@@ -122,11 +122,11 @@ void XMLreader::mainProcessorIni( std::vector<TiXmlNode*> pParentVect )
         for ( pChild = pParent->FirstChild(); pChild != 0; pChild = pChild->NextSibling()) 
         {
             int type = pChild->Type();
-            if ( type==TiXmlNode::ELEMENT ) {
+            if ( type==TiXmlNode::TINYXML_ELEMENT ) {
                 std::string name(pChild->Value());
                 childMap[name].push_back(pChild);
             }
-            else if ( type==TiXmlNode::TEXT ) {
+            else if ( type==TiXmlNode::TINYXML_TEXT ) {
                 data.text = pChild->ToText()->ValueStr();
             }
         }
