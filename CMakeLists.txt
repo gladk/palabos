@@ -23,11 +23,50 @@ FIND_PACKAGE(Eigen3 REQUIRED)
 
 #=======================================
 
-IF (NOT CMAKE_CXX_FLAGS)
-  #If flags are not set, add default flags
-  SET(CMAKE_BUILD_TYPE Release)
-  SET(CMAKE_CXX_FLAGS  " -Wall -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security")
-ENDIF (NOT CMAKE_CXX_FLAGS)
+
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+
+    set(default_build_type "Release")
+    message(WARNING "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+        "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
+
+
+#adding default options for all build types
+LIST(APPEND WARNINGS_DEFAULT
+    "-Wall"
+    "-Wformat"
+    "-Wformat-security"
+    "-Werror=format-security"
+    )
+
+foreach(warning ${WARNINGS_DEFAULT})
+    add_compile_options(${warning})
+endforeach()
+
+add_compile_options(
+    "$<$<CONFIG:Debug>:-O0>"
+    "$<$<CONFIG:Debug>:-fstack-protector>"
+    "$<$<CONFIG:Debug>:--param=ssp-buffer-size=4>"
+
+    "$<$<CONFIG:Release>:-O3>"
+
+    "$<$<CONFIG:RelWithDebInfo>:-g>"
+    "$<$<CONFIG:RelWithDebInfo>:-O3>"
+)
+
+#MESSAGE( STATUS "CMAKE_C_FLAGS: " ${CMAKE_C_FLAGS} )
+#MESSAGE( STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS} )
+#MESSAGE( STATUS "COMPILE_OPTIONS: " ${COMPILE_OPTIONS} )
+#MESSAGE( STATUS "COMPILE_DEFINITIONS: " ${COMPILE_DEFINITIONS} )
+
+
 
 #=======================================
 
@@ -73,8 +112,11 @@ ENDIF(ENABLE_SMP_PARALLEL)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
 INCLUDE_DIRECTORIES(${TINYXML_INCLUDE_DIR})
 
+SET(SITMO_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/externalLibraries")
+
 ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/src")
 
 INSTALL(FILES cMake/FindPalabos.cmake cMake/FindTinyXML.cmake
   DESTINATION ${CMAKE_INSTALL_PREFIX}/share/cmake-3.0/Modules
   )
+
