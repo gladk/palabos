@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -504,14 +504,14 @@ void NLD_VelocityBoundaryDynamics3D<T,Descriptor>::computeVelocity (
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_VelocityBoundaryDynamics3D<T,Descriptor>::serialize(HierarchicSerializer& serializer) const {
-    serializer.addValues<T,3>(u);
     NonLocalBoundaryDynamics3D<T,Descriptor>::serialize(serializer);
+    serializer.addValues<T,3>(u);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_VelocityBoundaryDynamics3D<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer) {
-    unserializer.readValues<T,3>(u);
     NonLocalBoundaryDynamics3D<T,Descriptor>::unserialize(unserializer);
+    unserializer.readValues<T,3>(u);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -711,14 +711,14 @@ void NLD_VelocityNeumannBoundaryDynamics3D<T,Descriptor>::prepareCollision(Cell<
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_VelocityNeumannBoundaryDynamics3D<T,Descriptor>::serialize(HierarchicSerializer& serializer) const {
-    serializer.addValue<bool>(noPenetration);
     NonLocalBoundaryDynamics3D<T,Descriptor>::serialize(serializer);
+    serializer.addValue<bool>(noPenetration);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_VelocityNeumannBoundaryDynamics3D<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer) {
-    unserializer.readValue<bool>(noPenetration);
     NonLocalBoundaryDynamics3D<T,Descriptor>::unserialize(unserializer);
+    unserializer.readValue<bool>(noPenetration);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1509,14 +1509,14 @@ T NLD_AD_DirichletDynamics3D<T,Descriptor>::computeDensity(Cell<T,Descriptor> co
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_AD_DirichletDynamics3D<T,Descriptor>::serialize(HierarchicSerializer& serializer) const {
-    serializer.addValue(rho);
     NonLocalBoundaryDynamics3D<T,Descriptor>::serialize(serializer);
+    serializer.addValue(rho);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void NLD_AD_DirichletDynamics3D<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer) {
-    unserializer.readValue(rho);
     NonLocalBoundaryDynamics3D<T,Descriptor>::unserialize(unserializer);
+    unserializer.readValue(rho);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1761,16 +1761,6 @@ int NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::getId() const
 template<typename T, template<typename U> class Descriptor>
 void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::prepareCollision(Cell<T,Descriptor>& cell)
 { }
-
-template<typename T, template<typename U> class Descriptor>
-void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::serialize(HierarchicSerializer& serializer) const {
-    NonLocalBoundaryDynamics3D<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor>
-void NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer) {
-    NonLocalBoundaryDynamics3D<T,Descriptor>::unserialize(unserializer);
-}
 
 template<typename T, template<typename U> class Descriptor>
 NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>*

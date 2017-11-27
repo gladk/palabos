@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -102,6 +102,29 @@ SetCustomBoundaryDensityFunctional3D<T,Descriptor,DensityFunction>*
     return new SetCustomBoundaryDensityFunctional3D<T,Descriptor,DensityFunction>(*this);
 }
 
+/* ************ Class SetCustomOmegaFunctional3D ********** */
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>::
+    SetCustomOmegaFunctional3D(OmegaFunction f_)
+        : f(f_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+void SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>::execute (
+        plint iX, plint iY, plint iZ, Cell<T,Descriptor>& cell ) const
+{
+    T omega = f(iX, iY, iZ);
+    cell.getDynamics().setOmega(omega);
+}
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>*
+    SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>::clone() const
+{
+    return new SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>(*this);
+}
+
 
 /* ************ Class IniCustomEquilibriumFunctional3D ********** */
 
@@ -119,12 +142,15 @@ void IniCustomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::execute (
     Array<T,Descriptor<T>::d> j;
     T rho;
     f(iX, iY, iZ, rho, j);
-    for (int iD=0; iD<Descriptor<T>::d; ++iD) {
-        j[iD] *= rho;
-        j[iD] *= velocityScale;
-    }
-    T rhoBar = Descriptor<T>::rhoBar(rho);
+    Array<T,Descriptor<T>::d> force;
+    force[0] = getExternalForceComponent(cell, 0);
+    force[1] = getExternalForceComponent(cell, 1);
+    force[2] = getExternalForceComponent(cell, 2);
+    j[0] = velocityScale * rho * (j[0] - (T) 0.5 * force[0]);
+    j[1] = velocityScale * rho * (j[1] - (T) 0.5 * force[1]);
+    j[2] = velocityScale * rho * (j[2] - (T) 0.5 * force[2]);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    T rhoBar = Descriptor<T>::rhoBar(rho);
     for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
         cell[iPop] = cell.computeEquilibrium(iPop, rhoBar, j, jSqr);
     }
@@ -139,6 +165,53 @@ IniCustomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
 
 template<typename T, template<typename U> class Descriptor, class RhoUFunction>
 void IniCustomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::setscale (
+        int dxScale, int dtScale )
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    velocityScale = scaleFromReference(dxScale, dimDx,
+                                       dtScale, dimDt);
+}
+
+/* ************ Class IniCustomRandomEquilibriumFunctional3D ********** */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::
+    IniCustomRandomEquilibriumFunctional3D(RhoUFunction f_)
+        : f(f_),
+          velocityScale( (T)1 )
+{ }
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::execute (
+        plint iX, plint iY, plint iZ, T randVal, Cell<T,Descriptor>& cell ) const
+{
+    Array<T,Descriptor<T>::d> j;
+    T rho;
+    f(iX, iY, iZ, randVal, rho, j);
+    Array<T,Descriptor<T>::d> force;
+    force[0] = getExternalForceComponent(cell, 0);
+    force[1] = getExternalForceComponent(cell, 1);
+    force[2] = getExternalForceComponent(cell, 2);
+    j[0] = velocityScale * rho * (j[0] - (T) 0.5 * force[0]);
+    j[1] = velocityScale * rho * (j[1] - (T) 0.5 * force[1]);
+    j[2] = velocityScale * rho * (j[2] - (T) 0.5 * force[2]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    T rhoBar = Descriptor<T>::rhoBar(rho);
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = cell.computeEquilibrium(iPop, rhoBar, j, jSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
+    IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::clone() const
+{
+    return new IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::setscale (
         int dxScale, int dtScale )
 {
     int dimDx = 1;
@@ -164,13 +237,16 @@ void IniCustomThermalEquilibriumFunctional3D<T,Descriptor,RhoVelTempFunction>::e
     T rho;
     T temperature;
     f(iX, iY, iZ, rho, j, temperature);
-    for (int iD=0; iD<Descriptor<T>::d; ++iD) {
-        j[iD] *= rho;
-        j[iD] *= velocityScale;
-    }
+    Array<T,Descriptor<T>::d> force;
+    force[0] = getExternalForceComponent(cell, 0);
+    force[1] = getExternalForceComponent(cell, 1);
+    force[2] = getExternalForceComponent(cell, 2);
+    j[0] = velocityScale * rho * (j[0] - (T) 0.5 * force[0]);
+    j[1] = velocityScale * rho * (j[1] - (T) 0.5 * force[1]);
+    j[2] = velocityScale * rho * (j[2] - (T) 0.5 * force[2]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     T rhoBar = Descriptor<T>::rhoBar(rho);
     T thetaBar = temperature-(T)1;
-    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
         cell[iPop] = cell.computeEquilibrium(iPop, rhoBar, j, jSqr, thetaBar);
     }
@@ -192,60 +268,6 @@ void IniCustomThermalEquilibriumFunctional3D<T,Descriptor,RhoVelTempFunction>::s
     velocityScale = scaleFromReference(dxScale, dimDx,
                                        dtScale, dimDt);
 }
-
-
-/* ************* Class IniConstEquilibriumOnDomainFunctional3D ******************* */
-
-template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::IniConstEquilibriumOnDomainFunctional3D (
-        T density_, Array<T,Descriptor<T>::d> velocity, T temperature,
-        DomainFunctional const& domain_)
-    : rhoBar(Descriptor<T>::rhoBar(density_)),
-      j     (density_*velocity[0], density_*velocity[1], density_*velocity[2]),
-      jSqr  (VectorTemplate<T,Descriptor>::normSqr(j)),
-      thetaBar(temperature-(T)1),
-      domain(domain_)
-{ }
-
-template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-void IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::process (
-        Box3D bbox, BlockLattice3D<T,Descriptor>& lattice )
-{
-    int dimDx = 1;
-    int dimDt = -1;
-    Dot3D absPos = lattice.getLocation();
-    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
-                                       this->getDtScale(), dimDt);
-    Array<T,3> scaledJ = j*scaleFactor;
-    T scaledJsqr = jSqr*scaleFactor*scaleFactor;
-    for (plint iX=bbox.x0; iX<=bbox.x1; ++iX) {
-        for (plint iY=bbox.y0; iY<=bbox.y1; ++iY) {
-            for (plint iZ=bbox.z0; iZ<=bbox.z1; ++iZ) {
-                if (domain(iX+absPos.x,iY+absPos.y,iZ+absPos.z)) {
-                    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
-                        lattice.get(iX,iY,iZ)[iPop] =
-                            lattice.get(iX,iY,iZ).computeEquilibrium(iPop, rhoBar, scaledJ, scaledJsqr, thetaBar);
-                    }
-                }
-            }
-        }
-    }
-}
-
-template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>*
-    IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::clone() const
-{
-    return new IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>(*this);
-}
-
-template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-void IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::getTypeOfModification (
-        std::vector<modif::ModifT>& modified ) const
-{
-    modified[0] = modif::staticVariables;
-}
-
 
 
 /* *************** PART II ******************************************* */
@@ -293,6 +315,51 @@ BlockDomain::DomainT SetToScalarFunctionFunctional3D<T,Function>::appliesTo() co
 
 template<typename T, class Function>
 void SetToScalarFunctionFunctional3D<T,Function>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+/* ************ SetToNTensorFunctionFunctional3D ********************** */
+
+template<typename T, class Function>
+SetToNTensorFunctionFunctional3D<T,Function>::SetToNTensorFunctionFunctional3D(Function f_)
+    : f(f_)
+{ }
+
+template<typename T, class Function>
+void SetToNTensorFunctionFunctional3D<T,Function>::process (
+        Box3D domain, NTensorField3D<T>& field )
+{
+    Dot3D relativeOffset = field.getLocation();
+    Array<plint,3> ofs(relativeOffset.x, relativeOffset.y, relativeOffset.z);
+    Array<plint,3> pos;
+    for ( pos[0]=domain.x0; pos[0]<=domain.x1; ++pos[0] ) {
+        for ( pos[1]=domain.y0; pos[1]<=domain.y1; ++pos[1] ) {
+            for ( pos[2]=domain.z0; pos[2]<=domain.z1; ++pos[2] ) {
+                f(pos[0]+ofs[0], pos[1]+ofs[1], pos[2]+ofs[2], field.get(pos[0],pos[1],pos[2]));
+            }
+        }
+    }
+}
+
+template<typename T, class Function>
+SetToNTensorFunctionFunctional3D<T,Function>*
+    SetToNTensorFunctionFunctional3D<T,Function>::clone() const
+{
+    return new SetToNTensorFunctionFunctional3D<T,Function>(*this);
+}
+
+template<typename T, class Function>
+BlockDomain::DomainT SetToNTensorFunctionFunctional3D<T,Function>::appliesTo() const
+{
+    // Boundary cannot be included, because periodic boundaries would
+    //   get the wrong value.
+    return BlockDomain::bulk;
+}
+
+template<typename T, class Function>
+void SetToNTensorFunctionFunctional3D<T,Function>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
     modified[0] = modif::staticVariables;

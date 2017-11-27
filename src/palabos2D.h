@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,5 +40,5 @@
 #include <offLattice/headers2D.h>
 #include <particles/headers2D.h>
 #include <libraryInterfaces/headers2D.h>
-#include <tinyxml.h>
+#include <tinyxml/tinyxml.h>
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,6 +30,7 @@
 
 #include "atomicBlock/dataField3D.h"
 #include "atomicBlock/atomicBlock3D.h"
+#include "core/plbTimer.h"
 #include <algorithm>
 #include <typeinfo>
 #include <cstring>
@@ -40,29 +41,43 @@ namespace plb {
 
 template<typename T>
 ScalarField3D<T>::ScalarField3D(plint nx_, plint ny_, plint nz_, T iniVal)
-    : AtomicBlock3D(nx_, ny_, nz_),
-      dataTransfer(*this)
+    : AtomicBlock3D(nx_, ny_, nz_, new ScalarFieldDataTransfer3D<T>()),
+      ownsMemory(true)
 {
     allocateMemory();
     for (pluint iData=0; iData<getSize(); ++iData) {
         (*this)[iData] = iniVal;
     }
+    global::plbCounter("MEMORY_SCALAR").increment(allocatedMemory());
 }
 
 template<typename T>
 ScalarField3D<T>::~ScalarField3D() {
+    global::plbCounter("MEMORY_SCALAR").increment(-allocatedMemory());
     releaseMemory();
 }
 
 template<typename T>
 ScalarField3D<T>::ScalarField3D(ScalarField3D<T> const& rhs)
     : AtomicBlock3D(rhs),
-      dataTransfer(*this)
+      ownsMemory(true)
 {
     allocateMemory();
     for (pluint iData=0; iData<getSize(); ++iData) {
         (*this)[iData] = rhs[iData];
     }
+    global::plbCounter("MEMORY_SCALAR").increment(allocatedMemory());
+}
+
+
+template<typename T>
+ScalarField3D<T>::ScalarField3D(NTensorField3D<T>& rhs)
+    : AtomicBlock3D(rhs, new ScalarFieldDataTransfer3D<T>()),
+      ownsMemory(false)
+{
+    rawData = rhs.rawData;
+    allocateMemory();
+    global::plbCounter("MEMORY_SCALAR").increment(allocatedMemory());
 }
 
 template<typename T>
@@ -74,9 +89,12 @@ ScalarField3D<T>& ScalarField3D<T>::operator=(ScalarField3D<T> const& rhs) {
 
 template<typename T>
 void ScalarField3D<T>::swap(ScalarField3D<T>& rhs) {
+    global::plbCounter("MEMORY_SCALAR").increment(-allocatedMemory());
     AtomicBlock3D::swap(rhs);
+    std::swap(ownsMemory, rhs.ownsMemory);
     std::swap(rawData, rhs.rawData);
     std::swap(field, rhs.field);
+    global::plbCounter("MEMORY_SCALAR").increment(allocatedMemory());
 }
 
 template<typename T>
@@ -87,18 +105,10 @@ void ScalarField3D<T>::reset() {
 }
 
 template<typename T>
-ScalarFieldDataTransfer3D<T>& ScalarField3D<T>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T>
-ScalarFieldDataTransfer3D<T> const& ScalarField3D<T>::getDataTransfer() const {
-    return dataTransfer;
-}
-
-template<typename T>
 void ScalarField3D<T>::allocateMemory() {
-    rawData = new T [(pluint)this->getNx()*(pluint)this->getNy()*(pluint)this->getNz()];
+    if (ownsMemory) {
+        rawData = new T [(pluint)this->getNx()*(pluint)this->getNy()*(pluint)this->getNz()];
+    }
     field   = new T** [(pluint)this->getNx()];
     for (plint iX=0; iX<this->getNx(); ++iX) {
         field[iX] = new T* [(pluint)this->getNy()];
@@ -114,15 +124,47 @@ void ScalarField3D<T>::releaseMemory() {
       delete [] field[iX];
     }
     delete [] field;
-    delete [] rawData; rawData = 0;
+    if (ownsMemory) {
+        delete [] rawData; rawData = 0;
+    }
+}
+
+template<typename T>
+plint ScalarField3D<T>::allocatedMemory() const {
+    if (ownsMemory) {
+        return this->getNx()*this->getNy()*this->getNz()*sizeof(T);
+    }
+    else {
+        return 0;
+    }
 }
 
 ////////////////////// Class ScalarFieldDataTransfer3D /////////////////////////
 
 template<typename T>
-ScalarFieldDataTransfer3D<T>::ScalarFieldDataTransfer3D(ScalarField3D<T>& field_)
-    : field(field_)
+ScalarFieldDataTransfer3D<T>::ScalarFieldDataTransfer3D()
+    : field(0),
+      constField(0)
 { }
+
+template<typename T>
+void ScalarFieldDataTransfer3D<T>::setBlock(AtomicBlock3D& block) {
+    field = dynamic_cast<ScalarField3D<T>*>(&block);
+    PLB_ASSERT(field);
+    constField = field;
+}
+
+template<typename T>
+void ScalarFieldDataTransfer3D<T>::setConstBlock(AtomicBlock3D const& block) {
+    constField = dynamic_cast<ScalarField3D<T> const*>(&block);
+    PLB_ASSERT(constField);
+}
+
+template<typename T>
+ScalarFieldDataTransfer3D<T>* ScalarFieldDataTransfer3D<T>::clone() const
+{
+    return new ScalarFieldDataTransfer3D<T>(*this);
+}
 
 template<typename T>
 plint ScalarFieldDataTransfer3D<T>::staticCellSize() const {
@@ -132,7 +174,8 @@ plint ScalarFieldDataTransfer3D<T>::staticCellSize() const {
 template<typename T>
 void ScalarFieldDataTransfer3D<T>::send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const
 {
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( constField );
+    PLB_PRECONDITION( contained(domain, constField->getBoundingBox()) );
     plint cellSize = staticCellSize();
     pluint numBytes = domain.nCells()*cellSize;
     // Avoid dereferencing uninitialized pointer.
@@ -143,7 +186,7 @@ void ScalarFieldDataTransfer3D<T>::send(Box3D domain, std::vector<char>& buffer,
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&buffer[iData]), (const void*)(&field.get(iX,iY,iZ)), sizeof(T));
+                memcpy((void*)(&buffer[iData]), (const void*)(&constField->get(iX,iY,iZ)), sizeof(T));
                 iData += sizeof(T);
             }
         }
@@ -154,7 +197,8 @@ template<typename T>
 void ScalarFieldDataTransfer3D<T>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( field );
+    PLB_PRECONDITION( contained(domain, field->getBoundingBox()) );
     PLB_PRECONDITION( domain.nCells()*staticCellSize() == (plint)buffer.size() );
 
     // Avoid dereferencing uninitialized pointer.
@@ -163,7 +207,7 @@ void ScalarFieldDataTransfer3D<T>::receive (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&field.get(iX,iY,iZ)), (const void*)(&buffer[iData]), sizeof(T));
+                memcpy((void*)(&field->get(iX,iY,iZ)), (const void*)(&buffer[iData]), sizeof(T));
                 iData += sizeof(T);
             }
         }
@@ -176,12 +220,12 @@ void ScalarFieldDataTransfer3D<T>::attribute (
         AtomicBlock3D const& from, modif::ModifT kind )
 {
     PLB_PRECONDITION (typeid(from) == typeid(ScalarField3D<T> const&));
-    PLB_PRECONDITION( contained(toDomain, field.getBoundingBox()) );
+    PLB_PRECONDITION( contained(toDomain, field->getBoundingBox()) );
     ScalarField3D<T> const& fromField = (ScalarField3D<T> const&) from;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
             for (plint iZ=toDomain.z0; iZ<=toDomain.z1; ++iZ) {
-                field.get(iX,iY,iZ) = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ);
+                field->get(iX,iY,iZ) = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ);
             }
         }
     }
@@ -193,8 +237,8 @@ void ScalarFieldDataTransfer3D<T>::attribute (
 
 template<typename T, int nDim>
 TensorField3D<T,nDim>::TensorField3D(plint nx_, plint ny_, plint nz_)
-    : AtomicBlock3D(nx_, ny_, nz_),
-      dataTransfer(*this)
+    : AtomicBlock3D(nx_, ny_, nz_, new TensorFieldDataTransfer3D<T,nDim>()),
+      ownsMemory(true)
 {
     allocateMemory();
     for (plint iData=0; iData<this->getNx()*this->getNy()*this->getNz(); ++iData) {
@@ -202,12 +246,13 @@ TensorField3D<T,nDim>::TensorField3D(plint nx_, plint ny_, plint nz_)
             (*this)[iData][iDim] = T();
         }
     }
+    global::plbCounter("MEMORY_TENSOR").increment(allocatedMemory());
 }
 
 template<typename T, int nDim>
 TensorField3D<T,nDim>::TensorField3D(plint nx_, plint ny_, plint nz_, Array<T,nDim> const& iniVal)
-    : AtomicBlock3D(nx_, ny_, nz_),
-      dataTransfer(*this)
+    : AtomicBlock3D(nx_, ny_, nz_, new TensorFieldDataTransfer3D<T,nDim>() ),
+      ownsMemory(true)
 {
     allocateMemory();
     for (plint iData=0; iData<this->getNx()*this->getNy()*this->getNz(); ++iData) {
@@ -215,17 +260,19 @@ TensorField3D<T,nDim>::TensorField3D(plint nx_, plint ny_, plint nz_, Array<T,nD
             (*this)[iData][iDim] = iniVal[iDim];
         }
     }
+    global::plbCounter("MEMORY_TENSOR").increment(allocatedMemory());
 }
 
 template<typename T, int nDim>
 TensorField3D<T,nDim>::~TensorField3D() {
+    global::plbCounter("MEMORY_TENSOR").increment(-allocatedMemory());
     releaseMemory();
 }
 
 template<typename T, int nDim>
 TensorField3D<T,nDim>::TensorField3D(TensorField3D<T,nDim> const& rhs)
     : AtomicBlock3D(rhs),
-      dataTransfer(*this)
+      ownsMemory(true)
 {
     allocateMemory();
     for (plint iData=0; iData<this->getNx()*this->getNy()*this->getNz(); ++iData) {
@@ -233,6 +280,17 @@ TensorField3D<T,nDim>::TensorField3D(TensorField3D<T,nDim> const& rhs)
             (*this)[iData][iDim] = rhs[iData][iDim];
         }
     }
+    global::plbCounter("MEMORY_TENSOR").increment(allocatedMemory());
+}
+
+template<typename T, int nDim>
+TensorField3D<T,nDim>::TensorField3D(NTensorField3D<T>& rhs)
+    : AtomicBlock3D(rhs, new TensorFieldDataTransfer3D<T,nDim>() ),
+      ownsMemory(false)
+{
+    rawData = reinterpret_cast<Array<T,nDim>*>(rhs.rawData);
+    allocateMemory();
+    global::plbCounter("MEMORY_TENSOR").increment(allocatedMemory());
 }
 
 template<typename T, int nDim>
@@ -244,9 +302,12 @@ TensorField3D<T,nDim>& TensorField3D<T,nDim>::operator=(TensorField3D<T,nDim> co
 
 template<typename T, int nDim>
 void TensorField3D<T,nDim>::swap(TensorField3D<T,nDim>& rhs) {
+    global::plbCounter("MEMORY_TENSOR").increment(-allocatedMemory());
+    std::swap(ownsMemory, rhs.ownsMemory);
     AtomicBlock3D::swap(rhs);
     std::swap(rawData, rhs.rawData);
     std::swap(field, rhs.field);
+    global::plbCounter("MEMORY_TENSOR").increment(allocatedMemory());
 }
 
 template<typename T, int nDim>
@@ -259,18 +320,10 @@ void TensorField3D<T,nDim>::reset() {
 }
 
 template<typename T, int nDim>
-TensorFieldDataTransfer3D<T,nDim>& TensorField3D<T,nDim>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T, int nDim>
-TensorFieldDataTransfer3D<T,nDim> const& TensorField3D<T,nDim>::getDataTransfer() const {
-    return dataTransfer;
-}
-
-template<typename T, int nDim>
 void TensorField3D<T,nDim>::allocateMemory() {
-    rawData = new Array<T,nDim>   [(pluint)this->getNx()*(pluint)this->getNy()*(pluint)this->getNz()];
+    if (ownsMemory) {
+        rawData = new Array<T,nDim>   [(pluint)this->getNx()*(pluint)this->getNy()*(pluint)this->getNz()];
+    }
     field   = new Array<T,nDim>** [(pluint)this->getNx()];
     for (plint iX=0; iX<this->getNx(); ++iX) {
         field[iX] = new Array<T,nDim>* [(pluint)this->getNy()];
@@ -281,21 +334,53 @@ void TensorField3D<T,nDim>::allocateMemory() {
 }
 
 template<typename T, int nDim>
+plint TensorField3D<T,nDim>::allocatedMemory() const {
+    if (ownsMemory) {
+        return this->getNx()*this->getNy()*this->getNz()*sizeof(T)*nDim;
+    }
+    else {
+        return 0;
+    }
+}
+
+template<typename T, int nDim>
 void TensorField3D<T,nDim>::releaseMemory() {
     for (plint iX=0; iX<this->getNx(); ++iX) {
         delete [] field[iX];
     }
     delete [] field;
-    delete [] rawData; rawData = 0;
+    if (ownsMemory) {
+        delete [] rawData; rawData = 0;
+    }
 }
 
 
 ////////////////////// Class TensorFieldDataTransfer3D /////////////////////////
 
 template<typename T, int nDim>
-TensorFieldDataTransfer3D<T,nDim>::TensorFieldDataTransfer3D(TensorField3D<T,nDim>& field_)
-    : field(field_)
+TensorFieldDataTransfer3D<T,nDim>::TensorFieldDataTransfer3D()
+    : field(0),
+      constField(0)
 { }
+
+template<typename T, int nDim>
+void TensorFieldDataTransfer3D<T,nDim>::setBlock(AtomicBlock3D& block) {
+    field = dynamic_cast<TensorField3D<T,nDim>*>(&block);
+    PLB_ASSERT(field);
+    constField = field;
+}
+
+template<typename T, int nDim>
+void TensorFieldDataTransfer3D<T,nDim>::setConstBlock(AtomicBlock3D const& block) {
+    constField = dynamic_cast<TensorField3D<T,nDim> const*>(&block);
+    PLB_ASSERT(constField);
+}
+
+template<typename T, int nDim>
+TensorFieldDataTransfer3D<T,nDim>* TensorFieldDataTransfer3D<T,nDim>::clone() const
+{
+    return new TensorFieldDataTransfer3D<T,nDim>(*this);
+}
 
 template<typename T, int nDim>
 plint TensorFieldDataTransfer3D<T,nDim>::staticCellSize() const {
@@ -305,7 +390,8 @@ plint TensorFieldDataTransfer3D<T,nDim>::staticCellSize() const {
 template<typename T, int nDim>
 void TensorFieldDataTransfer3D<T,nDim>::send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const
 {
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( constField );
+    PLB_PRECONDITION( contained(domain, constField->getBoundingBox()) );
     plint cellSize = staticCellSize();
     pluint numBytes = domain.nCells()*cellSize;
     // Avoid dereferencing uninitialized pointer.
@@ -316,7 +402,7 @@ void TensorFieldDataTransfer3D<T,nDim>::send(Box3D domain, std::vector<char>& bu
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&buffer[iData]), (const void*)(&field.get(iX,iY,iZ)[0]), nDim*sizeof(T));
+                memcpy((void*)(&buffer[iData]), (const void*)(&constField->get(iX,iY,iZ)[0]), nDim*sizeof(T));
                 iData += nDim*sizeof(T);
             }
         }
@@ -327,7 +413,8 @@ template<typename T, int nDim>
 void TensorFieldDataTransfer3D<T,nDim>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( field );
+    PLB_PRECONDITION( contained(domain, field->getBoundingBox()) );
     PLB_PRECONDITION( domain.nCells()*staticCellSize() == (plint)buffer.size() );
 
     // Avoid dereferencing uninitialized pointer.
@@ -336,7 +423,7 @@ void TensorFieldDataTransfer3D<T,nDim>::receive (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&field.get(iX,iY,iZ)[0]), (const void*)(&buffer[iData]), nDim*sizeof(T));
+                memcpy((void*)(&field->get(iX,iY,iZ)[0]), (const void*)(&buffer[iData]), nDim*sizeof(T));
                 iData += nDim*sizeof(T);
             }
         }
@@ -349,13 +436,13 @@ void TensorFieldDataTransfer3D<T,nDim>::attribute (
         AtomicBlock3D const& from, modif::ModifT kind )
 {
     PLB_PRECONDITION (typeid(from) == typeid(TensorField3D<T,nDim> const&));
-    PLB_PRECONDITION( contained(toDomain, field.getBoundingBox()) );
+    PLB_PRECONDITION( contained(toDomain, field->getBoundingBox()) );
     TensorField3D<T,nDim> const& fromField = (TensorField3D<T,nDim> const&) from;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
             for (plint iZ=toDomain.z0; iZ<=toDomain.z1; ++iZ) {
                 for (int iDim=0; iDim<nDim; ++iDim) {
-                    field.get(iX,iY,iZ)[iDim] = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ)[iDim];
+                    field->get(iX,iY,iZ)[iDim] = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ)[iDim];
                 }
             }
         }
@@ -368,18 +455,19 @@ void TensorFieldDataTransfer3D<T,nDim>::attribute (
 template<typename T>
 NTensorField3D<T>::NTensorField3D(plint nx_, plint ny_, plint nz_, plint ndim_)
     : NTensorFieldBase3D<T>(ndim_),
-      AtomicBlock3D(nx_,ny_,nz_),
-      dataTransfer(*this)
+      AtomicBlock3D(nx_,ny_,nz_, new NTensorFieldDataTransfer3D<T>()),
+      ownsMemory(true)
 {
     allocateMemory();
     reset();
+    global::plbCounter("MEMORY_NTENSOR").increment(allocatedMemory());
 }
 
 template<typename T>
 NTensorField3D<T>::NTensorField3D(plint nx_, plint ny_, plint nz_, plint ndim_, T const* iniVal)
     : NTensorFieldBase3D<T>(ndim_),
-      AtomicBlock3D(nx_,ny_,nz_),
-      dataTransfer(*this)
+      AtomicBlock3D(nx_,ny_,nz_, new NTensorFieldDataTransfer3D<T>() ),
+      ownsMemory(true)
 {
     allocateMemory();
     for ( plint iData=0; iData<this->getNx()*this->getNy()*this->getNz()*this->getNdim();
@@ -390,23 +478,48 @@ NTensorField3D<T>::NTensorField3D(plint nx_, plint ny_, plint nz_, plint ndim_, 
             (*this)[iData+iDim] = iniVal[iDim];
         }
     }
+    global::plbCounter("MEMORY_NTENSOR").increment(allocatedMemory());
+}
+
+template<typename T>
+NTensorField3D<T>::NTensorField3D(ScalarField3D<T>& rhs)
+    : NTensorFieldBase3D<T>(1),
+      AtomicBlock3D(rhs, new NTensorFieldDataTransfer3D<T>()),
+      ownsMemory(false)
+{
+    rawData = rhs.rawData;
+    allocateMemory();
+    global::plbCounter("MEMORY_NTENSOR").increment(allocatedMemory());
+}
+
+template<typename T>
+template<int nDim>
+NTensorField3D<T>::NTensorField3D(TensorField3D<T,nDim>& rhs)
+    : NTensorFieldBase3D<T>(nDim),
+      AtomicBlock3D(rhs, new NTensorFieldDataTransfer3D<T>()),
+      ownsMemory(false)
+{
+    rawData = reinterpret_cast<T*>(rhs.rawData);
+    allocateMemory();
+    global::plbCounter("MEMORY_NTENSOR").increment(allocatedMemory());
 }
 
 template<typename T>
 NTensorField3D<T>::~NTensorField3D() {
+    global::plbCounter("MEMORY_NTENSOR").increment(-allocatedMemory());
     releaseMemory();
 }
 
 template<typename T>
 NTensorField3D<T>::NTensorField3D(NTensorField3D<T> const& rhs) 
     : NTensorFieldBase3D<T>(rhs),
-      AtomicBlock3D(rhs),
-      dataTransfer(*this)
+      AtomicBlock3D(rhs)
 {
     allocateMemory();
     for (plint iData=0; iData<this->getNx()*this->getNy()*this->getNz()*this->getNdim(); ++iData) {
         (*this)[iData] = rhs[iData];
     }
+    global::plbCounter("MEMORY_NTENSOR").increment(-allocatedMemory());
 }
 
 template<typename T>
@@ -418,10 +531,13 @@ NTensorField3D<T>& NTensorField3D<T>::operator=(NTensorField3D<T> const& rhs) {
 
 template<typename T>
 void NTensorField3D<T>::swap(NTensorField3D<T>& rhs) {
+    global::plbCounter("MEMORY_NTENSOR").increment(-allocatedMemory());
     NTensorFieldBase3D<T>::swap(rhs);
     AtomicBlock3D::swap(rhs);
+    std::swap(ownsMemory, rhs.ownsMemory);
     std::swap(rawData, rhs.rawData);
     std::swap(field, rhs.field);
+    global::plbCounter("MEMORY_NTENSOR").increment(allocatedMemory());
 }
 
 template<typename T>
@@ -432,19 +548,11 @@ void NTensorField3D<T>::reset() {
 }
 
 template<typename T>
-NTensorFieldDataTransfer3D<T>& NTensorField3D<T>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T>
-NTensorFieldDataTransfer3D<T> const& NTensorField3D<T>::getDataTransfer() const {
-    return dataTransfer;
-}
-
-template<typename T>
 void NTensorField3D<T>::allocateMemory() {
-    rawData = new T [(pluint)this->getNx()*(pluint)this->getNy()*
-                     (pluint)this->getNz()*(pluint)this->getNdim()];
+    if (ownsMemory) {
+        rawData = new T [(pluint)this->getNx()*(pluint)this->getNy()*
+                         (pluint)this->getNz()*(pluint)this->getNdim()];
+    }
     field   = new T*** [(pluint)this->getNx()];
     for (plint iX=0; iX<this->getNx(); ++iX) {
         field[iX] = new T** [(pluint)this->getNy()];
@@ -461,6 +569,16 @@ void NTensorField3D<T>::allocateMemory() {
 }
 
 template<typename T>
+plint NTensorField3D<T>::allocatedMemory() const {
+    if (ownsMemory) {
+        return this->getNx()*this->getNy()*this->getNz()*sizeof(T)*this->getNdim();
+    }
+    else {
+        return 0;
+    }
+}
+
+template<typename T>
 void NTensorField3D<T>::releaseMemory() {
     for (plint iX=0; iX<this->getNx(); ++iX) {
         for (plint iY=0; iY<this->getNy(); ++iY) {
@@ -469,27 +587,49 @@ void NTensorField3D<T>::releaseMemory() {
         delete [] field[iX];
     }
     delete [] field;
-    delete [] rawData; rawData = 0;
+    if (ownsMemory) {
+        delete [] rawData; rawData = 0;
+    }
 }
 
 
 ////////////////////// Class NTensorFieldDataTransfer3D /////////////////////////
 
 template<typename T>
-NTensorFieldDataTransfer3D<T>::NTensorFieldDataTransfer3D(NTensorField3D<T>& field_)
-    : field(field_)
+NTensorFieldDataTransfer3D<T>::NTensorFieldDataTransfer3D()
+    : field(0),
+      constField(0)
 { }
 
 template<typename T>
+void NTensorFieldDataTransfer3D<T>::setBlock(AtomicBlock3D& block) {
+    field = dynamic_cast<NTensorField3D<T>*>(&block);
+    PLB_ASSERT(field);
+    constField = field;
+}
+
+template<typename T>
+void NTensorFieldDataTransfer3D<T>::setConstBlock(AtomicBlock3D const& block) {
+    constField = dynamic_cast<NTensorField3D<T> const*>(&block);
+    PLB_ASSERT(constField);
+}
+
+template<typename T>
+NTensorFieldDataTransfer3D<T>* NTensorFieldDataTransfer3D<T>::clone() const
+{
+    return new NTensorFieldDataTransfer3D<T>(*this);
+}
+
+template<typename T>
 plint NTensorFieldDataTransfer3D<T>::staticCellSize() const {
-    return field.getNdim()*sizeof(T);
+    return constField->getNdim()*sizeof(T);
 }
 
 template<typename T>
 void NTensorFieldDataTransfer3D<T>::send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const
 {
-
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( constField );
+    PLB_PRECONDITION( contained(domain, constField->getBoundingBox()) );
     plint cellSize = staticCellSize();
     pluint numBytes = domain.nCells()*cellSize;
     buffer.resize(numBytes);
@@ -498,7 +638,7 @@ void NTensorFieldDataTransfer3D<T>::send(Box3D domain, std::vector<char>& buffer
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&buffer[iData]), (const void*)(&field.get(iX,iY,iZ)[0]), cellSize);
+                memcpy((void*)(&buffer[iData]), (const void*)(&constField->get(iX,iY,iZ)[0]), cellSize);
                 iData += cellSize;
             }
         }
@@ -509,7 +649,8 @@ template<typename T>
 void NTensorFieldDataTransfer3D<T>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION( contained(domain, field.getBoundingBox()) );
+    PLB_PRECONDITION( field );
+    PLB_PRECONDITION( contained(domain, field->getBoundingBox()) );
     PLB_PRECONDITION( (pluint) domain.nCells()*staticCellSize() == buffer.size() );
     plint cellSize = staticCellSize();
 
@@ -517,7 +658,7 @@ void NTensorFieldDataTransfer3D<T>::receive (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                memcpy((void*)(&field.get(iX,iY,iZ)[0]), (const void*)(&buffer[iData]), cellSize);
+                memcpy((void*)(&field->get(iX,iY,iZ)[0]), (const void*)(&buffer[iData]), cellSize);
                 iData += cellSize;
             }
         }
@@ -530,13 +671,13 @@ void NTensorFieldDataTransfer3D<T>::attribute (
         AtomicBlock3D const& from, modif::ModifT kind )
 {
     PLB_PRECONDITION (typeid(from) == typeid(NTensorField3D<T> const&));
-    PLB_PRECONDITION( contained(toDomain, field.getBoundingBox()) );
+    PLB_PRECONDITION( contained(toDomain, field->getBoundingBox()) );
     NTensorField3D<T> const& fromField = (NTensorField3D<T> const&) from;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
             for (plint iZ=toDomain.z0; iZ<=toDomain.z1; ++iZ) {
-                for (int iDim=0; iDim<field.getNdim(); ++iDim) {
-                    field.get(iX,iY,iZ)[iDim] = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ)[iDim];
+                for (int iDim=0; iDim<field->getNdim(); ++iDim) {
+                    field->get(iX,iY,iZ)[iDim] = fromField.get(iX+deltaX,iY+deltaY,iZ+deltaZ)[iDim];
                 }
             }
         }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -1032,6 +1032,8 @@ void BoundaryConditionInstantiator3D<T,Descriptor,BoundaryManager>::
 
     // Instantiate the dynamics of the boundary as a composite dynamics, based on the one currently
     //   residing on the lattice.
+    // (The NoDynamics is just a filler. The VelocityBoundaryDynamics actually
+    // end up with the original dynamics on the lattice after this function is called!)
     setCompositeDynamics (
             lattice, domain,
             BoundaryManager::template getVelocityBoundaryDynamics<direction,orientation> (

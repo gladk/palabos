@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,27 +39,36 @@ namespace plb {
  *  Note that this may lead to errors on 64-bit platforms, if the total amount of
  *  data exceeds 2 GB.
  */
-void serializerToBase64Stream(DataSerializer const* serializer, std::ostream* ostr, bool enforceUint=false);
+void serializerToBase64Stream (
+        DataSerializer const* serializer, std::ostream* ostr,
+        bool enforceUint=false, bool mainProcOnly=true );
+
+void serializerToRawBinaryStream (
+        DataSerializer const* serializer, std::ostream* ostr,
+        bool mainProcOnly=true );
 
 /// Take an input stream with Base64 encoded binary content, and stream into an unSerializer
 /** If the integer value which indicates the amount of data to be unSerialized is of type
  *  "unsigned int", this fact can be enforced with the flag enforceUplint to ensure
  *  compatibility between 32-bit and 64-bit platforms.
  */
-void base64StreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer, bool enforceUint=false);
+void base64StreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer,
+                                bool enforceUint=false, bool mainProcOnly=true );
 
 /// Take a Serializer, convert and stream into output in ASCII format.
 /** Number of digits in the ASCII representation of numbers is given by the variable numDigits.
  */
 template<typename T>
-void serializerToAsciiStream(DataSerializer const* serializer, std::ostream* ostr, plint numDigits=8);
+void serializerToAsciiStream (
+        DataSerializer const* serializer, std::ostream* ostr, plint numDigits=8,
+        bool mainProcOnly=true );
 
 
 /// Take an UnSerializer and fill it with data from an ASCII-format input stream.
-/** Number of digits in the ASCII representation of numbers is given by the variable numDigits.
- */
 template<typename T>
-void asciiStreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer);
+void asciiStreamToUnSerializer (
+        std::istream* istr, DataUnSerializer* unSerializer,
+        bool mainProcOnly=true );
 
 
 /* *************** Class AsciiWriter ******************************** */
@@ -89,13 +98,7 @@ private:
     std::istream* istr;
 };
 
-
-template<typename T>
-void serializerToAsciiStream(DataSerializer const* serializer, std::ostream* ostr, plint numDigits);
-
-template<typename T>
-void asciiStreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer);
-
 } // namespace plb
 
 #endif  // SERIALIZER_IO_H
+

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -371,6 +371,7 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
     global::timer("iteration").restart();
     plint i = util::roundToInt(currentTime/dt);
     lattice->resetTime(i);
+    bool checkForErrors = true;
 
     // Collision and streaming iterations.
     while(!velocityTracer.hasConverged() && currentTime<simTime)
@@ -385,6 +386,10 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
         }
 
         lattice->collideAndStream();
+        if (checkForErrors) {
+            abortIfErrorsOccurred();
+            checkForErrors = false;
+        }
 
         ++i;
         currentTime = i*dt;

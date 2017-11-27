@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,8 @@
 #include "multiBlock/multiBlock3D.h"
 #include "multiGrid/multiGrid3D.h"
 
+#include "multiBlock/multiBlockGenerator3D.h"
+
 namespace plb {
 
 template<typename T>
@@ -51,9 +53,7 @@ class MultiGridScalarField3D : public ScalarFieldBase3D<T>, public MultiGrid3D {
         MultiGridScalarField3D (
                         MultiGridManagement3D management_,
                         plint behaviorLevel_=0 );
-                        
-        
-                        
+
         MultiGridScalarField3D(MultiGridScalarField3D<T> const& rhs);
         MultiGridScalarField3D(MultiGrid3D const& rhs);
         MultiGridScalarField3D(MultiGrid3D const& rhs, Box3D subDomain, bool crop=true);
@@ -71,8 +71,9 @@ class MultiGridScalarField3D : public ScalarFieldBase3D<T>, public MultiGrid3D {
         MultiScalarField3D<T>& getComponent(plint level);
         MultiScalarField3D<T> const& getComponent(plint level) const;
         int getBlockId() const;
-        std::auto_ptr<MultiScalarField3D<T> > convertToCoarsest(plint dimDx, plint dimDt);
-        std::auto_ptr<MultiScalarField3D<T> > convertToFinest(plint dimDx, plint dimDt);
+        std::auto_ptr<MultiScalarField3D<T> > convertToCoarsest(plint dimDx=0, plint dimDt=0);
+        std::auto_ptr<MultiScalarField3D<T> > convertToFinest(plint dimDx=0, plint dimDt=0);
+        std::auto_ptr<MultiScalarField3D<T> > convertToLevel(plint level, plint dimDx=0, plint dimDt=0);
    
     private:
         /// Create the multiScalarFields for each level
@@ -114,8 +115,9 @@ class MultiGridTensorField3D : public TensorFieldBase3D<T,nDim>, public MultiGri
         MultiTensorField3D<T,nDim>& getComponent(plint level);
         MultiTensorField3D<T,nDim> const& getComponent(plint level) const;
         int getBlockId() const;
-        std::auto_ptr<MultiTensorField3D<T,nDim> > convertToCoarsest(plint dimDx, plint dimDt);
-        std::auto_ptr<MultiTensorField3D<T,nDim> > convertToFinest(plint dimDx, plint dimDt);
+        std::auto_ptr<MultiTensorField3D<T,nDim> > convertToCoarsest(plint dimDx=0, plint dimDt=0);
+        std::auto_ptr<MultiTensorField3D<T,nDim> > convertToFinest(plint dimDx=0, plint dimDt=0);
+        std::auto_ptr<MultiTensorField3D<T,nDim> > convertToLevel(plint level, plint dimDx=0, plint dimDt=0);
     private:
         /// Create the multiTensorFields for each level
         void allocateFields();

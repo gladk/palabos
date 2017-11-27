@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,71 +38,71 @@
 
 namespace plb {
 
-template<typename T>
-struct entropicLbTemplates<T, descriptors::D2Q9Descriptor>
-{
+//template<typename T>
+//struct entropicLbTemplates<T, descriptors::D2Q9Descriptor>
+//{
 
-    typedef descriptors::D2Q9Descriptor<T> Descriptor;
-    /// Computation of equilibrium distribution with an expansion
-    /// with respect to a small velocity u
-    static T equilibrium( plint iPop, T rho, Array<T,2> const& u)
-    {
-        T c_u = Descriptor::c[iPop][0]*u[0] + Descriptor::c[iPop][1]*u[1];
-        T c_u2 = c_u*c_u;
-        T c_u3 = c_u2*c_u;
-        T c_u4 = c_u3*c_u;
-        T c_u5 = c_u4*c_u;
-        T c_u6 = c_u5*c_u;
-        T c_u7 = c_u6*c_u;
+//    typedef descriptors::D2Q9Descriptor<T> Descriptor;
+//    /// Computation of equilibrium distribution with an expansion
+//    /// with respect to a small velocity u
+//    static T equilibrium( plint iPop, T rho, Array<T,2> const& u)
+//    {
+//        T c_u = Descriptor::c[iPop][0]*u[0] + Descriptor::c[iPop][1]*u[1];
+//        T c_u2 = c_u*c_u;
+//        T c_u3 = c_u2*c_u;
+//        T c_u4 = c_u3*c_u;
+//        T c_u5 = c_u4*c_u;
+//        T c_u6 = c_u5*c_u;
+//        T c_u7 = c_u6*c_u;
         
-        T uSqr = u[0]*u[0] + u[1]*u[1];
-        T uSqr2 = uSqr*uSqr;
-        T uSqr3 = uSqr2*uSqr;
+//        T uSqr = u[0]*u[0] + u[1]*u[1];
+//        T uSqr2 = uSqr*uSqr;
+//        T uSqr3 = uSqr2*uSqr;
         
-        T powUx = u[0]*u[0]*u[0]*u[0]*u[0]; // u_x^5
-        T powUy = u[1]*u[1]*u[1]*u[1]*u[1]; // u_y^5
+//        T powUx = u[0]*u[0]*u[0]*u[0]*u[0]; // u_x^5
+//        T powUy = u[1]*u[1]*u[1]*u[1]*u[1]; // u_y^5
         
-        T C = Descriptor::c[iPop][0] * powUx + Descriptor::c[iPop][1] * powUy;
+//        T C = Descriptor::c[iPop][0] * powUx + Descriptor::c[iPop][1] * powUy;
         
-        powUx *= u[0]; // u_x^6
-        powUy *= u[1]; // u_y^6
+//        powUx *= u[0]; // u_x^6
+//        powUy *= u[1]; // u_y^6
         
-        T E = powUx + powUy;
+//        T E = powUx + powUy;
         
-        powUx *= u[0]; // u_x^7
-        powUy *= u[1]; // u_y^7
+//        powUx *= u[0]; // u_x^7
+//        powUy *= u[1]; // u_y^7
         
-        T F = Descriptor::c[iPop][0] * powUx + Descriptor::c[iPop][1] * powUy;
+//        T F = Descriptor::c[iPop][0] * powUx + Descriptor::c[iPop][1] * powUy;
         
-        return Descriptor::t[iPop] * rho * 
-              ((T)1
-                + c_u*(C*(T)81/(T)20 + uSqr2*(T)27/(T)8 - uSqr*(T)9/(T)2
-                - E*(T)81/(T)24 - uSqr3*(T)81/(T)48 + (T)3)
+//        return Descriptor::t[iPop] * rho *
+//              ((T)1
+//                + c_u*(C*(T)81/(T)20 + uSqr2*(T)27/(T)8 - uSqr*(T)9/(T)2
+//                - E*(T)81/(T)24 - uSqr3*(T)81/(T)48 + (T)3)
                 
-                + c_u2*(uSqr2*(T)81/(T)16 - uSqr*(T)27/(T)4 
-                + C*(T)243/(T)40 + (T)9/(T)2)
+//                + c_u2*(uSqr2*(T)81/(T)16 - uSqr*(T)27/(T)4
+//                + C*(T)243/(T)40 + (T)9/(T)2)
                 
-                + c_u3*(uSqr2*(T)243/(T)48 - uSqr*(T)81/(T)12 + (T)27/(T)6)
+//                + c_u3*(uSqr2*(T)243/(T)48 - uSqr*(T)81/(T)12 + (T)27/(T)6)
                 
-                - c_u4*uSqr*(T)243/(T)48
-                + c_u4*(T)81/(T)24
+//                - c_u4*uSqr*(T)243/(T)48
+//                + c_u4*(T)81/(T)24
                 
-                - c_u5*uSqr*(T)729/(T)240
-                + c_u5*(T)243/(T)120
+//                - c_u5*uSqr*(T)729/(T)240
+//                + c_u5*(T)243/(T)120
                 
-                + c_u6*(T)729/(T)720
+//                + c_u6*(T)729/(T)720
                 
-                + c_u7*(T)2187/(T)5040
+//                + c_u7*(T)2187/(T)5040
                 
-                - C*uSqr*(T)81/(T)40
+//                - C*uSqr*(T)81/(T)40
                 
-                + C*(T)27/(T)20 - uSqr3*(T)27/(T)48 - E*(T)27/(T)24
-                - F*(T)81/(T)56 - uSqr*(T)3/(T)2 + uSqr2*(T)9/(T)8
-                )
-                - Descriptor::SkordosFactor() * Descriptor::t[iPop];
-    }
+//                + C*(T)27/(T)20 - uSqr3*(T)27/(T)48 - E*(T)27/(T)24
+//                - F*(T)81/(T)56 - uSqr*(T)3/(T)2 + uSqr2*(T)9/(T)8
+//                )
+//                - Descriptor::SkordosFactor() * Descriptor::t[iPop];
+//    }
     
-};
+//};
 
 }
 

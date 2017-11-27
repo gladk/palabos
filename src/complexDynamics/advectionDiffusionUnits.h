@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,6 +60,8 @@ public:
     { }
     /// Reynolds number
     T getRe() const      { return std::sqrt(getRa()/getPr()); }
+    /// Peclet number
+    T getPe() const      { return getResolution() * getLatticeU() / getLatticeKappa(); }
     /// Rayleigh number
     T getRa() const      { return Ra; }
     /// Prandlt number
@@ -118,10 +120,11 @@ template<typename T, template<typename NSU> class nsDescriptor, template<typenam
 void writeLogFile(RayleighBenardFlowParam<T,nsDescriptor,adDescriptor> const& parameters,
                   std::string const& title)
 {
-    std::string fullName = global::directories().getLogOutDir() + "olbLog.dat";
+    std::string fullName = global::directories().getLogOutDir() + "plbLog.dat";
     std::ofstream ofile(fullName.c_str());
     ofile << title << "\n\n";
     ofile << "Reynolds number:           Re=" << parameters.getRe() << "\n";
+    ofile << "Peclet number:             Pe=" << parameters.getPe() << "\n";
     ofile << "Raynleigh number:          Ra=" << parameters.getRa() << "\n";
     ofile << "Prandlt number:            Pr=" << parameters.getPr() << "\n";
     ofile << "Kinematic viscosity:       Nu=" << parameters.getLatticeNu() << "\n";

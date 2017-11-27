@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,6 +32,7 @@
 
 #include "complexDynamics/mrtDynamics.h"
 #include "latticeBoltzmann/mrtTemplates.h"
+#include "latticeBoltzmann/d3q13Templates.h"
 #include "latticeBoltzmann/dynamicsTemplates.h"
 #include "latticeBoltzmann/momentTemplates.h"
 #include "core/latticeStatistics.h"
@@ -44,7 +45,7 @@ namespace plb {
 
 template<typename T, template<typename U> class Descriptor>
 int MRTdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,MRTdynamics<T,Descriptor> >("MRT");
+    meta::registerGeneralDynamics<T,Descriptor,MRTdynamics<T,Descriptor> >("MRT");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -52,6 +53,13 @@ template<typename T, template<typename U> class Descriptor>
 MRTdynamics<T,Descriptor>::MRTdynamics(T omega_ )
     : IsoThermalBulkDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+MRTdynamics<T,Descriptor>::MRTdynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 MRTdynamics<T,Descriptor>* MRTdynamics<T,Descriptor>::clone() const {
@@ -103,7 +111,7 @@ T MRTdynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,De
 
 template<typename T, template<typename U> class Descriptor>
 int IncMRTdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,IncMRTdynamics<T,Descriptor> >("IncMRT");
+    meta::registerGeneralDynamics<T,Descriptor,IncMRTdynamics<T,Descriptor> >("IncMRT");
     
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -111,6 +119,13 @@ template<typename T, template<typename U> class Descriptor>
 IncMRTdynamics<T,Descriptor>::IncMRTdynamics(T omega_ )
     : IsoThermalBulkDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+IncMRTdynamics<T,Descriptor>::IncMRTdynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 IncMRTdynamics<T,Descriptor>* IncMRTdynamics<T,Descriptor>::clone() const {
@@ -146,7 +161,7 @@ void IncMRTdynamics<T,Descriptor>::collideExternal (
     T jSqr = mrtTemp::incMrtCollision(cell, rhoBar, j, this->getOmega());
 
     if (cell.takesStatistics()) {
-        gatherStatistics(statistics, rhoBar, jSqr * Descriptor<T>::invRho(rhoBar) * Descriptor<T>::invRho(rhoBar) );
+        gatherStatistics(statistics, rhoBar, jSqr);
     }
 }
 
@@ -170,6 +185,101 @@ void IncMRTdynamics<T,Descriptor>::computeVelocity( Cell<T,Descriptor> const& ce
     this->computeRhoBarJ(cell, dummyRhoBar, u);
 }
 
+template<typename T, template<typename U> class Descriptor>
+void IncMRTdynamics<T,Descriptor>::computeRhoBarJPiNeq (
+        Cell<T,Descriptor> const& cell, T& rhoBar,
+        Array<T,Descriptor<T>::d>& j, Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq ) const
+{
+    // Incompressible: rho0=1
+    T invRho0=(T)1.;
+    momentTemplates<T,Descriptor>::compute_rhoBar_j_PiNeq(cell, rhoBar, j, PiNeq, invRho0);
+}
+
+
+
+/* *************** Class D3Q13Dynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int D3Q13Dynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,D3Q13Dynamics<T,Descriptor> >("D3Q13");
+    
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+D3Q13Dynamics<T,Descriptor>::D3Q13Dynamics(T omega_ )
+    : IsoThermalBulkDynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+D3Q13Dynamics<T,Descriptor>::D3Q13Dynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+D3Q13Dynamics<T,Descriptor>* D3Q13Dynamics<T,Descriptor>::clone() const {
+    return new D3Q13Dynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int D3Q13Dynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void D3Q13Dynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics )
+{
+    typedef d3q13Templates<T> d3q13Temp;
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    Array<T,Descriptor<T>::d> u(j/rho);
+    
+    T omega = this->getOmega();
+    T lambda_nu       = (T)2 / ((T)8/omega-(T)3);
+    T lambda_nu_prime = (T)2 / ((T)4/omega-(T)1);
+
+    T uSqr = d3q13Temp::collision(cell, rho, u, lambda_nu, lambda_nu_prime);
+
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr );
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void D3Q13Dynamics<T,Descriptor>::collideExternal (
+        Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+        T thetaBar, BlockStatistics& statistics )
+{
+    typedef d3q13Templates<T> d3q13Temp;
+    T rho = Descriptor<T>::fullRho(rhoBar);
+    Array<T,Descriptor<T>::d> u(j/rho);
+    
+    T omega = this->getOmega();
+    T lambda_nu       = (T)2 / ((T)8/omega-(T)3);
+    T lambda_nu_prime = (T)2 / ((T)4/omega-(T)1);
+
+    T uSqr = d3q13Temp::collision(cell, rho, u, lambda_nu, lambda_nu_prime);
+
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr );
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+T D3Q13Dynamics<T,Descriptor>::computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                                  T jSqr, T thetaBar) const
+{
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, (T)1, j, jSqr);
+}
+
+template<typename T, template<typename U> class Descriptor>
+bool D3Q13Dynamics<T,Descriptor>::velIsJ() const {
+    return false;
+}
 
 }
 

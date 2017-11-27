@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -78,7 +78,7 @@ namespace descriptors {
     const char RhoBarJD2Q9Descriptor<T>::name[] = "RhoBarJD2Q9";
     
     template<typename T>
-    const char RhoBarJPiNeqOmegaD2Q9Descriptor<T>::name[] = "RhoBarJPiNeqOmegaD2Q9";
+    const char RhoBarVelocityPiNeqOmegaD2Q9Descriptor<T>::name[] = "RhoBarVelocityPiNeqOmegaD2Q9";
     
     template<typename T>
     const char VelocityD2Q9Descriptor<T>::name[] = "VelocityD2Q9";

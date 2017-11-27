@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,7 @@
 #define TRIANGLE_TO_DEF_HH
 
 #include "offLattice/triangleToDef.h"
+#include "core/geometry3D.h"
 #include "core/util.h"
 #include <utility>
 #include <limits>
@@ -61,41 +62,8 @@ void TriangleToDef<T>::vsOrder() {
 }
 
 template<typename T>
-inline bool TriangleToDef<T>::VsLessThan::vertexComponentLessThan(T x, T y)
-{
-    T tmp = (T) 0.5 * (std::fabs(x - y) + std::fabs(y - x));
-    return ((x < y) && (tmp > epsilon));
-}
-
-template<typename T>
-inline bool TriangleToDef<T>::VsLessThan::vertexComponentEqual(T x, T y)
-{
-    return ((!vertexComponentLessThan(x, y)) && (!vertexComponentLessThan(y, x)));
-}
-
-template<typename T>
-inline bool TriangleToDef<T>::VsLessThan::vertexLessThan (
-        Array<T,3> const& v1, Array<T,3> const& v2 )
-{
-    return ((vertexComponentLessThan(v1[0], v2[0]) ||
-            (vertexComponentEqual(v1[0], v2[0]) && vertexComponentLessThan(v1[1], v2[1])) ||
-            (vertexComponentEqual(v1[0], v2[0]) && vertexComponentEqual(v1[1], v2[1])
-                                                && vertexComponentLessThan(v1[2], v2[2]))));
-}
-
-template<typename T>
-inline bool TriangleToDef<T>::VsLessThan::operator() (
-        VertexSetNode const& node1, VertexSetNode const& node2 )
-{
-    Array<T,3> const& v1 = *(node1.vertex);
-    Array<T,3> const& v2 = *(node2.vertex);
-
-    return vertexLessThan(v1, v2);
-}
-
-template<typename T>
 plint TriangleToDef<T>::searchEdgeList (
-        std::vector<TriangleToDef<T>::EdgeListNode> const& edgeList, plint maxv ) const
+        std::vector<typename TriangleToDef<T>::EdgeListNode> const& edgeList, plint maxv ) const
 {
     for (pluint iList=0; iList<edgeList.size(); ++iList) {
         if (edgeList[iList].maxv==maxv) {
@@ -189,7 +157,7 @@ plint& TriangleToDef<T>::globalVertex(plint triangle, plint localVertex) {
 template<typename T>
 TriangleToDef<T>::TriangleToDef (
         std::vector<Triangle> const& triangles, T epsilon )
-    : vertexSet(VsLessThan(epsilon))
+    : vertexSet(PositionLessThan3D<T,VertexSetNode>(epsilon))
 {
     numTriangles = triangles.size();
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -51,7 +51,7 @@ typedef double T;
  *  always be preferred over explicit space loops in end-user codes.
  */
 template<typename T, template<typename U> class Descriptor>
-class TwoLayerInitializer : public OneCellIndexedFunctional2D<T,Descriptor> {
+class TwoLayerInitializer : public OneCellIndexedWithRandFunctional2D<T,Descriptor> {
 public:
     TwoLayerInitializer(plint ny_, bool topLayer_)
         : ny(ny_),
@@ -60,7 +60,7 @@ public:
     TwoLayerInitializer<T,Descriptor>* clone() const {
         return new TwoLayerInitializer<T,Descriptor>(*this);
     }
-    virtual void execute(plint iX, plint iY, Cell<T,Descriptor>& cell) const {
+    virtual void execute(plint iX, plint iY, T rand_val, Cell<T,Descriptor>& cell) const {
         T densityFluctuations = 1.e-2;
         T almostNoFluid       = 1.e-4;
         Array<T,2> zeroVelocity (0.,0.);
@@ -69,7 +69,7 @@ public:
         // Add a random perturbation to the initial condition to instantiate the
         //   instability.
         if ( (topLayer && iY>ny/2) || (!topLayer && iY <= ny/2) ) {
-            rho += (double)random()/(double)RAND_MAX * densityFluctuations;
+            rho += rand_val * densityFluctuations;
         }
         else {
             rho = almostNoFluid;
@@ -92,8 +92,8 @@ void rayleighTaylorSetup( MultiBlockLattice2D<T, DESCRIPTOR>& heavyFluid,
     // and bottom. The upper half is initially filled with fluid 1 + random noise,
     // and the lower half with fluid 2. Only fluid 1 experiences a forces,
     // directed downwards.
-    int nx = heavyFluid.getNx();
-    int ny = heavyFluid.getNy();
+    plint nx = heavyFluid.getNx();
+    plint ny = heavyFluid.getNy();
     
     // Bounce-back on bottom wall (where the light fluid is, initially).
     defineDynamics(heavyFluid, Box2D(0,nx-1, 0,0), new BounceBack<T, DESCRIPTOR>(rho0) );
@@ -122,7 +122,7 @@ void rayleighTaylorSetup( MultiBlockLattice2D<T, DESCRIPTOR>& heavyFluid,
 }
 
 void writeGifs(MultiBlockLattice2D<T, DESCRIPTOR>& heavyFluid,
-               MultiBlockLattice2D<T, DESCRIPTOR>& lightFluid, int iT)
+               MultiBlockLattice2D<T, DESCRIPTOR>& lightFluid, plint iT)
 {
     ImageWriter<T> imageWriter("leeloo.map");
     imageWriter.writeScaledGif(createFileName("rho_heavy_", iT, 6),
@@ -139,13 +139,13 @@ int main(int argc, char *argv[])
     
     const T omega1 = 1.0;
     const T omega2 = 1.0;
-    const int nx   = 1200;
-    const int ny   = 400;
+    const plint nx   = 1200;
+    const plint ny   = 400;
     const T G      = 1.2;
     T force        = 0.15/(T)ny;
-    const int maxIter  = 16000;
-    const int saveIter = 100;
-    const int statIter = 10;
+    const plint maxIter  = 16000;
+    const plint saveIter = 100;
+    const plint statIter = 10;
 
     // Use regularized BGK dynamics to improve numerical stability (but note that
     //   BGK dynamics works well too).
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 	
     pcout << "Starting simulation" << endl;
     // Main loop over time iterations.
-    for (int iT=0; iT<maxIter; ++iT) {
+    for (plint iT=0; iT<maxIter; ++iT) {
         if (iT%saveIter==0) {
             writeGifs(heavyFluid, lightFluid, iT);
         }

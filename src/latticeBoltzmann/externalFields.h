@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -100,12 +100,12 @@ struct RhoBarJdescriptorBase2D {
     typedef RhoBarJdescriptor2D ExternalField;
 };
 
-struct RhoBarJPiNeqOmegaDescriptor2D {
+struct RhoBarVelocityPiNeqOmegaDescriptor2D {
     static const int numScalars       = 7;
     static const int numSpecies       = 4;
     static const int rhoBarBeginsAt   = 0;
     static const int sizeOfRhoBar     = 1;
-    static const int velocityBeginsAt = 1; // j is stored here
+    static const int velocityBeginsAt = 1; 
     static const int sizeOfVelocity   = 2;
     static const int piNeqBeginsAt    = 3;
     static const int sizeOfPiNeq      = 3;
@@ -114,8 +114,8 @@ struct RhoBarJPiNeqOmegaDescriptor2D {
     static const int sizeOfForce      = 0;
 };
 
-struct RhoBarJPiNeqOmegaDescriptorBase2D {
-    typedef RhoBarJPiNeqOmegaDescriptor2D ExternalField;
+struct RhoBarVelocityPiNeqOmegaDescriptorBase2D {
+    typedef RhoBarVelocityPiNeqOmegaDescriptor2D ExternalField;
 };
 
 
@@ -175,6 +175,44 @@ struct RhoBarJdescriptor3D {
 
 struct RhoBarJdescriptorBase3D {
     typedef RhoBarJdescriptor3D ExternalField;
+};
+
+struct RhoBarVelocityPiNeqOmegaDescriptor3D {
+    static const int numScalars       = 11;
+    static const int numSpecies       = 4;
+    static const int rhoBarBeginsAt   = 0;
+    static const int sizeOfRhoBar     = 1;
+    static const int velocityBeginsAt = 1; 
+    static const int sizeOfVelocity   = 3;
+    static const int piNeqBeginsAt    = 4;
+    static const int sizeOfPiNeq      = 6;
+    static const int omegaBeginsAt    = 10;
+    static const int sizeOfOmega      = 1;
+    static const int sizeOfForce      = 0;
+};
+
+struct RhoBarVelocityPiNeqOmegaDescriptorBase3D {
+    typedef RhoBarVelocityPiNeqOmegaDescriptor3D ExternalField;
+};
+
+struct RhoBarVelocityPiNeqOmegaWithSourceDescriptor3D {
+    static const int numScalars       = 11;
+    static const int numSpecies       = 4;
+    static const int rhoBarBeginsAt   = 0;
+    static const int sizeOfRhoBar     = 1;
+    static const int velocityBeginsAt = 1; 
+    static const int sizeOfVelocity   = 3;
+    static const int piNeqBeginsAt    = 4;
+    static const int sizeOfPiNeq      = 6;
+    static const int omegaBeginsAt    = 10;
+    static const int sizeOfOmega      = 1;
+    static const int sourceBeginsAt   = 11;
+    static const int sizeOfSource     = 1;
+    static const int sizeOfForce      = 0;
+};
+
+struct RhoBarVelocityPiNeqOmegaWithSourceDescriptorBase3D {
+    typedef RhoBarVelocityPiNeqOmegaWithSourceDescriptor3D ExternalField;
 };
 
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -90,6 +90,17 @@ struct Dynamics {
 
     // Say if the dynamics has non-local components.
     virtual bool isNonLocal() const;
+
+    // Say if the dynamics implements advection-diffusion.
+    virtual bool isAdvectionDiffusion() const;
+
+    // Say if the dynamics implements an entropic model.
+    virtual bool isEntropic() const;
+
+    // Say if the dynamics has meaningful moments (for example for BounceBack,
+    // SpecularReflection and NoDynamics the moments of the populations have
+    // no meaning).
+    virtual bool hasMoments() const;
 
     /// Serialize the dynamics object.
     virtual void serialize(HierarchicSerializer& serializer) const;
@@ -263,6 +274,12 @@ struct Dynamics {
                                      T& rhoBar, Array<T,Descriptor<T>::d>& j,
                                      Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq) const =0;
 
+/* ********* Update local variables when the f[iPop] are all known ********** */
+ // (needed e.g. when the dynamics of a cell is reset after initialize(),
+ // but the collide-step relies on variables, which are usually only calculated
+ // within integrate process functionals
+    /// by default, nothing happens
+    void updateLocalVariables(Cell<T,Descriptor>& cell){ }
 };
 
 
@@ -536,8 +553,6 @@ public:
                                 bool automaticPrepareCollision_=true );
     virtual void prepareCollision(Cell<T,Descriptor>& cell);
     virtual void completePopulations(Cell<T,Descriptor>& cell) const =0;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     virtual PreparePopulationsDynamics<T,Descriptor>* clone() const =0;
 };
 
@@ -552,8 +567,6 @@ public:
 /* *************** Construction and Destruction ***************************** */
     BulkCompositeDynamics (Dynamics<T,Descriptor>* baseDynamics_,
                            bool automaticPrepareCollision_=true);
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 };
 
 
@@ -572,6 +585,7 @@ public:
 
     /// You may fix a fictitious density value on bounce-back nodes via the constructor.
     BounceBack(T rho_=T());
+    BounceBack(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual BounceBack<T,Descriptor>* clone() const;
@@ -655,6 +669,9 @@ public:
     /// BounceBack is a boundary.
     virtual bool isBoundary() const;
 
+    /// For BounceBack the moments of the populations have no meaning.
+    virtual bool hasMoments() const;
+
 /* *************** Additional moments, intended for internal use ************ */
 
     /// Yields fictitious density
@@ -679,12 +696,140 @@ private:
 };
 
 
+/// Implementation of specular reflection dynamics
+/** This is a very simple way to implement free-slip boundary conditions.
+ * It is a special case, because it implements no usual LB dynamics.
+ * For that reason, it derives directly from the class Dynamics.
+ *
+ * The code works for both 2D and 3D lattices.
+ */
+template<typename T, template<typename U> class Descriptor>
+class SpecularReflection : public Dynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ******************************* */
+
+    /// You may fix a fictitious density value on specular reflection nodes via the constructor.
+    SpecularReflection(T rho_=T());
+    SpecularReflection(Array<bool,Descriptor<T>::d> const& reflectOnPlaneNormalToAxis, T rho_=T());
+    SpecularReflection(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual SpecularReflection<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+/* *************** Collision, Equilibrium, and Non-equilibrium ************** */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    /// Yields 0
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+
+    /// Does nothing
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+/* *************** Computation of macroscopic variables ********************* */
+
+    /// Yields fictitious density
+    virtual T computeDensity(Cell<T,Descriptor> const& cell) const;
+    /// Yields 0
+    virtual T computePressure(Cell<T,Descriptor> const& cell) const;
+    /// Yields 0
+    virtual void computeVelocity( Cell<T,Descriptor> const& cell,
+                                  Array<T,Descriptor<T>::d>& u ) const;
+    /// Yields 0
+    virtual T computeTemperature(Cell<T,Descriptor> const& cell) const;
+    /// Yields 0
+    virtual void computePiNeq (
+        Cell<T,Descriptor> const& cell, Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq ) const;
+    /// Yields 0
+    virtual void computeShearStress (
+        Cell<T,Descriptor> const& cell, Array<T,SymmetricTensor<T,Descriptor>::n>& stress ) const;
+    /// Yields 0
+    virtual void computeHeatFlux( Cell<T,Descriptor> const& cell,
+                                  Array<T,Descriptor<T>::d>& q ) const;
+
+    /// Does nothing
+    virtual void computeMoment( Cell<T,Descriptor> const& cell,
+                                plint momentId, T* moment ) const;
+
+/* *************** Access to Dynamics variables, e.g. omega ***************** */
+
+    /// Yields 0
+    virtual T getOmega() const;
+
+    /// Does nothing
+    virtual void setOmega(T omega_);
+
+/* *************** Switch between population and moment representation ****** */
+
+    /// Yields Descriptor<T>::q + Descriptor<T>::ExternalField::numScalars.
+    virtual plint numDecomposedVariables(plint order) const;
+
+    /// Decomposed data is identical with original cell data.
+    virtual void decompose(Cell<T,Descriptor> const& cell, std::vector<T>& rawData, plint order) const;
+
+    /// Decomposed data is identical with original cell data.
+    virtual void recompose(Cell<T,Descriptor>& cell, std::vector<T> const& rawData, plint order) const;
+
+    /// Nothing happens here.
+    virtual void rescale(std::vector<T>& rawData, T xDxInv, T xDt, plint order) const;
+    virtual void rescale(int dxScale, int dtScale) {
+        Dynamics<T,Descriptor>::rescale(dxScale, dtScale);
+    }
+
+    /// SpecularReflection is a boundary.
+    virtual bool isBoundary() const;
+
+    /// For SpecularReflection the moments of the populations have no meaning.
+    virtual bool hasMoments() const;
+
+/* *************** Additional moments, intended for internal use ************ */
+
+    /// Yields fictitious density
+    virtual T computeRhoBar(Cell<T,Descriptor> const& cell) const;
+
+    /// Yields fictitious density and 0
+    virtual void computeRhoBarJ(Cell<T,Descriptor> const& cell,
+                                T& rhoBar, Array<T,Descriptor<T>::d>& j) const;
+
+    /// Compute order-0 moment rho-bar, order-1 moment j, and order-2
+    ///   off-equilibrium moment PiNeq.
+    virtual void computeRhoBarJPiNeq(Cell<T,Descriptor> const& cell,
+                                     T& rhoBar, Array<T,Descriptor<T>::d>& j,
+                                     Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq) const;
+
+    /// Yields 0
+    virtual T computeEbar(Cell<T,Descriptor> const& cell) const;
+private:
+    T rho;
+    Array<int,Descriptor<T>::d> reflection;
+private:
+    static int id;
+};
+
+
 /// Implementation of "dead dynamics" which does nothing
 template<typename T, template<typename U> class Descriptor>
 class NoDynamics : public Dynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ******************************* */
     NoDynamics(T rho_=T());
+    NoDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual NoDynamics<T,Descriptor>* clone() const;
@@ -703,7 +848,7 @@ public:
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
 
-    /// Implementation of the collision step, with imposed macroscopic variables
+    /// Does nothing
     virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
                          Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
@@ -764,6 +909,9 @@ public:
     virtual void rescale(int dxScale, int dtScale) {
         Dynamics<T,Descriptor>::rescale(dxScale, dtScale);
     }
+
+    /// For NoDynamics the moments of the populations have no meaning.
+    virtual bool hasMoments() const;
 
 /* *************** Additional moments, intended for internal use ************ */
 

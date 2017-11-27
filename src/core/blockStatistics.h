@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,9 +46,9 @@ public:
     /// Increment the value of time step in this lattice
     void incrementTime() { ++latticeTime; };
     /// Reset the value of time step in this lattice
-    void resetTime(pluint value=0) { latticeTime=value; } ;
+    void resetTime(plint value=0) { latticeTime=value; }
     /// Get the value of time step in this lattice
-    pluint getTime() const { return latticeTime; };
+    plint getTime() const { return latticeTime; }
 private:
     plint latticeTime;
 };

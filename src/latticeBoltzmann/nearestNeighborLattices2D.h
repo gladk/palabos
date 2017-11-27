@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -96,8 +96,8 @@ namespace descriptors {
         static const char name[];
     };
     
-    template <typename T> struct RhoBarJPiNeqOmegaD2Q9Descriptor
-        : public D2Q9DescriptorBase<T>, public RhoBarJPiNeqOmegaDescriptorBase2D
+    template <typename T> struct RhoBarVelocityPiNeqOmegaD2Q9Descriptor
+        : public D2Q9DescriptorBase<T>, public RhoBarVelocityPiNeqOmegaDescriptorBase2D
     {
         static const char name[];
     };

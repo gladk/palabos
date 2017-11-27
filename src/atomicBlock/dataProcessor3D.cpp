@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -143,6 +143,55 @@ void BoxedDataProcessorGenerator3D::serialize(Box3D& domain_, std::string& data)
     domain_ = domain;
 }
 
+////////////////////// Class MultiBoxedDataProcessorGenerator3D /////////////////
+
+MultiBoxedDataProcessorGenerator3D::MultiBoxedDataProcessorGenerator3D(std::vector<Box3D> const& domains_)
+    : domains(domains_)
+{ }
+
+void MultiBoxedDataProcessorGenerator3D::shift(plint deltaX, plint deltaY, plint deltaZ) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].shift(deltaX, deltaY, deltaZ);
+    }
+}
+
+void MultiBoxedDataProcessorGenerator3D::multiply(plint scale) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].multiply(scale);
+    }
+}
+
+void MultiBoxedDataProcessorGenerator3D::divide(plint scale) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].divide(scale);
+    }
+}
+
+bool MultiBoxedDataProcessorGenerator3D::extract(Box3D subDomain) {
+    std::vector<Box3D> intersections;
+    for (pluint i=0; i<domains.size(); ++i) {
+        Box3D intersection;
+        if (intersect(domains[i], subDomain, intersection)) {
+            intersections.push_back(intersection);
+        }
+    }
+    if (intersections.empty()) {
+        return false;
+    }
+    else {
+        intersections.swap(domains);
+        return true;
+    }
+
+}
+
+std::vector<Box3D> const& MultiBoxedDataProcessorGenerator3D::getDomains() const {
+    return domains;
+}
+
+void MultiBoxedDataProcessorGenerator3D::serialize(Box3D& domain_, std::string& data) const {
+}
+
 ////////////////////// Class ReductiveDataProcessorGenerator3D /////////////////
 
 ReductiveDataProcessorGenerator3D::ReductiveDataProcessorGenerator3D()
@@ -250,6 +299,56 @@ Box3D BoxedReductiveDataProcessorGenerator3D::getDomain() const {
 
 void BoxedReductiveDataProcessorGenerator3D::serialize(Box3D& domain_, std::string& data) const {
     domain_ = domain;
+}
+
+
+////////////////////// Class MultiBoxedReductiveDataProcessorGenerator3D /////////////////
+
+MultiBoxedReductiveDataProcessorGenerator3D::MultiBoxedReductiveDataProcessorGenerator3D (
+        std::vector<Box3D> const& domains_)
+    : domains(domains_)
+{ }
+
+void MultiBoxedReductiveDataProcessorGenerator3D::shift(plint deltaX, plint deltaY, plint deltaZ) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].shift(deltaX, deltaY, deltaZ);
+    }
+}
+
+void MultiBoxedReductiveDataProcessorGenerator3D::multiply(plint scale) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].multiply(scale);
+    }
+}
+
+void MultiBoxedReductiveDataProcessorGenerator3D::divide(plint scale) {
+    for (pluint i=0; i<domains.size(); ++i) {
+        domains[i] = domains[i].divide(scale);
+    }
+}
+
+bool MultiBoxedReductiveDataProcessorGenerator3D::extract(Box3D subDomain) {
+    std::vector<Box3D> intersections;
+    for (pluint i=0; i<domains.size(); ++i) {
+        Box3D intersection;
+        if (intersect(domains[i], subDomain, intersection)) {
+            intersections.push_back(intersection);
+        }
+    }
+    if (intersections.empty()) {
+        return false;
+    }
+    else {
+        intersections.swap(domains);
+        return true;
+    }
+}
+
+std::vector<Box3D> const& MultiBoxedReductiveDataProcessorGenerator3D::getDomains() const {
+    return domains;
+}
+
+void MultiBoxedReductiveDataProcessorGenerator3D::serialize(Box3D& domain_, std::string& data) const {
 }
 
 ////////////////////// Class DottedDataProcessorGenerator3D /////////////////

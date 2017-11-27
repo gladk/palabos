@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,9 +22,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/** \file
- * Geometry specifications for 3D multiblocks -- header file.
- */
 
 #ifndef NON_LOCAL_TRANSFER_3D_H
 #define NON_LOCAL_TRANSFER_3D_H

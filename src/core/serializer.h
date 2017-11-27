@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -94,11 +94,11 @@ private:
 };
 
 
-void serializerToUnSerializer(DataSerializer const* serializer, DataUnSerializer* unSerializer);
+void serializerToUnSerializer(DataSerializer const* serializer, DataUnSerializer* unSerializer, bool mainProcOnly=true);
 
-void serializerToSink(DataSerializer const* serializer, SerializedWriter* sink);
+void serializerToSink(DataSerializer const* serializer, SerializedWriter* sink, bool mainProcOnly=true);
 
-void sourceToUnSerializer(SerializedReader const* source, DataUnSerializer* unSerializer);
+void sourceToUnSerializer(SerializedReader const* source, DataUnSerializer* unSerializer, bool mainProcOnly=true);
 
 
 } // namespace plb

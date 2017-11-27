@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,7 @@ RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>::
     RegularizedVelocityBoundaryDynamics(HierarchicUnserializer& unserializer)
         : VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
@@ -69,21 +69,6 @@ RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>*
 {
     return new RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
 }
- 
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
-}
-
 template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 int RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
@@ -105,6 +90,73 @@ void RegularizedVelocityBoundaryDynamics<T,Descriptor,direction,orientation>::
             this->getBaseDynamics(), cell, rhoBar, j, jSqr, PiNeq );
 
     this->getBaseDynamics().regularize(cell, rhoBar, j, jSqr, PiNeq);
+}
+
+
+/* *************** Class RegularizedVelocityConstRhoBoundaryDynamics ************* */
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::id =
+    meta::registerGeneralDynamics<T,Descriptor, RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation> >
+            ( std::string("Boundary_RegularizedVelocityConstRho_")+util::val2str(direction) +
+              std::string("_")+util::val2str(orientation) );
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    RegularizedVelocityConstRhoBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics_, bool automaticPrepareCollision_)
+        : VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>(baseDynamics_, automaticPrepareCollision_)
+{ }
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    RegularizedVelocityConstRhoBoundaryDynamics(HierarchicUnserializer& unserializer)
+        : VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>*
+    RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::clone() const
+{
+    return new RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
+}
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+void RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    completePopulations(Cell<T,Descriptor>& cell) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    this -> computeRhoBarJ(cell, rhoBar, j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+    boundaryTemplates<T,Descriptor,direction,orientation>::compute_PiNeq (
+            this->getBaseDynamics(), cell, rhoBar, j, jSqr, PiNeq );
+
+
+    this->getBaseDynamics().regularize(cell, rhoBar, j, jSqr, PiNeq);
+
+    T newRhoBar = Descriptor<T>::rhoBar((T)1.0);
+    Array<T,3> newJ(j * (Descriptor<T>::fullRho(newRhoBar)/Descriptor<T>::fullRho(rhoBar)));
+    T newJsqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    for(pluint iPop=0; iPop<Descriptor<T>::d; ++iPop) {
+        cell[iPop] +=
+            this->getBaseDynamics().computeEquilibrium(iPop, newRhoBar, newJ, newJsqr) -
+            this->getBaseDynamics().computeEquilibrium(iPop, rhoBar, j, jSqr);
+    }
 }
 
 
@@ -130,7 +182,7 @@ RegularizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::
     RegularizedDensityBoundaryDynamics(HierarchicUnserializer& unserializer)
         : DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
@@ -145,21 +197,6 @@ template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 int RegularizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
     return id;
-}
-
- 
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void RegularizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void RegularizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,

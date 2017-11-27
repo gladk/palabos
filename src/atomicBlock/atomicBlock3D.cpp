@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,12 +55,13 @@ plint StatSubscriber3D::subscribeIntSum() {
 
 /* *************** Class AtomicBlock3D ************************************** */
 
-AtomicBlock3D::AtomicBlock3D(plint nx_, plint ny_, plint nz_)
+AtomicBlock3D::AtomicBlock3D(plint nx_, plint ny_, plint nz_, BlockDataTransfer3D* defaultDataTransfer)
     : nx(nx_), ny(ny_), nz(nz_),
       location(0,0,0),
       flag(false),
       internalStatistics(),
-      statisticsSubscriber(*this)
+      statisticsSubscriber(*this),
+      dataTransfer(defaultDataTransfer)
 { }
 
 AtomicBlock3D::AtomicBlock3D(AtomicBlock3D const& rhs)
@@ -68,7 +69,22 @@ AtomicBlock3D::AtomicBlock3D(AtomicBlock3D const& rhs)
       location(rhs.location),
       flag(rhs.flag),
       internalStatistics(rhs.internalStatistics),
-      statisticsSubscriber(*this)
+      statisticsSubscriber(*this),
+      dataTransfer(rhs.dataTransfer->clone())
+{
+    copyDataProcessors (
+            rhs.explicitInternalProcessors, explicitInternalProcessors );
+    copyDataProcessors (
+            rhs.automaticInternalProcessors, automaticInternalProcessors );
+}
+
+AtomicBlock3D::AtomicBlock3D(AtomicBlock3D const& rhs, BlockDataTransfer3D* defaultDataTransfer)
+    : nx(rhs.nx), ny(rhs.ny), nz(rhs.nz),
+      location(rhs.location),
+      flag(rhs.flag),
+      internalStatistics(rhs.internalStatistics),
+      statisticsSubscriber(*this),
+      dataTransfer(defaultDataTransfer)
 {
     copyDataProcessors (
             rhs.explicitInternalProcessors, explicitInternalProcessors );
@@ -79,6 +95,7 @@ AtomicBlock3D::AtomicBlock3D(AtomicBlock3D const& rhs)
 AtomicBlock3D::~AtomicBlock3D()
 {
     clearDataProcessors();
+    delete dataTransfer;
 }
 
 void AtomicBlock3D::swap(AtomicBlock3D& rhs) {
@@ -90,6 +107,7 @@ void AtomicBlock3D::swap(AtomicBlock3D& rhs) {
     std::swap(internalStatistics, rhs.internalStatistics);
     explicitInternalProcessors.swap(rhs.explicitInternalProcessors);
     automaticInternalProcessors.swap(rhs.automaticInternalProcessors);
+    std::swap(dataTransfer, rhs.dataTransfer);
 }
 
 void AtomicBlock3D::initialize() {
@@ -181,6 +199,25 @@ void AtomicBlock3D::removeDataProcessors(int staticId) {
             }
         }
     }
+}
+
+void AtomicBlock3D::setDataTransfer(BlockDataTransfer3D* newDataTransfer) {
+    PLB_ASSERT( newDataTransfer );
+    delete dataTransfer;
+    dataTransfer = newDataTransfer;
+    dataTransfer->setBlock(*this);
+}
+
+BlockDataTransfer3D& AtomicBlock3D::getDataTransfer() {
+    PLB_ASSERT( dataTransfer );
+    dataTransfer->setBlock(*this);
+    return *dataTransfer;
+}
+
+BlockDataTransfer3D const& AtomicBlock3D::getDataTransfer() const {
+    PLB_ASSERT( dataTransfer );
+    dataTransfer->setConstBlock(*this);
+    return *dataTransfer;
 }
 
 void AtomicBlock3D::clearDataProcessors(DataProcessorVector& processors) {

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -74,8 +74,8 @@ public:
     ///  are not copied. MultiScalarAccess takes default value.
     MultiScalarField2D(MultiBlock2D const& rhs, Box2D subDomain, bool crop=true);
     MultiScalarField2D<T>& operator=(MultiScalarField2D<T> const& rhs);
-    MultiScalarField2D<T>* clone() const;
-    MultiScalarField2D<T>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
+    virtual MultiScalarField2D<T>* clone() const;
+    virtual MultiScalarField2D<T>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
     void swap(MultiScalarField2D<T>& rhs);
 public: 
     virtual void reset();
@@ -150,8 +150,8 @@ public:
     ///  are not copied. MultiTensorAccess takes default value.
     MultiTensorField2D(MultiBlock2D const& rhs, Box2D subDomain, bool crop=true);
     MultiTensorField2D<T,nDim>& operator=(MultiTensorField2D<T,nDim> const& rhs);
-    MultiTensorField2D<T,nDim>* clone() const;
-    MultiTensorField2D<T,nDim>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
+    virtual MultiTensorField2D<T,nDim>* clone() const;
+    virtual MultiTensorField2D<T,nDim>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
     void swap(MultiTensorField2D<T,nDim>& rhs);
 public:
     virtual void reset();
@@ -228,8 +228,8 @@ public:
     ///  are not copied. MultiNTensorAccess takes default value.
     MultiNTensorField2D(plint ndim, MultiBlock2D const& rhs, Box2D subDomain, bool crop=true);
     MultiNTensorField2D<T>& operator=(MultiNTensorField2D<T> const& rhs);
-    MultiNTensorField2D<T>* clone() const;
-    MultiNTensorField2D<T>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
+    virtual MultiNTensorField2D<T>* clone() const;
+    virtual MultiNTensorField2D<T>* clone(MultiBlockManagement2D const& newMultiBlockManagement) const;
     void swap(MultiNTensorField2D<T>& rhs);
 public:
     virtual void reset();

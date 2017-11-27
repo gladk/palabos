@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -93,13 +93,13 @@ std::auto_ptr<MultiGridScalarField3D<T> > computeDensity(MultiGridLattice3D<T,De
 /* *************** RhoBar ******************************************** */
 
 template<typename T, template<typename U> class Descriptor>
-void computeDensity(MultiGridLattice3D<T,Descriptor>& lattice, MultiGridScalarField3D<T>& rhoBar, Box3D domain);
+void computeRhoBar(MultiGridLattice3D<T,Descriptor>& lattice, MultiGridScalarField3D<T>& rhoBar, Box3D domain);
 
 template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiGridScalarField3D<T> > computeDensity(MultiGridLattice3D<T,Descriptor>& lattice, Box3D domain);
+std::auto_ptr<MultiGridScalarField3D<T> > computeRhoBar(MultiGridLattice3D<T,Descriptor>& lattice, Box3D domain);
 
 template<typename T, template<typename U> class Descriptor>
-std::auto_ptr<MultiGridScalarField3D<T> > computeDensity(MultiGridLattice3D<T,Descriptor>& lattice);
+std::auto_ptr<MultiGridScalarField3D<T> > computeRhoBar(MultiGridLattice3D<T,Descriptor>& lattice);
 
 
 /* *************** Kinetic Energy ************************************ */
@@ -238,6 +238,19 @@ template<typename T, template<typename U> class Descriptor>
 void copyPopulations( MultiGridLattice3D<T,Descriptor>& latticeFrom,
                       MultiGridLattice3D<T,Descriptor>& latticeTo,
                       Box3D domain);
+
+/* *************** Omega ******************************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void computeOmega(MultiGridLattice3D<T,Descriptor>& lattice,
+                  MultiGridScalarField3D<T>& omega, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiGridScalarField3D<T> > computeOmega(MultiGridLattice3D<T,Descriptor>& lattice, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiGridScalarField3D<T> > computeOmega(MultiGridLattice3D<T,Descriptor>& lattice);
+
 
 
 /* *************** Reductive functions ******************************* */

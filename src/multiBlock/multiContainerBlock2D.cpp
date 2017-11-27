@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -101,9 +101,9 @@ MultiContainerBlock2D* MultiContainerBlock2D::clone (
         MultiBlockManagement2D const& multiBlockManagement ) const
 {
     // By definition, a multi container block cannot be redistributed over
-    //   a different block arrangement.
-    PLB_ASSERT( false );
-    return 0;
+    //   a different block arrangement. Consequently, this function
+    //   default to plain clone().
+    return clone();
 }
 
 void MultiContainerBlock2D::allocateBlocks() 
@@ -117,6 +117,18 @@ void MultiContainerBlock2D::allocateBlocks()
             new AtomicContainerBlock2D (
                     envelope.getNx(), envelope.getNy() );
         newBlock -> setLocation(Dot2D(envelope.x0, envelope.y0));
+        blocks[blockId] = newBlock;
+    }
+}
+
+void MultiContainerBlock2D::allocateBlocks(MultiContainerBlock2D const& rhs) 
+{
+    for (pluint iBlock=0; iBlock<this->getLocalInfo().getBlocks().size(); ++iBlock)
+    {
+        plint blockId = this->getLocalInfo().getBlocks()[iBlock];
+        BlockMap::const_iterator it(rhs.blocks.find(blockId));
+        PLB_ASSERT( it != rhs.blocks.end() );
+        AtomicContainerBlock2D* newBlock = new AtomicContainerBlock2D( *it->second );
         blocks[blockId] = newBlock;
     }
 }

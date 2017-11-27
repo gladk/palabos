@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -467,6 +467,29 @@ private:
  *    converted to T at the end (and rounded, if T is an integer).
  **/
 template<typename T>
+class MaskedBoxScalarMinFunctional2D : public ReductiveBoxProcessingFunctional2D_SS<T,int>
+{
+public:
+    MaskedBoxScalarMinFunctional2D(int flag_);
+    virtual void process( Box2D domain,
+                          ScalarField2D<T>& scalarField,
+                          ScalarField2D<int>& mask );
+    virtual MaskedBoxScalarMinFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::nothing;
+        modified[1] = modif::nothing;
+    }
+    T getMinScalar() const;
+private:
+    plint maxScalarId;
+    int flag;
+};
+
+/** Attention: No matter what the type of T is (even if it is an integer type),
+ *    the max is computed in double-precision floating point numbers, and
+ *    converted to T at the end (and rounded, if T is an integer).
+ **/
+template<typename T>
 class BoxScalarMaxFunctional2D : public ReductiveBoxProcessingFunctional2D_S<T>
 {
 public:
@@ -479,6 +502,29 @@ public:
     T getMaxScalar() const;
 private:
     plint maxScalarId;
+};
+
+/** Attention: No matter what the type of T is (even if it is an integer type),
+ *    the max is computed in double-precision floating point numbers, and
+ *    converted to T at the end (and rounded, if T is an integer).
+ **/
+template<typename T>
+class MaskedBoxScalarMaxFunctional2D : public ReductiveBoxProcessingFunctional2D_SS<T,int>
+{
+public:
+    MaskedBoxScalarMaxFunctional2D(int flag_);
+    virtual void process( Box2D domain,
+                          ScalarField2D<T>& scalarField,
+                          ScalarField2D<int>& mask );
+    virtual MaskedBoxScalarMaxFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::nothing;
+        modified[1] = modif::nothing;
+    }
+    T getMaxScalar() const;
+private:
+    plint maxScalarId;
+    int flag;
 };
 
 /** Attention: No matter what the type of T is (even if it is an integer type),
@@ -542,6 +588,20 @@ public:
     virtual ComputeScalarSqrtFunctional2D<T>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class ComputeScalarPowFunctional2D : public BoxProcessingFunctional2D_SS<T,T>
+{
+public:
+    ComputeScalarPowFunctional2D(T power_);
+    virtual void process(Box2D domain, ScalarField2D<T>& A,
+                                       ScalarField2D<T>& B);
+    virtual ComputeScalarPowFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    T power;
 };
 
 template<typename T>
@@ -988,6 +1048,19 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual BlockDomain::DomainT appliesTo() const;
 };
+
+template<typename T, int nDim>
+class BoxLocalMaximumPerComponentFunctional2D :
+    public BoxProcessingFunctional2D_ST<T,T,nDim>
+{
+public:
+    virtual void process(Box2D domain, ScalarField2D<T>& scalarField,
+                                       TensorField2D<T,nDim>& tensorField);
+    virtual BoxLocalMaximumPerComponentFunctional2D<T,nDim>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+
 
 template<typename T>
 class BoxGradientFunctional2D :

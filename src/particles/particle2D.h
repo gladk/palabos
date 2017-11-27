@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,6 +41,7 @@ public:
     Particle2D(plint tag_, Array<T,2> const& position_);
     virtual ~Particle2D() { }
     virtual void velocityToParticle(TensorField2D<T,2>& velocityField, T scaling=1.) =0;
+    virtual void velocityToParticle(NTensorField2D<T>& velocityField, T scaling=1.) =0;
     virtual void rhoBarJtoParticle(NTensorField2D<T>& rhoBarJfield, bool velIsJ, T scaling=1.) =0;
     virtual void fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling=1.) =0;
     virtual void advance() =0;
@@ -88,6 +89,7 @@ public:
     PointParticle2D();
     PointParticle2D(plint tag_, Array<T,2> const& position_, Array<T,2> const& velocity_);
     virtual void velocityToParticle(TensorField2D<T,2>& velocityField, T scaling=1.);
+    virtual void velocityToParticle(NTensorField2D<T>& velocityField, T scaling=1.);
     virtual void rhoBarJtoParticle(NTensorField2D<T>& rhoBarJfield, bool velIsJ, T scaling=1.);
     virtual void fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling=1.);
     virtual void advance();
@@ -132,6 +134,7 @@ public:
     RestParticle2D();
     RestParticle2D( plint tag_, Array<T,2> const& position );
     virtual void velocityToParticle(TensorField2D<T,2>& velocityField, T scaling=1.);
+    virtual void velocityToParticle(NTensorField2D<T>& velocityField, T scaling=1.);
     virtual void rhoBarJtoParticle(NTensorField2D<T>& rhoBarJfield, bool velIsJ, T scaling=1.);
     virtual void fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling=1.);
     virtual void advance();
@@ -151,6 +154,7 @@ public:
     VerletParticle2D();
     VerletParticle2D( plint tag_, Array<T,2> const& position );
     virtual void velocityToParticle(TensorField2D<T,2>& velocityField, T scaling=1.);
+    virtual void velocityToParticle(NTensorField2D<T>& velocityField, T scaling=1.);
     virtual void rhoBarJtoParticle(NTensorField2D<T>& rhoBarJfield, bool velIsJ, T scaling=1.);
     virtual void fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling=1.);
     /// Implements "steps 1 and 2" of the Rest algorithm: given

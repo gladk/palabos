@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,11 +46,44 @@ ShanChenMultiComponentProcessor3D <T,Descriptor>::ShanChenMultiComponentProcesso
 { }
 
 template<typename T, template<typename U> class Descriptor>
+ShanChenMultiComponentProcessor3D <T,Descriptor>::ShanChenMultiComponentProcessor3D(
+        std::vector<std::vector<T> > const& speciesG_)
+    : G((T) 0)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 ShanChenMultiComponentProcessor3D <T,Descriptor>::ShanChenMultiComponentProcessor3D (
         T G_, std::vector<T> const& imposedOmega_)
     : G(G_),
       imposedOmega(imposedOmega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenMultiComponentProcessor3D <T,Descriptor>::ShanChenMultiComponentProcessor3D (
+        std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_)
+    : G((T) 0),
+      imposedOmega(imposedOmega_)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
 
 template<typename T, template<typename U> class Descriptor>
 void ShanChenMultiComponentProcessor3D<T,Descriptor>::process (
@@ -81,8 +114,7 @@ void ShanChenMultiComponentProcessor3D<T,Descriptor>::process (
                     //   on boundaries.
                     Cell<T,Descriptor>& cell = lattices[iSpecies]->get(iX,iY,iZ);
                     Array<T,Descriptor<T>::d> j;
-                    T rhoBar;
-                    cell.getDynamics().computeRhoBarJ(cell,rhoBar,j);
+                    T rhoBar = cell.getDynamics().computeRhoBar(cell);
                     momentTemplates<T,Descriptor>::get_j(cell,j);
                     *cell.getExternal(densityOffset) = Descriptor<T>::fullRho(rhoBar);
                     j.to_cArray(cell.getExternal(momentumOffset));
@@ -101,10 +133,15 @@ void ShanChenMultiComponentProcessor3D<T,Descriptor>::process (
     // If omega is constant and imposed by the user, copy its value to
     //   the vector "omega", and compute the inverse.
     if (!imposedOmega.empty()) {
+        PLB_ASSERT((plint) imposedOmega.size() == numSpecies);
         omega = imposedOmega;
         for (pluint iOmega=0; iOmega<omega.size(); ++iOmega) {
             invOmega[iOmega] = (T)1 / omega[iOmega];
         }
+    }
+
+    if (speciesG.empty()) {
+        speciesG.resize(numSpecies * numSpecies, G);
     }
 
     // Compute the interaction force between the species, and store it by
@@ -155,7 +192,8 @@ void ShanChenMultiComponentProcessor3D<T,Descriptor>::process (
                         // Then, add a contribution from the potential of all other species.
                         for (plint iPartnerSpecies=0; iPartnerSpecies<numSpecies; ++iPartnerSpecies) {
                             if (iPartnerSpecies != iSpecies) {
-                                forceContribution -= G * rhoContribution[iPartnerSpecies][iD];
+                                forceContribution -= speciesG[iSpecies * numSpecies + iPartnerSpecies] *
+                                    rhoContribution[iPartnerSpecies][iD];
                             }
                         }
                         momentum[iD] += invOmega[iSpecies]*forceContribution;
@@ -315,6 +353,242 @@ void ShanChenSingleComponentProcessor3D<T,Descriptor>::process (
                 }
             }
         }
+    }
+}
+
+/* *************** ShanChenExternalMultiComponentProcessor3D ***************** */
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenExternalMultiComponentProcessor3D <T,Descriptor>::ShanChenExternalMultiComponentProcessor3D(T G_)
+    : G(G_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenExternalMultiComponentProcessor3D <T,Descriptor>::ShanChenExternalMultiComponentProcessor3D(
+        std::vector<std::vector<T> > const& speciesG_)
+    : G((T) 0)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenExternalMultiComponentProcessor3D <T,Descriptor>::ShanChenExternalMultiComponentProcessor3D (
+        T G_, std::vector<T> const& imposedOmega_)
+    : G(G_),
+      imposedOmega(imposedOmega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenExternalMultiComponentProcessor3D <T,Descriptor>::ShanChenExternalMultiComponentProcessor3D (
+        std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_)
+    : G((T) 0),
+      imposedOmega(imposedOmega_)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ShanChenExternalMultiComponentProcessor3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    // Short-hand notation for the lattice descriptor
+    typedef Descriptor<T> D;
+
+    PLB_ASSERT( atomicBlocks.size() % 3 == 0 );
+    std::vector<BlockLattice3D<T,Descriptor>*> lattices;
+    std::vector<ScalarField3D<T>*> rhoBar;
+    std::vector<TensorField3D<T,D::d>*> j;
+    std::vector<Dot3D> ofsLatt;
+    std::vector<Dot3D> ofsRhoBar;
+    std::vector<Dot3D> ofsJ;
+    for (pluint i=0; i<atomicBlocks.size(); i+=3) {
+        BlockLattice3D<T,Descriptor>* lattice_ = dynamic_cast<BlockLattice3D<T,Descriptor>*>(atomicBlocks[i]);
+        PLB_ASSERT( lattice_ );
+        lattices.push_back(lattice_);
+        ofsLatt.push_back(computeRelativeDisplacement(*lattices[0], *lattice_));
+
+        ScalarField3D<T>* rhoBar_ = dynamic_cast<ScalarField3D<T>*>(atomicBlocks[i+1]);
+        PLB_ASSERT( rhoBar_ );
+        rhoBar.push_back(rhoBar_);
+        ofsRhoBar.push_back(computeRelativeDisplacement(*lattices[0], *rhoBar_));
+
+        TensorField3D<T,D::d>* j_ = dynamic_cast<TensorField3D<T,D::d>*>(atomicBlocks[i+2]);
+        PLB_ASSERT( j_ );
+        j.push_back(j_);
+        ofsJ.push_back(computeRelativeDisplacement(*lattices[0], *j_));
+
+    }
+    // Number of species (or components) which are coupled in this Shan/Chen multi-component fluid.
+    plint numSpecies = (plint) lattices.size();
+    
+    // Compute per-lattice density  and momentum on every site and on each
+    //   lattice, and store result in external blocks; envelope cells are included,
+    //   because they are needed to compute the interaction potential in the following.
+    //   Note that the per-lattice value of the momentum is stored temporarily only, as
+    //   it is corrected later on, based on the common fluid velocity.
+    for (plint iSpecies=0; iSpecies<numSpecies; ++iSpecies) {
+        for (plint iX=domain.x0-1; iX<=domain.x1+1; ++iX) {
+            for (plint iY=domain.y0-1; iY<=domain.y1+1; ++iY) {
+                for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {
+                    // Get "intelligent" value of density through cell object, to account
+                    //   for the fact that the density value can be user-defined, for example
+                    //   on boundaries.
+                    Cell<T,Descriptor>& cell =
+                        lattices[iSpecies]->get (
+                                iX+ofsLatt[iSpecies].x,iY+ofsLatt[iSpecies].y,iZ+ofsLatt[iSpecies].z );
+                    //if (!cell.getDynamics().hasMoments()) {
+                    //    break;
+                    //}
+                    cell.getDynamics().computeRhoBarJ (
+                            cell, rhoBar[iSpecies]->get (
+                                      iX+ofsRhoBar[iSpecies].x,iY+ofsRhoBar[iSpecies].y,iZ+ofsRhoBar[iSpecies].z ),
+                                  j[iSpecies]->get (
+                                      iX+ofsJ[iSpecies].x,iY+ofsJ[iSpecies].y,iZ+ofsJ[iSpecies].z) );
+                    //momentTemplates<T,Descriptor>::get_j (
+                    //        cell, j[iSpecies]->get (
+                    //                  iX+ofsJ[iSpecies].x,iY+ofsJ[iSpecies].y,iZ+ofsJ[iSpecies].z) );
+                }
+            }
+        }
+    }
+
+    // Temporary variable for the relaxation parameters omega.
+    std::vector<T> omega(numSpecies), invOmega(numSpecies);
+    // Temporary variable for total velocity.
+    Array<T,D::d> uTot;
+    // Temporary variable for interaction potential.
+    std::vector<Array<T,D::d> > rhoContribution(numSpecies);
+
+    // If omega is constant and imposed by the user, copy its value to
+    //   the vector "omega", and compute the inverse.
+    if (!imposedOmega.empty()) {
+        PLB_ASSERT((plint) imposedOmega.size() == numSpecies);
+        omega = imposedOmega;
+        for (pluint iOmega=0; iOmega<omega.size(); ++iOmega) {
+            invOmega[iOmega] = (T)1 / omega[iOmega];
+        }
+    }
+
+    if (speciesG.empty()) {
+        speciesG.resize(numSpecies * numSpecies, G);
+    }
+
+    // Compute the interaction force between the species, and store it by
+    //   means of a velocity correction in the external velocity field.
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                // Computation of the common density over all populations, weighted by
+                //   the relaxation parameters omega.
+                T weightedDensity = T();
+                // A cell is only invalid if all species have bounce-back.
+                bool validCell = false;
+                for (plint iSpecies=0; iSpecies<numSpecies; ++iSpecies) {
+                    Cell<T,Descriptor> const& cell =
+                        lattices[iSpecies]->get(iX+ofsLatt[iSpecies].x,iY+ofsLatt[iSpecies].y,iZ+ofsLatt[iSpecies].z);
+                    if (!cell.getDynamics().hasMoments()) {
+                        break;
+                    }
+                    else {
+                        validCell = true;
+                    }
+                    // Take this opportunity to read omega from the cell, unless the value
+                    //   of omega is constant and imposed by the user.
+                    if (imposedOmega.empty()) {
+                        omega[iSpecies] = cell.getDynamics().getOmega();
+                        invOmega[iSpecies] = (T)1/omega[iSpecies];
+                    }
+                    weightedDensity += omega[iSpecies] * D::fullRho(rhoBar[iSpecies]->get(
+                                iX+ofsRhoBar[iSpecies].x,iY+ofsRhoBar[iSpecies].y,iZ+ofsRhoBar[iSpecies].z));
+                }
+                // Computation of the common velocity, shared among all populations.
+                uTot.resetToZero();
+                if (validCell) {
+                    for (int iD = 0; iD < D::d; ++iD) {
+                        for (plint iSpecies=0; iSpecies<numSpecies; ++iSpecies) {
+                            Array<T,D::d> momentum = j[iSpecies]->get(iX+ofsJ[iSpecies].x,iY+ofsJ[iSpecies].y,iZ+ofsJ[iSpecies].z);
+                            uTot[iD] += momentum[iD] * omega[iSpecies];
+                        }
+                        uTot[iD] /= weightedDensity;
+                    }
+                }
+
+                // Computation of the interaction potential.
+                for (plint iSpecies=0; iSpecies<numSpecies; ++iSpecies) {
+                    Cell<T,Descriptor> const& cell =
+                        lattices[iSpecies]->get(iX+ofsLatt[iSpecies].x,iY+ofsLatt[iSpecies].y,iZ+ofsLatt[iSpecies].z);
+                    if (!cell.getDynamics().hasMoments()) {
+                        break;
+                    }
+                    multiPhaseTemplates3D<T,Descriptor>::shanChenInteraction (
+                            *lattices[iSpecies], *rhoBar[iSpecies], rhoContribution[iSpecies],
+                            iX+ofsLatt[iSpecies].x,iY+ofsLatt[iSpecies].y,iZ+ofsLatt[iSpecies].z );
+                }
+
+                // Computation and storage of the final velocity, consisting
+                //   of uTot plus the momentum difference due to interaction
+                //   potential and external force
+                for (plint iSpecies=0; iSpecies<numSpecies; ++iSpecies) {
+                    Cell<T,Descriptor>& cell =
+                        lattices[iSpecies]->get (
+                            iX+ofsLatt[iSpecies].x,iY+ofsLatt[iSpecies].y,iZ+ofsLatt[iSpecies].z );
+                    if (!cell.getDynamics().hasMoments()) {
+                        break;
+                    }
+                    Array<T,D::d>& momentum = j[iSpecies]->get(iX+ofsJ[iSpecies].x,iY+ofsJ[iSpecies].y,iZ+ofsJ[iSpecies].z);
+                    for (int iD = 0; iD < D::d; ++iD) {
+                        momentum[iD] = uTot[iD];
+                        // Initialize force contribution with force from external fields if there
+                        //   is any, or with zero otherwise.
+                        T forceContribution = getExternalForceComponent(cell, iD);
+                        // Then, add a contribution from the potential of all other species.
+                        for (plint iPartnerSpecies=0; iPartnerSpecies<numSpecies; ++iPartnerSpecies) {
+                            if (iPartnerSpecies != iSpecies) {
+                                forceContribution -= speciesG[iSpecies * numSpecies + iPartnerSpecies] *
+                                    rhoContribution[iPartnerSpecies][iD];
+                            }
+                        }
+                        momentum[iD] += invOmega[iSpecies]*forceContribution;
+                        // Multiply by rho to convert from velocity to momentum.
+                        momentum[iD] *= D::fullRho(rhoBar[iSpecies]->get (
+                                            iX+ofsRhoBar[iSpecies].x,iY+ofsRhoBar[iSpecies].y,iZ+ofsRhoBar[iSpecies].z) );
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenExternalMultiComponentProcessor3D<T,Descriptor>*
+    ShanChenExternalMultiComponentProcessor3D<T,Descriptor>::clone() const
+{
+    return new ShanChenExternalMultiComponentProcessor3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ShanChenExternalMultiComponentProcessor3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    // All blocks are modified by the Shan/Chen processor.
+    for (pluint iBlock=0; iBlock<modified.size(); ++iBlock) {
+        modified[iBlock] = modif::staticVariables;
     }
 }
 

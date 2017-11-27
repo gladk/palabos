@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
  * Utilities for 3D multi data distributions -- implementation.
  */
 
+#include "core/util.h"
 #include "multiBlock/staticRepartitions3D.h"
 #include "atomicBlock/dataField3D.hh"
 #include "algorithm/basicAlgorithms.h"
@@ -125,13 +126,43 @@ SparseBlockStructure3D createRegularDistribution3D (
             Box3D(0, nx-1, 0, ny-1, 0, nz-1), numProc );
 }
 
-static void linearBlockRepartition(plint x0, plint x1,
-                                   plint wishedLength,
-                                   std::vector<std::pair<plint,plint> >& ranges)
+SparseBlockStructure3D createRegularDistributionYZ3D (
+        plint nx, plint ny, plint nz, int numProc)
 {
-    plint totalSize = x1-x0+1;
-    plint nBlocks = std::max((plint)1, totalSize/wishedLength);
-    util::linearRepartition(x0, x1, nBlocks, ranges);
+    std::vector<plint> repartition = algorithm::evenRepartition(numProc, 2);
+    plint repartitionMin = std::min(repartition[0], repartition[1]);
+    plint repartitionMax = std::max(repartition[0], repartition[1]);
+    plint numBlocksX = 1;
+    plint numBlocksY = ny >  nz ? repartitionMax : repartitionMin;
+    plint numBlocksZ = nz >= ny ? repartitionMax : repartitionMin;
+
+    return createRegularDistribution3D(Box3D(0, nx-1, 0, ny-1, 0, nz-1), numBlocksX, numBlocksY, numBlocksZ);
+}
+
+SparseBlockStructure3D createRegularDistributionXZ3D (
+        plint nx, plint ny, plint nz, int numProc)
+{
+    std::vector<plint> repartition = algorithm::evenRepartition(numProc, 2);
+    plint repartitionMin = std::min(repartition[0], repartition[1]);
+    plint repartitionMax = std::max(repartition[0], repartition[1]);
+    plint numBlocksY = 1;
+    plint numBlocksX = nx >  nz ? repartitionMax : repartitionMin;
+    plint numBlocksZ = nz >= nx ? repartitionMax : repartitionMin;
+
+    return createRegularDistribution3D(Box3D(0, nx-1, 0, ny-1, 0, nz-1), numBlocksX, numBlocksY, numBlocksZ);
+}
+
+SparseBlockStructure3D createRegularDistributionXY3D (
+        plint nx, plint ny, plint nz, int numProc)
+{
+    std::vector<plint> repartition = algorithm::evenRepartition(numProc, 2);
+    plint repartitionMin = std::min(repartition[0], repartition[1]);
+    plint repartitionMax = std::max(repartition[0], repartition[1]);
+    plint numBlocksZ = 1;
+    plint numBlocksX = nx >  ny ? repartitionMax : repartitionMin;
+    plint numBlocksY = ny >= nx ? repartitionMax : repartitionMin;
+
+    return createRegularDistribution3D(Box3D(0, nx-1, 0, ny-1, 0, nz-1), numBlocksX, numBlocksY, numBlocksZ);
 }
 
 void mergeIntersections(std::vector<Box3D>& intersections) {
@@ -165,9 +196,9 @@ SparseBlockStructure3D reparallelize(SparseBlockStructure3D const& originalStruc
 {
     std::vector<std::pair<plint,plint> > rangesX, rangesY, rangesZ;
     Box3D boundingBox = originalStructure.getBoundingBox();
-    linearBlockRepartition(boundingBox.x0, boundingBox.x1, blockLx, rangesX);
-    linearBlockRepartition(boundingBox.y0, boundingBox.y1, blockLy, rangesY);
-    linearBlockRepartition(boundingBox.z0, boundingBox.z1, blockLz, rangesZ);
+    util::linearBlockRepartition(boundingBox.x0, boundingBox.x1, blockLx, rangesX);
+    util::linearBlockRepartition(boundingBox.y0, boundingBox.y1, blockLy, rangesY);
+    util::linearBlockRepartition(boundingBox.z0, boundingBox.z1, blockLz, rangesZ);
     SparseBlockStructure3D newStructure(boundingBox);
     std::vector<plint> ids;
     std::vector<Box3D> intersections;

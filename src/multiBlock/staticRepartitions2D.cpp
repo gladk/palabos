@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
  * Utilities for 2D multi data distributions -- implementation.
  */
 
+#include "core/util.h"
 #include "multiBlock/staticRepartitions2D.h"
 #include "atomicBlock/dataField2D.hh"
 #include "algorithm/basicAlgorithms.h"
@@ -78,15 +79,6 @@ SparseBlockStructure2D createRegularDistribution2D (
             Box2D(0, nx-1, 0, ny-1), numProc );
 }
 
-
-static void linearBlockRepartition(plint x0, plint x1,
-                                   plint wishedLength,
-                                   std::vector<std::pair<plint,plint> >& ranges)
-{
-    plint totalSize = x1-x0+1;
-    plint nBlocks = std::max((plint)1, totalSize/wishedLength);
-    util::linearRepartition(x0, x1, nBlocks, ranges);
-}
 void mergeIntersections(std::vector<Box2D>& intersections) {
     std::vector<Box2D> merged;
     for (pluint iInters=0; iInters<intersections.size(); ++iInters) {
@@ -118,8 +110,8 @@ SparseBlockStructure2D reparallelize(SparseBlockStructure2D const& originalStruc
 {
     std::vector<std::pair<plint,plint> > rangesX, rangesY;
     Box2D boundingBox = originalStructure.getBoundingBox();
-    linearBlockRepartition(boundingBox.x0, boundingBox.x1, blockLx, rangesX);
-    linearBlockRepartition(boundingBox.y0, boundingBox.y1, blockLy, rangesY);
+    util::linearBlockRepartition(boundingBox.x0, boundingBox.x1, blockLx, rangesX);
+    util::linearBlockRepartition(boundingBox.y0, boundingBox.y1, blockLy, rangesY);
     SparseBlockStructure2D newStructure(boundingBox);
     std::vector<plint> ids;
     std::vector<Box2D> intersections;

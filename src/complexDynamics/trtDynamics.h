@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,7 @@ class TRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
     /* *************** Construction / Destruction ************************ */
     TRTdynamics(T omega_);
+    TRTdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual TRTdynamics<T,Descriptor>* clone() const;
@@ -72,6 +73,7 @@ class IncTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     IncTRTdynamics(T omega_);
+    IncTRTdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual IncTRTdynamics<T,Descriptor>* clone() const;

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,7 +41,7 @@ using namespace std;
 
 // Use double-precision arithmetics
 typedef double T;
-// Use a grid which additionally to the f's stores two variables for
+// Use a grid which additionally to the f's stores three variables for
 //   the external force term.
 #define DESCRIPTOR descriptors::ForcedShanChenD3Q19Descriptor
 
@@ -51,31 +51,25 @@ typedef double T;
  *  always be preferred over explicit space loops in end-user codes.
  */
 template<typename T, template<typename U> class Descriptor>
-class TwoLayerInitializer : public OneCellIndexedFunctional3D<T,Descriptor> {
+class TwoLayerInitializer : public OneCellIndexedWithRandFunctional3D<T,Descriptor> {
 public:
-    TwoLayerInitializer(plint ny_, bool air_)
+    TwoLayerInitializer(plint ny_, bool topLayer_)
         : ny(ny_),
-          air(air_)
-    {
-        cx = ny/2;
-        cy = ny/8;
-        cz = ny/2;
-        r  = ny/8;
-    }
+          topLayer(topLayer_)
+    { }
     TwoLayerInitializer<T,Descriptor>* clone() const {
         return new TwoLayerInitializer<T,Descriptor>(*this);
     }
-    virtual void execute(plint iX, plint iY, plint iZ, Cell<T,Descriptor>& cell) const {
+    virtual void execute(plint iX, plint iY, plint iZ, T rand_val, Cell<T,Descriptor>& cell) const {
         T densityFluctuations = 1.e-2;
-        T almostNoFluid       = 1.e-1;
+        T almostNoFluid       = 1.e-4;
         Array<T,3> zeroVelocity (0.,0.,0.);
 
-        bool insideBubble = util::sqr(iX-cx)+util::sqr(iY-cy)+util::sqr(iZ-cz) < util::sqr(r);
         T rho = (T)1;
         // Add a random perturbation to the initial condition to instantiate the
         //   instability.
-        if ( (air && insideBubble) || (!air && !insideBubble) ) {
-            rho += (double)random()/(double)RAND_MAX * densityFluctuations;
+        if ( (topLayer && iY>ny/2) || (!topLayer && iY <= ny/2) ) {
+            rho += rand_val * densityFluctuations;
         }
         else {
             rho = almostNoFluid;
@@ -85,8 +79,7 @@ public:
     }
 private:
     plint ny;
-    bool air;
-    plint cx, cy, cz, r;
+    bool topLayer;
 };
 
 void rayleighTaylorSetup( MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
@@ -98,9 +91,9 @@ void rayleighTaylorSetup( MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
     // and bottom. The upper half is initially filled with fluid 1 + random noise,
     // and the lower half with fluid 2. Only fluid 1 experiences a forces,
     // directed downwards.
-    int nx = heavyFluid.getNx();
-    int ny = heavyFluid.getNy();
-    int nz = heavyFluid.getNz();
+    plint nx = heavyFluid.getNx();
+    plint ny = heavyFluid.getNy();
+    plint nz = heavyFluid.getNz();
     
     // Bounce-back on bottom wall (where the light fluid is, initially).
     defineDynamics(heavyFluid, Box3D(0,nx-1, 0,0, 0,nz-1), new BounceBack<T, DESCRIPTOR>(rho0) );
@@ -111,10 +104,10 @@ void rayleighTaylorSetup( MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
    
     // Initialize top layer.
     applyIndexed(heavyFluid, Box3D(0, nx-1, 0, ny-1, 0, nz-1),
-                 new TwoLayerInitializer<T,DESCRIPTOR>(ny, false) );
+                 new TwoLayerInitializer<T,DESCRIPTOR>(ny, true) );
     // Initialize bottom layer.
     applyIndexed(lightFluid, Box3D(0, nx-1, 0, ny-1, 0, nz-1),
-                 new TwoLayerInitializer<T,DESCRIPTOR>(ny, true) );
+                 new TwoLayerInitializer<T,DESCRIPTOR>(ny, false) );
 
     // Let's have gravity acting on the heavy fluid only. This represents a situation
     //   where the molecular mass of the light species is very small, and thus the
@@ -128,20 +121,19 @@ void rayleighTaylorSetup( MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
     heavyFluid.initialize();
 }
 
-void writeGifs(MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
-               MultiBlockLattice3D<T, DESCRIPTOR>& lightFluid, int iT)
+void writePpms(MultiBlockLattice3D<T, DESCRIPTOR>& heavyFluid,
+               MultiBlockLattice3D<T, DESCRIPTOR>& lightFluid, plint iT)
 {
-    const plint imSize = 600;
     const plint nx = heavyFluid.getNx();
     const plint ny = heavyFluid.getNy();
     const plint nz = heavyFluid.getNz();
     Box3D slice(0, nx-1, 0, ny-1, nz/2, nz/2);
 
-    ImageWriter<T> imageWriter("leeloo.map");
-    imageWriter.writeScaledGif(createFileName("rho_heavy_", iT, 6),
-                               *computeDensity(heavyFluid, slice), imSize,imSize);
-    imageWriter.writeScaledGif(createFileName("rho_light_", iT, 6),
-                               *computeDensity(lightFluid, slice), imSize,imSize);
+    ImageWriter<T> imageWriter("leeloo");
+    imageWriter.writeScaledPpm(createFileName("rho_heavy_", iT, 6),
+                               *computeDensity(heavyFluid, slice));
+    imageWriter.writeScaledPpm(createFileName("rho_light_", iT, 6),
+                               *computeDensity(lightFluid, slice));
 }
 
 int main(int argc, char *argv[])
@@ -152,14 +144,14 @@ int main(int argc, char *argv[])
     
     const T omega1 = 1.0;
     const T omega2 = 1.0;
-    const int nx   = 75;
-    const int ny   = 75;
-    const int nz   = 75;
+    const plint nx   = 225;
+    const plint ny   = 75;
+    const plint nz   = 225;
     const T G      = 1.2;
-    T force        = 1.e-3;
-    const int maxIter  = 10000;
-    const int saveIter = 100;
-    const int statIter = 50;
+    T force        = 0.15/(T)ny; //1.e-3;
+    const plint maxIter  = 10000;
+    const plint saveIter = 100;
+    const plint statIter = 50;
 
     // Use regularized BGK dynamics to improve numerical stability (but note that
     //   BGK dynamics works well too).
@@ -202,9 +194,9 @@ int main(int argc, char *argv[])
 	
     pcout << "Starting simulation" << endl;
     // Main loop over time iterations.
-    for (int iT=0; iT<maxIter; ++iT) {
+    for (plint iT=0; iT<maxIter; ++iT) {
         if (iT%saveIter==0) {
-            writeGifs(heavyFluid, lightFluid, iT);
+            writePpms(heavyFluid, lightFluid, iT);
         }
 
         // Time iteration for the light fluid.
@@ -229,5 +221,7 @@ int main(int argc, char *argv[])
                   << getStoredAverageEnergy<T>(lightFluid) << endl;
         }
     }
+
+    return 0;
 }
 

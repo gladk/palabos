@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,8 +23,9 @@
 */
 
 /** \file
- * Helper functions for domain initialization -- header file.
+ * Helper functions for finite differences -- header file.
  */
+
 #ifndef FINITE_DIFFERENCE_WRAPPER_2D_HH
 #define FINITE_DIFFERENCE_WRAPPER_2D_HH
 
@@ -38,6 +39,19 @@
 
 
 namespace plb {
+
+template<typename T>
+void computeLaplacian(MultiScalarField2D<T>& value, MultiScalarField2D<T>& laplacian, Box2D const& domain) {
+    applyProcessingFunctional (
+            new BoxLaplacianFunctional2D<T>, domain, value, laplacian );
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computeLaplacian(MultiScalarField2D<T>& value, Box2D const& domain) {
+    MultiScalarField2D<T>* laplacian = new MultiScalarField2D<T>(value, domain);
+    computeLaplacian(value, *laplacian, domain);
+    return std::auto_ptr<MultiScalarField2D<T> >(laplacian);
+}
 
 template<typename T>
 void computeXderivative(MultiScalarField2D<T>& value, MultiScalarField2D<T>& derivative, Box2D const& domain) {
@@ -503,7 +517,55 @@ std::vector<MultiScalarField2D<T>* > simpleMultiGrid( MultiScalarField2D<T>& ini
 }
 
 
+// General Stencils.
 
+template<typename T, int order, int maxWidth>
+T computeScalarXderivative(ScalarField2D<T> const& scalar, int width, int position,
+        plint iX, plint iY)
+{
+    T const* w = plb::fdWeights<T, order, maxWidth>().getWeights(width, position);
+    T d = 0.0;
+    for (plint i = 0, x = iX - (plint) position; i < (plint) width; i++, x++) {
+        d += w[i] * scalar.get(x, iY);
+    }
+    return d;
+}
+
+template<typename T, int order, int maxWidth>
+T computeScalarYderivative(ScalarField2D<T> const& scalar, int width, int position,
+        plint iX, plint iY)
+{
+    T const* w = plb::fdWeights<T, order, maxWidth>().getWeights(width, position);
+    T d = 0.0;
+    for (plint i = 0, y = iY - (plint) position; i < (plint) width; i++, y++) {
+        d += w[i] * scalar.get(iX, y);
+    }
+    return d;
+}
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorXderivative(TensorField2D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY)
+{
+    T const* w = plb::fdWeights<T, order, maxWidth>().getWeights(width, position);
+    Array<T,nDim> d; d.resetToZero();
+    for (plint i = 0, x = iX - (plint) position; i < (plint) width; i++, x++) {
+        d += w[i] * tensor.get(x, iY);
+    }
+    return d;
+}
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorYderivative(TensorField2D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY)
+{
+    T const* w = plb::fdWeights<T, order, maxWidth>().getWeights(width, position);
+    Array<T,nDim> d; d.resetToZero();
+    for (plint i = 0, y = iY - (plint) position; i < (plint) width; i++, y++) {
+        d += w[i] * tensor.get(iX, y);
+    }
+    return d;
+}
 
 }  // namespace plb
 

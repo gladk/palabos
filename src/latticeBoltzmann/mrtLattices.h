@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -56,6 +56,9 @@ namespace plb {
  * aformentioned relations are taken as given to enable a few
  * optimizations.
 */
+
+ /* Sébastien Leclaire contributed for the D3Q15 and D2Q27 lattices definitions */
+
 namespace descriptors {
 
     /// MRT D2Q9 lattice. The numbering follows the one in "Viscous flow computations
@@ -80,6 +83,31 @@ namespace descriptors {
         static const int bulkViscIndex  = 1; // relevant index of r. t. for bulk viscosity
         static const int epsilonIndex   = 2; // relevant index of r. t. for epsilon 
     };
+
+
+    // Humières, D. (2002). Multiple–relaxation–time lattice Boltzmann models in three dimensions. 
+    // Philosophical Transactions of the Royal Society of London A: Mathematical, Physical and Engineering Sciences, 
+    // 360(1792), 437–451. Retrieved from http://rsta.royalsocietypublishing.org/content/360/1792/437.abstract
+    template <typename T>
+    struct MRTD3Q15DescriptorBase : public D3Q15DescriptorBase<T>
+    {
+        typedef D3Q15DescriptorBase<T> BaseDescriptor;
+        typedef MRTD3Q15DescriptorBase<T> SecondBaseDescriptor;
+        enum { numPop=BaseDescriptor::q };
+        
+        static const T M[BaseDescriptor::q][BaseDescriptor::q];    // Matrix of base change between f and moments : moments=M.f
+        static const T invM[BaseDescriptor::q][BaseDescriptor::q]; // inverse of base change matrix : f=invM.moments
+        static const T S[BaseDescriptor::q];       // relaxation times
+        enum {jIndexes = 3};
+        static const int momentumIndexes[jIndexes]; // relevant indexes of r. t. for shear viscosity
+        enum {shearIndexes = 5};
+        static const int shearViscIndexes[shearIndexes]; // relevant indexes of r. t. for shear viscosity
+        static const int bulkViscIndex  = 1; // relevant index of r. t. for bulk viscosity
+        enum {qIndexes = 3};
+        static const int qViscIndexes[qIndexes]; // relevant indexes of r. t. for q indices (s4,s6,s8 of the paper)
+        static const int epsilonIndex   = 2; // relevant index of r. t. for epsilon (s2 in the original paper)
+        static const int mIndex   = 14; // relevant index of r. t. for m (s14 in the original paper)
+    };
     
     /// MRT D3Q19 lattice. The numbering follows the one in "Multiple-relaxation-
     /// time lattice Boltzmann models in three dimensions", D. D'Humières, 
@@ -90,6 +118,33 @@ namespace descriptors {
     {
         typedef D3Q19DescriptorBase<T> BaseDescriptor;
         typedef MRTD3Q19DescriptorBase<T> SecondBaseDescriptor;
+        enum { numPop=BaseDescriptor::q };
+        
+        static const T M[BaseDescriptor::q][BaseDescriptor::q];    // Matrix of base change between f and moments : moments=M.f
+        static const T invM[BaseDescriptor::q][BaseDescriptor::q]; // inverse of base change matrix : f=invM.moments
+        static const T S[BaseDescriptor::q];       // relaxation times
+        enum {jIndexes = 3};
+        static const int momentumIndexes[jIndexes]; // relevant indexes of r. t. for shear viscosity
+        enum {shearIndexes = 5};
+        static const int shearViscIndexes[shearIndexes]; // relevant indexes of r. t. for shear viscosity
+        static const int bulkViscIndex  = 1; // relevant index of r. t. for bulk viscosity
+        enum {qIndexes = 3};
+        static const int qViscIndexes[qIndexes]; // relevant indexes of r. t. for q indices (s4,s6,s8 of the paper)
+        static const int epsilonIndex   = 2; // relevant index of r. t. for epsilon (s2 in the original paper)
+    };
+
+
+    /// MRT D3Q27 lattice.
+    /// Dubois, F., & Lallemand, P. (2011). Quartic parameters for acoustic applications of lattice Boltzmann scheme. 
+    /// Computers & Mathematics with Applications, 61(12), 3404–3416. doi:10.1016/j.camwa.2011.01.011    
+
+    /// Suga, K., Kuwata, Y., Takashima, K., & Chikasue, R. (2015). A D3Q27 multiple-relaxation-time lattice Boltzmann method for turbulent flows. 
+    /// Computers & Mathematics with Applications, 69(6), 518–529. doi:10.1016/j.camwa.2015.01.010
+    template <typename T>
+    struct MRTD3Q27DescriptorBase : public D3Q27DescriptorBase<T>
+    {
+        typedef D3Q27DescriptorBase<T> BaseDescriptor;
+        typedef MRTD3Q27DescriptorBase<T> SecondBaseDescriptor;
         enum { numPop=BaseDescriptor::q };
         
         static const T M[BaseDescriptor::q][BaseDescriptor::q];    // Matrix of base change between f and moments : moments=M.f
@@ -132,7 +187,13 @@ namespace descriptors {
     {
         static const char name[];
     };
-    
+
+    template <typename T>
+    struct MRTD3Q15Descriptor
+        : public MRTD3Q15DescriptorBase<T>, public NoExternalFieldBase
+    {
+        static const char name[];
+    };    
 
     template <typename T>
     struct MRTD3Q19Descriptor
@@ -166,6 +227,13 @@ namespace descriptors {
     template <typename T>
     struct AbsorbingWaveMRTD3Q19Descriptor
         : public MRTD3Q19DescriptorBase<T>, public AbsorbingWaveExternalField3dBase
+    {
+        static const char name[];
+    };
+
+    template <typename T>
+    struct MRTD3Q27Descriptor
+        : public MRTD3Q27DescriptorBase<T>, public NoExternalFieldBase
     {
         static const char name[];
     };

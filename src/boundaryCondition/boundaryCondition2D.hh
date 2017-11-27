@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -268,6 +268,24 @@ void OnLatticeBoundaryCondition2D<T,Descriptor>::setPressureConditionOnBlockBoun
     if (intersect(surf.cornerPP(), applicationDomain, intersection)) {
         PLB_ASSERT( false );
     }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void OnLatticeBoundaryCondition2D<T,Descriptor>::setVelocityConditionOnInnerBlockBoundaries (
+        MultiBlockLattice2D<T,Descriptor>& lattice,
+        Box2D block, boundary::BcType bcType )
+{
+    // Create Velocity boundary conditions on the domain
+    addVelocityBoundary0N( Box2D(block.x1, block.x1, block.y0+1, block.y1-1), lattice, bcType);
+    addVelocityBoundary0P( Box2D(block.x0, block.x0, block.y0+1, block.y1-1), lattice, bcType);
+
+    addVelocityBoundary1N( Box2D(block.x0+1, block.x1-1, block.y1, block.y1), lattice, bcType);
+    addVelocityBoundary1P( Box2D(block.x0+1, block.x1-1, block.y0, block.y0), lattice, bcType);
+
+    addInternalVelocityCornerPP(block.x0,block.y0, lattice, bcType);
+    addInternalVelocityCornerPN(block.x0,block.y1, lattice, bcType);
+    addInternalVelocityCornerNP(block.x1,block.y0, lattice, bcType);
+    addInternalVelocityCornerNN(block.x1,block.y1, lattice, bcType);
 }
 
 template<typename T, template<typename U> class Descriptor>

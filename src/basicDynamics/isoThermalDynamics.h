@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -118,6 +118,7 @@ class BGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     BGKdynamics(T omega_);
+    BGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual BGKdynamics<T,Descriptor>* clone() const;
@@ -152,6 +153,7 @@ class CompleteBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     CompleteBGKdynamics(T omega_);
+    CompleteBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual CompleteBGKdynamics<T,Descriptor>* clone() const;
@@ -185,14 +187,53 @@ private:
     static int id;
 };
 
-/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Irina Ginzburg's) dynamics
+template<typename T, template<typename U> class Descriptor>
+class CompleteRegularizedBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    CompleteRegularizedBGKdynamics(T omega_);
+    CompleteRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual CompleteRegularizedBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+/* *************** Collision and Equilibrium and Regularize************************* */
+/// Re-compute particle populations from the leading moments
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+private:
+    virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+private:
+    static int id;
+};
+
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Irina Ginzburg's) dynamics
 template<typename T, template<typename U> class Descriptor>
 class CompleteTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    CompleteTRTdynamics(T omega_, T psi_);
-
-    CompleteTRTdynamics(T omega_);
+    CompleteTRTdynamics(T omega_, T psi_, int order_ = 6);
+    CompleteTRTdynamics(T omega_, int order_ = 6);
+    CompleteTRTdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual CompleteTRTdynamics<T,Descriptor>* clone() const;
@@ -241,22 +282,29 @@ public:
     /// Get second relaxation time
     T    getPsi() const;
 private:
+    template<typename U>
+    CompleteTRTdynamics(T omega_, T psi_, U order_);
+
+    template<typename U>
+    CompleteTRTdynamics(T omega_, U order_);
+private:
     virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
     virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
 private:
     static int id;
     T psi;
+    int order;
 };
 
 
-/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Irina Ginzburg's) dynamics
 template<typename T, template<typename U> class Descriptor>
 class CompleteRegularizedTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    CompleteRegularizedTRTdynamics(T omega_, T psi_);
-
-    CompleteRegularizedTRTdynamics(T omega_);
+    CompleteRegularizedTRTdynamics(T omega_, T psi_, int order_ = 6);
+    CompleteRegularizedTRTdynamics(T omega_, int order_ = 6);
+    CompleteRegularizedTRTdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual CompleteRegularizedTRTdynamics<T,Descriptor>* clone() const;
@@ -305,14 +353,21 @@ public:
     /// Get second relaxation time
     T    getPsi() const;
 private:
+    template<typename U>
+    CompleteRegularizedTRTdynamics(T omega_, T psi_, U order_);
+
+    template<typename U>
+    CompleteRegularizedTRTdynamics(T omega_, U order_);
+private:
     virtual void decomposeOrder0(Cell<T,Descriptor> const& cell, std::vector<T>& rawData) const;
     virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
 private:
     static int id;
     T psi;
+    int order;
 };
 
-/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Iriga Ginzburg's) dynamics
+/// Implementation of O(Ma^2) TRT (Orestis Malaspinas' style and not Irina Ginzburg's) dynamics
 /// with only second order equilibrium terms.
 template<typename T, template<typename U> class Descriptor>
 class TruncatedTRTdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
@@ -321,6 +376,7 @@ public:
     TruncatedTRTdynamics(T omega_, T psi_);
 
     TruncatedTRTdynamics(T omega_);
+    TruncatedTRTdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual TruncatedTRTdynamics<T,Descriptor>* clone() const;
@@ -377,6 +433,7 @@ class StoreRhoBarJBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     StoreRhoBarJBGKdynamics(T omega_);
+    StoreRhoBarJBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual StoreRhoBarJBGKdynamics<T,Descriptor>* clone() const;
@@ -407,6 +464,7 @@ class ExternalMomentBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     ExternalMomentBGKdynamics(T omega_);
+    ExternalMomentBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ExternalMomentBGKdynamics<T,Descriptor>* clone() const;
@@ -460,6 +518,7 @@ class ExternalVelocityBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> 
 public:
 /* *************** Construction / Destruction ************************ */
     ExternalVelocityBGKdynamics(T omega_);
+    ExternalVelocityBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ExternalVelocityBGKdynamics<T,Descriptor>* clone() const;
@@ -475,11 +534,11 @@ public:
 
     /// Implementation of the collision step, with imposed macroscopic variables
     virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
-                         Array<T,Descriptor<T>::d> const& j, T thetaBar=T());
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                 T jSqr, T thetaBar=T()) const;
+                                 T jSqr, T thetaBar) const;
 
 /* *************** Moments ******************************************* */
 
@@ -516,6 +575,7 @@ class QuasiIncBGKdynamics : public BGKdynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     QuasiIncBGKdynamics(T omega_);
+    QuasiIncBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual QuasiIncBGKdynamics<T,Descriptor>* clone() const;
@@ -546,7 +606,7 @@ template<typename T, template<typename U> class Descriptor>
 class IncBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    IncBGKdynamics(T omega_, T rho0=(T)1 );
+    IncBGKdynamics(T omega_);
     IncBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
@@ -554,12 +614,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-
-    /// Serialize the dynamics object.
-    virtual void serialize(HierarchicSerializer& serializer) const;
-
-    /// Un-Serialize the dynamics object.
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Say if velocity in this dynamics is computed as "j" (the order-1 moment
     ///   of the populations) or as "j/rho".
@@ -587,16 +641,6 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-
-    /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
-    virtual T getParameter(plint whichParameter) const;
-
-    /// Set local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
-    virtual void setParameter(plint whichParameter, T value);
-private:
-    T invRho0;
 private:
     static int id;
 };
@@ -607,6 +651,7 @@ class ConstRhoBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     ConstRhoBGKdynamics(T omega_);
+    ConstRhoBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ConstRhoBGKdynamics<T,Descriptor>* clone() const;
@@ -662,6 +707,7 @@ class RegularizedBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     RegularizedBGKdynamics(T omega_);
+    RegularizedBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual RegularizedBGKdynamics<T,Descriptor>* clone() const;
@@ -692,6 +738,7 @@ class SecuredRegularizedBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor
 public:
 /* *************** Construction / Destruction ************************ */
     SecuredRegularizedBGKdynamics(T omega_);
+    SecuredRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual SecuredRegularizedBGKdynamics<T,Descriptor>* clone() const;
@@ -724,6 +771,7 @@ class IncRegularizedBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     IncRegularizedBGKdynamics(T omega_);
+    IncRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual IncRegularizedBGKdynamics<T,Descriptor>* clone() const;
@@ -767,6 +815,7 @@ class ExternalMomentRegularizedBGKdynamics : public IsoThermalBulkDynamics<T,Des
 public:
 /* *************** Construction / Destruction ************************ */
     ExternalMomentRegularizedBGKdynamics(T omega_);
+    ExternalMomentRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ExternalMomentRegularizedBGKdynamics<T,Descriptor>* clone() const;
@@ -820,6 +869,7 @@ class ChopardDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     ChopardDynamics(T vs2_, T omega_);
+    ChopardDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ChopardDynamics<T,Descriptor>* clone() const;
@@ -879,6 +929,7 @@ class PrecondBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     PrecondBGKdynamics(T omega_, T invGamma_);
+    PrecondBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual PrecondBGKdynamics<T,Descriptor>* clone() const;

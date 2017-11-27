@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -21,9 +21,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
-/* Main author: Orestis Malaspinas
- */
 
 /** \file A helper for initialising 3D boundaries -- header file.  */
 #ifndef UTIL_ADVECTION_DIFFUSION_H
@@ -139,13 +136,13 @@ namespace utilAdvDiff {
                 {
                     normalY=0;
                     if(normal1==1)
-                        normalX= 1;
-                    else
-                        normalX=-1;
-                    if(normal2==1)
                         normalZ= 1;
                     else
                         normalZ=-1;
+                    if(normal2==1)
+                        normalX= 1;
+                    else
+                        normalX=-1;
                     break;
                 }
                 case 2:

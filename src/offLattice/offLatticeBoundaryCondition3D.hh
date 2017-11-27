@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,6 +50,9 @@ OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::
       offLatticeModel(offLatticeModel_),
       offLatticePattern(lattice)
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeIniArg;
     // First argument for compute-off-lattice-pattern.
     offLatticeIniArg.push_back(&offLatticePattern);
@@ -78,6 +81,9 @@ OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::
       boundaryShapeArg(particleField_),
       offLatticePattern(lattice)
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeIniArg;
     // First argument for compute-off-lattice-pattern.
     offLatticeIniArg.push_back(&offLatticePattern);
@@ -115,17 +121,19 @@ OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::~OffLatticeBoundaryCon
 template< typename T,
           template<typename U> class Descriptor,
           class BoundaryType >
-void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::insert()
+void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::insert(plint processorLevel)
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeArg;
-    // First three arguments for Guo algorithm.
+    // First two arguments for Guo algorithm.
     offLatticeArg.push_back(&lattice);
     offLatticeArg.push_back(&offLatticePattern);
     // Remaining arguments for inner-flow-shape.
     offLatticeArg.push_back(&voxelizedDomain.getVoxelMatrix());
     offLatticeArg.push_back(&voxelizedDomain.getTriangleHash());
     offLatticeArg.push_back(&boundaryShapeArg);
-    plint processorLevel = 1;
     plint numShapeArgs = 3;
     plint numCompletionArgs = 0;
     integrateProcessingFunctional (
@@ -138,8 +146,11 @@ template< typename T,
           template<typename U> class Descriptor,
           class BoundaryType >
 void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::insert (
-        std::vector<MultiBlock3D*> const& completionArg )
+        std::vector<MultiBlock3D*> const& completionArg, plint processorLevel )
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeArg;
     // First three arguments for Guo algorithm.
     offLatticeArg.push_back(&lattice);
@@ -153,7 +164,6 @@ void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::insert (
     for (plint i=0; i<numCompletionArgs; ++i) {
         offLatticeArg.push_back(completionArg[i]);
     }
-    plint processorLevel = 1;
     plint numShapeArgs = 3;
     integrateProcessingFunctional (
             new OffLatticeCompletionFunctional3D<T,Descriptor,BoundaryType> (
@@ -166,6 +176,9 @@ template< typename T,
           class BoundaryType >
 void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::apply()
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeArg;
     // First three arguments for Guo algorithm.
     offLatticeArg.push_back(&lattice);
@@ -188,6 +201,9 @@ template< typename T,
 void OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::apply (
         std::vector<MultiBlock3D*> const& completionArg )
 {
+    // It is very important that the "offLatticePattern" container block
+    // has the same multi-block management as the lattice used in the
+    // simulation.
     std::vector<MultiBlock3D*> offLatticeArg;
     // First three arguments for Guo algorithm.
     offLatticeArg.push_back(&lattice);
@@ -695,3 +711,4 @@ T OffLatticeBoundaryCondition3D<T,Descriptor,BoundaryType>::computeRMSshearStres
 }  // namespace plb
 
 #endif  // OFF_LATTICE_BOUNDARY_CONDITION_3D_HH
+

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,7 +34,6 @@
 #include <atomicBlock/headers2D.hh>
 #include <multiBlock/headers2D.hh>
 #include <multiGrid/headers2D.hh>
-#include <algorithm/headers2D.hh>
 #include <dataProcessors/headers2D.hh>
 #include <particles/headers2D.hh>
 #include <finiteDifference/headers2D.hh>

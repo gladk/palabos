@@ -1,0 +1,152 @@
+<?xml version="1.0" ?>
+
+<!--
+    Simulation Configuration.
+ -->
+
+<geometry>
+    <!-- Coordinates of the physical simulation domain. -->
+    <simulationDomain>
+        <x> -20.0 20.0 </x>
+        <y> -20.0 20.0 </y>
+        <z> -20.0 20.0 </z>
+    </simulationDomain>
+    <!-- The direction of the uniform flow is always the +x one. -->
+
+    <!-- The geometries of all solid surfaces are provided as STL files.
+         The following restrictions apply:
+         1. The length unit in the files must be the same as the one used to define
+            the rest of the simulation parameters (velocities, kinematic viscosity, etc).
+            This is the system of units that we call "physical units".
+         2. When the definition of the nested grids takes place, care must be taken so
+            that all surfaces are fully contained in the finest nested grid (finest grid level).
+    -->
+    <!-- Files (in physical units) with the static immersed surface geometries. -->
+    <staticSurfaceFileName> sphere.stl </staticSurfaceFileName>
+</geometry>
+
+<grid>
+    <!-- File with the discrete grid density function. -->
+    <gridDensityFunctionFile> gridDensityFunction.dat </gridDensityFunctionFile>
+    <!-- Total number of grid refinement levels. -->
+    <numLevels> 3 </numLevels>
+    <!-- Maximum octree subdivision level. -->
+    <maxOctreeLevel> 4 </maxOctreeLevel>
+    <!-- Block size in the smallest domain of the tree (number of nodes minus 1
+         in the smallest edge of the domain decomposition).
+         It must be an even integer number greater equal to 6. -->
+    <nBlock> 16 </nBlock>
+</grid>
+
+<boundaryConditions>
+    <!-- Inlet velocity (in physical units, at the +x axis direction).
+         The inlet is always at the minimum x-coordinate. -->
+    <inletVelocity> 1.0 </inletVelocity>
+
+    <!-- Type of the outflow boundary condition. The outlet is always at the maximum x-coordinate.
+         If 0, then a constant velocity is imposed at the outlet.
+         If 1, then a constant pressure is imposed at the outlet.
+         If 2, then a velocity Neumann condition is imposed at the outlet. -->
+    <outflowBcType> 1 </outflowBcType>
+
+    <spongeZones>
+    <!-- Sponge zones: There are at most 6 sponge zones, as many as the
+         boundaries of the simulation lattice. Next, the width of each
+         of these zones is given. The widths are given per axis. The first
+         one for a specific axis direction, corresponds to the boundary normal
+         to that axis, which holds the minimum axis coordinate. If no sponge
+         zone is necessary at a lattice boundary, the corresponding width
+         should be 0. -->
+        <xWidths> 2.0 2.0 </xWidths>
+        <yWidths> 2.0 2.0 </yWidths>
+        <zWidths> 2.0 2.0 </zWidths>
+    </spongeZones>
+
+</boundaryConditions>
+
+<numerics>
+    <!-- Precision for geometric operations (FLT, DBL, LDBL, INF). -->
+    <precision> DBL </precision>
+    <!-- Characteristic length to define the Reynolds number. -->
+    <characteristicLength> 1.0 </characteristicLength>
+    <!-- Characteristic velocity to compute the time step and the Reynolds number.
+         It should be an estimate of the maximum velocity of the system. -->
+    <characteristicVelocity> 1.0 </characteristicVelocity>
+    <!-- Lattice velocity (with respect to the characteristic velocity). -->
+    <uLB> 0.075 </uLB>
+    <!-- Maximum number of iterations at the coarsest level. -->
+    <maxIter> 10000000 </maxIter>
+</numerics>
+
+<fluid>
+     <!-- Fluid density. -->
+    <rho> 1.0 </rho>
+    <!-- Reynolds number. -->
+    <Re> 3700.0 </Re>
+    <!-- Absolute pressure at infinity. -->
+    <ambientPressure> 0.0 </ambientPressure>
+</fluid>
+
+<output>
+    <!-- Output directory.-->
+    <outDir> ./tmp/ </outDir>
+    <!-- Number of iterations for terminal output at the coarsest level. -->
+    <statIter> 10 </statIter>
+    <!-- Number of iterations for disk output at the coarsest level. -->
+    <outIter> 50 </outIter>
+    <!-- Compute average and RMS data or not? -->
+    <computeAverages> true </computeAverages>
+    <!-- Number of iterations at the coarsest level to start the averaging (if computeAverages = true). -->
+    <avgIter> 500 </avgIter>
+    <!-- The grid refinement levels for output (interpolations will not be performed).
+         The solution will be exported only for the grid refinement levels that are
+         between minOutputLevel and maxOutputLevel. -->
+    <minOutputLevel> 0 </minOutputLevel>
+    <maxOutputLevel> 100 </maxOutputLevel>
+
+    <!-- Save data on disk in a volume subdomain of the whole simulation domain or not? -->
+    <outputInDomain> false </outputInDomain>
+    <!-- Domain for disk output (must be a subset of the simulation domain). -->
+    <outputDomain>
+        <x> -20.0 20.0 </x>
+        <y> -20.0 20.0 </y>
+        <z> -20.0 20.0 </z>
+    </outputDomain>
+
+    <!-- Save data on disk on a set of slices or not? -->
+    <outputOnSlices> true </outputOnSlices>
+    <!-- Slices for disk output (must be subsets of the simulation domain). -->
+    <outputSlices>
+        <!-- Slices normal to the x-axis for disk output. -->
+        <xSlices>
+            <xPositions> 0.0 </xPositions>
+            <yRange> -20.0 20.0 </yRange>
+            <zRange> -20.0 20.0 </zRange>
+        </xSlices>
+        <!-- Slices normal to the y-axis for disk output. -->
+        <ySlices>
+            <yPositions> 0.0 </yPositions>
+            <zRange> -20.0 20.0 </zRange>
+            <xRange> -20.0 20.0 </xRange>
+        </ySlices>
+        <!-- Slices normal to the z-axis for disk output. -->
+        <zSlices>
+            <zPositions> 0.0 </zPositions>
+            <xRange> -20.0 20.0 </xRange>
+            <yRange> -20.0 20.0 </yRange>
+        </zSlices>
+    </outputSlices>
+
+    <!-- Number of iterations (at the coarsest level) for checkpointing. Zero or negative means no checkpoints. -->
+    <cpIter> -1 </cpIter>
+    <!-- Number of iterations (at the coarsest level) for checking for user-driven program abortion. -->
+    <abIter> 16 </abIter>
+    <!-- File for signaling program abortion (inside the outDir). -->
+    <abortFileName> abort </abortFileName>
+    <!-- XML file name for restarting (inside the outDir). -->
+    <xmlContinueFileName> continue.xml </xmlContinueFileName>
+    <!-- Base file name for checkpoint files (inside the outDir). -->
+    <baseFileName> checkpoint_ </baseFileName>
+    <!-- For a desktop PC this should be "false", for a cluster "true". -->
+    <useParallelIO> true </useParallelIO>
+</output>

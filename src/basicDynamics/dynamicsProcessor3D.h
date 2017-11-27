@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -79,6 +79,39 @@ private:
             Box3D const& bound, Box3D const& domain );
 };
 
+/* *************** Class WaveAbsorptionExternalRhoJcollideAndStream3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class WaveAbsorptionExternalRhoJcollideAndStream3D : public BoxProcessingFunctional3D
+{
+public:
+    WaveAbsorptionExternalRhoJcollideAndStream3D(T rhoBarF_, Array<T,Descriptor<T>::d> const& uF_);
+    // Block 0: lattice; Block 1: rhoBar; Block 2: j; Block 3: sigma.
+    virtual void processGenericBlocks( Box3D domain,
+                                       std::vector<AtomicBlock3D*> atomicBlocks );
+    virtual WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    void collide (
+            BlockLattice3D<T,Descriptor>& lattice, Box3D const& domain,
+            ScalarField3D<T> const& rhoBarField, Dot3D const& offset1,
+            TensorField3D<T,Descriptor<T>::d> const& jField, Dot3D const& offset2,
+            ScalarField3D<T> const& sigmaField, Dot3D const& offset3,
+            BlockStatistics& stat );
+    void bulkCollideAndStream (
+            BlockLattice3D<T,Descriptor>& lattice, Box3D const& domain,
+            ScalarField3D<T> const& rhoBarField, Dot3D const& offset1,
+            TensorField3D<T,Descriptor<T>::d> const& jField, Dot3D const& offset2,
+            ScalarField3D<T> const& sigmaField, Dot3D const& offset3,
+            BlockStatistics& stat );
+    void boundaryStream (
+            BlockLattice3D<T,Descriptor>& lattice,
+            Box3D const& bound, Box3D const& domain );
+private:
+    T rhoBarF, jFsqr;
+    Array<T,Descriptor<T>::d> jF;
+};
+
 template<typename T, template<typename U> class Descriptor>
 class OnLinkExternalRhoJcollideAndStream3D : public BoxProcessingFunctional3D
 {
@@ -121,8 +154,13 @@ private:
 
 template<typename T, template<typename U> class Descriptor>
 void maskedCollide(MultiBlockLattice3D<T,Descriptor>& lattice,
-                   MultiScalarField3D<int>& mask, int flag);
+                   Dynamics<T,Descriptor> const& dynamics,
+                   MultiScalarField3D<int>& mask, int flag, Box3D domain);
 
+template<typename T, template<typename U> class Descriptor>
+void maskedCollide(MultiBlockLattice3D<T,Descriptor>& lattice,
+                   Dynamics<T,Descriptor> const& dynamics,
+                   MultiScalarField3D<int>& mask, int flag);
 
 }  // namespace plb
 

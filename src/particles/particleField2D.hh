@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -234,7 +234,7 @@ DenseParticleField2D<T,Descriptor>::DenseParticleField2D(DenseParticleField2D co
         for (plint iY=0; iY<particleGrid.getNy(); ++iY) {
             particleGrid.get(iX,iY).resize(rhs.particleGrid.get(iX,iY).size());
             for (pluint iParticle=0; iParticle<particleGrid.get(iX,iY).size(); ++iParticle) {
-                particleGrid.get(iX,iY)[iParticle] = rhs.particleGrid.get(iX,iY)[iParticle].clone();
+                particleGrid.get(iX,iY)[iParticle] = rhs.particleGrid.get(iX,iY)[iParticle]->clone();
             }
         }
     }
@@ -348,6 +348,23 @@ void DenseParticleField2D<T,Descriptor>::findParticles (
 template<typename T, template<typename U> class Descriptor>
 void DenseParticleField2D<T,Descriptor>::velocityToParticleCoupling (
         Box2D domain, TensorField2D<T,2>& velocityField, T scaling )
+{
+    Box2D finalDomain;
+    if( intersect(domain, particleGrid.getBoundingBox(), finalDomain) )
+    {
+        for (plint iX=finalDomain.x0; iX<=finalDomain.x1; ++iX) {
+            for (plint iY=finalDomain.y0; iY<=finalDomain.y1; ++iY) {
+                for (pluint iParticle=0; iParticle<particleGrid.get(iX,iY).size(); ++iParticle) {
+                    particleGrid.get(iX,iY)[iParticle]->velocityToParticle(velocityField, scaling);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void DenseParticleField2D<T,Descriptor>::velocityToParticleCoupling (
+        Box2D domain, NTensorField2D<T>& velocityField, T scaling )
 {
     Box2D finalDomain;
     if( intersect(domain, particleGrid.getBoundingBox(), finalDomain) )
@@ -714,6 +731,21 @@ void LightParticleField2D<T,Descriptor>::findParticles (
 template<typename T, template<typename U> class Descriptor>
 void LightParticleField2D<T,Descriptor>::velocityToParticleCoupling (
         Box2D domain, TensorField2D<T,2>& velocityField, T scaling )
+{
+    Box2D finalDomain;
+    if( intersect(domain, this->getBoundingBox(), finalDomain) )
+    {
+        for (pluint i=0; i<particles.size(); ++i) {
+            if (this->isContained(particles[i]->getPosition(),finalDomain)) {
+                particles[i]->velocityToParticle(velocityField, scaling);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void LightParticleField2D<T,Descriptor>::velocityToParticleCoupling (
+        Box2D domain, NTensorField2D<T>& velocityField, T scaling )
 {
     Box2D finalDomain;
     if( intersect(domain, this->getBoundingBox(), finalDomain) )

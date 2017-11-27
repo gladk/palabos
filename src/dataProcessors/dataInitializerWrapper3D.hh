@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #include "dataProcessors/dataInitializerWrapper3D.h"
 #include "core/cell.h"
 #include "atomicBlock/dataProcessorWrapper3D.h"
+#include "dataProcessors/metaStuffWrapper3D.h"
 #include "atomicBlock/blockLattice3D.h"
 #include "atomicBlock/dataField3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
@@ -154,21 +155,48 @@ void setBoundaryVelocity(BlockLattice3D<T,Descriptor>& lattice, Box3D domain, Ar
 }
 
 template<typename T, template<class U> class Descriptor>
+void setBoundaryVelocity(BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, Array<T,Descriptor<T>::d> velocity)
+{
+    applyProcessingFunctional(new SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>(velocity),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor>
+void setBoundaryVelocity(BlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, Array<T,Descriptor<T>::d> velocity)
+{
+    applyProcessingFunctional(new SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>(force, velocity),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor, class VelocityFunction>
+void setBoundaryVelocity(BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, VelocityFunction f)
+{
+    applyProcessingFunctional(new SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>(f),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor, class VelocityFunction>
+void setBoundaryVelocity(BlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, VelocityFunction f)
+{
+    applyProcessingFunctional(new SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>(force, f),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor>
 void setBoundaryDensity(BlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho) {
     applyProcessingFunctional(new SetConstBoundaryDensityFunctional3D<T,Descriptor>(rho), domain, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(BlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho, Array<T,3> velocity) {
-    applyProcessingFunctional(new IniConstEquilibriumFunctional3D<T,Descriptor>(rho, velocity), domain, lattice);
-}
-
-template<typename T, template<class U> class Descriptor, class DomainFunctional>
-void maskedInitializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice,
-                                   Box3D boundingBox, DomainFunctional const& domain,
-                                   T density, Array<T,3> velocity)
+void initializeAtEquilibrium(BlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho, Array<T,3> velocity,
+        T temperature)
 {
-    applyProcessingFunctional(new IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>(density, velocity, (T)1, domain), boundingBox, lattice);
+    applyProcessingFunctional(new IniConstEquilibriumFunctional3D<T,Descriptor>(rho, velocity, temperature),
+            domain, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
@@ -229,9 +257,32 @@ void applyIndexed(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, OneC
 }
 
 template<typename T, template<class U> class Descriptor>
+void applyIndexed( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                   OneCellIndexedWithRandFunctional3D<T,Descriptor>* f, sitmo::prng_engine eng)
+{
+    applyProcessingFunctional(new GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>(f, domain, eng), domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor>
+void applyIndexed( MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain,
+                   OneCellIndexedWithRandFunctional3D<T,Descriptor>* f, uint32_t seed )
+{
+    sitmo::prng_engine eng;
+    eng.seed(seed);
+    applyProcessingFunctional(new GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>(f, domain, eng), domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor>
 void defineDynamics(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, Dynamics<T,Descriptor>* dynamics) {
     applyProcessingFunctional (
         new InstantiateDynamicsFunctional3D<T,Descriptor>(dynamics), domain, lattice );
+}
+
+template<typename T, template<class U> class Descriptor>
+void defineDynamicsInBulkAndEnvelope(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, Dynamics<T,Descriptor>* dynamics)
+{
+    applyProcessingFunctional (
+        new InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>(dynamics), domain, lattice );
 }
 
 template<typename T, template<class U> class Descriptor>
@@ -340,6 +391,11 @@ void setOmega(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T omega)
     applyProcessingFunctional(new AssignOmegaFunctional3D<T,Descriptor>(omega), domain, lattice);
 }
 
+template<typename T, template<class U> class Descriptor, class Function>
+void setOmega(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, Function f) {
+    applyIndexed(lattice, domain, new SetCustomOmegaFunctional3D<T,Descriptor,Function>(f) );
+}
+
 template<typename T, template<class U> class Descriptor>
 void setOmega(MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<T>& omega, Box3D domain) {
     applyProcessingFunctional(new AssignScalarFieldOmegaFunctional3D<T,Descriptor>(), domain, lattice, omega);
@@ -351,20 +407,133 @@ void setBoundaryVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domai
 }
 
 template<typename T, template<class U> class Descriptor>
+void setBoundaryVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, Array<T,Descriptor<T>::d> velocity)
+{
+    applyProcessingFunctional(new SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>(velocity),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor>
+void setBoundaryVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, Array<T,Descriptor<T>::d> velocity)
+{
+    applyProcessingFunctional(new SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>(force, velocity),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor, class VelocityFunction>
+void setBoundaryVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, VelocityFunction f)
+{
+    applyProcessingFunctional(new SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>(f),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor, class VelocityFunction>
+void setBoundaryVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, VelocityFunction f)
+{
+    applyProcessingFunctional(new SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>(force, f),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor>
 void setBoundaryDensity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho) {
     applyProcessingFunctional(new SetConstBoundaryDensityFunctional3D<T,Descriptor>(rho), domain, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho, Array<T,3> velocity) {
-    applyProcessingFunctional(new IniConstEquilibriumFunctional3D<T,Descriptor>(rho, velocity, (T)1), domain, lattice);
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T rho, Array<T,3> velocity,
+        T temperature)
+{
+    applyProcessingFunctional(new IniConstEquilibriumFunctional3D<T,Descriptor>(rho, velocity, temperature),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor, class DomainFunctional>
+void maskedInitializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice,
+                                   Box3D boundingBox, DomainFunctional const& domain,
+                                   T density, Array<T,3> velocity, T temperature)
+{
+    applyProcessingFunctional(
+            new IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>(
+                density, velocity, temperature, domain), boundingBox, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
-void initializeAtThermalEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, 
-                                    T rho, Array<T,3> velocity, T temperature) {
-    applyProcessingFunctional(new IniConstEquilibriumFunctional3D<T,Descriptor>(rho, velocity, temperature), domain, lattice);
+void maskedInitializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<int>& mask,
+                                   Box3D boundingBox, T density, Array<T,3> velocity, int whichFlag,
+                                   T temperature)
+{
+    applyProcessingFunctional(
+            new MaskedIniConstEquilibriumFunctional3D<T,Descriptor>(density, velocity, temperature, whichFlag),
+            boundingBox, lattice, mask);
 }
+
+
+template<typename T, template<class U> class Descriptor>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, T density, Array<T,Descriptor<T>::d> velocity, T temperature)
+{
+    applyProcessingFunctional(new IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>(density, velocity, temperature),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor, class RhoUFunction>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain, RhoUFunction f, T temperature)
+{
+    applyProcessingFunctional(new IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(f, temperature),
+            domain, lattice, force);
+}
+
+template<typename T, template<class U> class Descriptor, class RhoUFunction>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        std::vector<MultiScalarField3D<T>*> randomFields, Box3D domain, RhoUFunction f, T temperature)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&lattice);
+    args.push_back(&force);
+    for (size_t i = 0; i < randomFields.size(); i++) {
+        args.push_back(randomFields[i]);
+    }
+
+    applyProcessingFunctional(new IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(f, temperature),
+            domain, args);
+}
+
+
+template<typename T, template<class U> class Descriptor>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, T density, Array<T,Descriptor<T>::d> velocity, T temperature)
+{
+    applyProcessingFunctional(new IniConstForceEquilibriumFunctional3D<T,Descriptor>(force, density, velocity, temperature),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor, class RhoUFunction>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        Box3D domain, RhoUFunction f, T temperature)
+{
+    applyProcessingFunctional(new IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(force, f, temperature),
+            domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor, class RhoUFunction>
+void initializeAtEquilibrium(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        std::vector<MultiScalarField3D<T>*> randomFields, Box3D domain, RhoUFunction f, T temperature)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&lattice);
+    for (size_t i = 0; i < randomFields.size(); i++) {
+        args.push_back(randomFields[i]);
+    }
+
+    applyProcessingFunctional(new IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(force, f, temperature),
+            domain, args);
+}
+
 
 template<typename T, template<class U> class Descriptor>
 void stripeOffDensityOffset(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, T deltaRho) {
@@ -561,6 +730,14 @@ void setToConstant( MultiScalarField3D<T>& field, MultiScalarField3D<int>& mask,
             new MaskedIniConstScalarFunctional3D<T>(flag, value), domain, field, mask);
 }
 
+template<typename T>
+void setToConstant( MultiScalarField3D<T>& field, MultiNTensorField3D<int>& mask,
+                    int flag, Box3D domain, T value )
+{
+    applyProcessingFunctional (
+            new MaskedIniConstScalarFunctional3D_N<T>(flag, value), domain, field, mask);
+}
+
 template<typename T, int nDim>
 void setToConstant( MultiTensorField3D<T,nDim>& field, Box3D domain,
                     Array<T,nDim> const& value )
@@ -577,6 +754,17 @@ void setToConstant( MultiTensorField3D<T,nDim>& field, MultiScalarField3D<int>& 
             new MaskedIniConstTensorFunctional3D<T,nDim>(flag, value), domain, mask, field );
 }
 
+template<typename T, int nDim>
+void setToConstant( MultiTensorField3D<T,nDim>& field, MultiNTensorField3D<int>& mask, int flag,
+                    Box3D domain, Array<T,nDim> const& value )
+{
+    std::vector<MultiBlock3D*> blocks;
+    blocks.push_back(&mask);
+    blocks.push_back(&field);
+    applyProcessingFunctional (
+            new MaskedIniConstTensorFunctional3D_N<T,nDim>(flag, value), domain, blocks);
+}
+
 template<typename T>
 void setToCoordinate(MultiScalarField3D<T>& field, Box3D domain, plint index) {
     applyProcessingFunctional(new SetToCoordinateFunctional3D<T>(index), domain, field);
@@ -587,6 +775,18 @@ void setToCoordinates(MultiTensorField3D<T,3>& field, Box3D domain) {
     applyProcessingFunctional(new SetToCoordinatesFunctional3D<T>, domain, field);
 }
 
+template<typename T>
+void setToRandom(MultiScalarField3D<T>& field, Box3D domain, sitmo::prng_engine eng) {
+    applyProcessingFunctional(new SetToRandomFunctional3D<T>(domain, eng), domain, field);
+}
+
+template<typename T>
+void setToRandom(MultiScalarField3D<T>& field, Box3D domain, uint32_t seed) {
+    sitmo::prng_engine eng;
+    eng.seed(seed);
+    setToRandom(field, domain, eng);
+}
+
 template<typename T, int nDim>
 void assignComponent(MultiTensorField3D<T,nDim>& tensorField, int whichComponent,
                      MultiScalarField3D<T>& scalarField, Box3D domain)
@@ -595,6 +795,37 @@ void assignComponent(MultiTensorField3D<T,nDim>& tensorField, int whichComponent
                               domain, scalarField, tensorField);
 }
 
+template<typename T>
+void propagateInZdirection(MultiScalarField3D<T>& field) {
+    field.resetFlags();
+    plint maxIterations = field.getNz();
+    plint i=0;
+    while (!allFlagsTrue(&field) && i<maxIterations) {
+        applyProcessingFunctional (
+                new PropagateInZdirection3D<T>(),
+                field.getBoundingBox(), field );
+        ++i;
+    }
+    if (i==maxIterations) {
+        pcout << "Propagation in z-direction failed." << std::endl;
+    }
+}
+
+template<typename T>
+void growDomain(MultiScalarField3D<T>& field, T flag, int nCells, Box3D domain) {
+    for (int i=0; i<nCells; ++i) {
+        applyProcessingFunctional( new GrowDomainFunctional3D<T>(flag),
+                                   domain, field );
+    }
+}
+
+template<typename T>
+void growDomain(MultiScalarField3D<T>& field, T flag, int nCells) {
+    growDomain(field, flag, nCells, field.getBoundingBox());
+}
+
+
 }  // namespace plb
 
 #endif  // DATA_INITIALIZER_WRAPPER_3D_HH
+

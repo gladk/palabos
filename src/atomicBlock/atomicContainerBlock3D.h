@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,6 +39,11 @@ namespace plb {
 class AtomicContainerDataTransfer3D : public BlockDataTransfer3D {
 public:
     AtomicContainerDataTransfer3D() { }
+    virtual void setBlock(AtomicBlock3D& block_) { }
+    virtual void setConstBlock(AtomicBlock3D const& block_) { }
+    virtual AtomicContainerDataTransfer3D* clone() const {
+        return new AtomicContainerDataTransfer3D(*this);
+    }
     virtual plint staticCellSize() const { return 0; }
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const { }
     virtual void receive(Box3D domain, std::vector<char> const& buffer, modif::ModifT kind) { }
@@ -68,16 +73,8 @@ public:
     ContainerBlockData* getData();
     ContainerBlockData const* getData() const;
     virtual identifiers::BlockId getBlockId() const;
-public:
-    virtual BlockDataTransfer3D& getDataTransfer() {
-        return dataTransfer;
-    }
-    virtual BlockDataTransfer3D const& getDataTransfer() const {
-        return dataTransfer;
-    }
 private:
     ContainerBlockData* data;
-    AtomicContainerDataTransfer3D dataTransfer;
 };
 
 }  // namespace plb

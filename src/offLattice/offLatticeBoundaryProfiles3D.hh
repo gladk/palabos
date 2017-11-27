@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,7 +26,7 @@
 #define OFF_LATTICE_BOUNDARY_PROFILES_3D_HH
 
 #include "core/globalDefs.h"
-#include "algorithm/functions.h"
+#include "core/functions.h"
 #include "offLattice/offLatticeBoundaryProfiles3D.h"
 
 namespace plb {
@@ -235,6 +235,47 @@ IncreasingVelocityProfile3D<T,Descriptor>*
     IncreasingVelocityProfile3D<T,Descriptor>::clone() const
 {
     return new IncreasingVelocityProfile3D<T,Descriptor>(*this);
+}
+
+
+/********** IncreasingVelocityPlugProfile3D ********************************************/
+
+template< typename T, template<typename U> class Descriptor>
+IncreasingVelocityPlugProfile3D<T,Descriptor>::IncreasingVelocityPlugProfile3D (
+        T uMax_, plint maxT_ )
+    : uMax(uMax_),
+      maxT(maxT_),
+      normal(T(),T(),T())
+{ }
+
+template< typename T, template<typename U> class Descriptor>
+void IncreasingVelocityPlugProfile3D<T,Descriptor>::setNormal(Array<T,3> const& normal_) {
+    normal = normal_;
+}
+
+template< typename T, template<typename U> class Descriptor>
+void IncreasingVelocityPlugProfile3D<T,Descriptor>::defineCircularShape (
+        Array<T,3> const& center_, T radius_ )
+{ }
+
+template< typename T, template<typename U> class Descriptor>
+void IncreasingVelocityPlugProfile3D<T,Descriptor>::getData (
+        Array<T,3> const& pos, plint id, AtomicBlock3D const* argument,
+        Array<T,3>& data, OffBoundary::Type& bdType ) const
+{
+    bdType = OffBoundary::dirichlet;
+    BlockLattice3D<T,Descriptor> const* lattice =
+        dynamic_cast<BlockLattice3D<T,Descriptor> const* >(argument);
+    plint t = lattice->getTimeCounter().getTime();
+    T signal = util::sinIncreasingFunction<T>((T) t, (T) maxT);
+    data = -signal*uMax*normal;
+}
+
+template< typename T, template<typename U> class Descriptor>
+IncreasingVelocityPlugProfile3D<T,Descriptor>*
+    IncreasingVelocityPlugProfile3D<T,Descriptor>::clone() const
+{
+    return new IncreasingVelocityPlugProfile3D<T,Descriptor>(*this);
 }
 
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,8 +69,8 @@ plint findVelocity(Array<int,Descriptor::d> const& v) {
     return Descriptor::q;
 }
 
-/// Compute the index corresponding to a specular reflexion
-template <typename Descriptor, int orientation> inline plint specularReflexion(plint iPop) {
+/// Compute the index corresponding to a specular reflection
+template <typename Descriptor, int orientation> inline plint specularReflection(plint iPop) {
     if (iPop==0) return 0;
     Array<int,Descriptor::d> v; 
     for (plint iD = 0; iD < Descriptor::d; ++iD) v[iD] = Descriptor::c[iPop][iD];

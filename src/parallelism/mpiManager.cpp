@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -125,19 +125,23 @@ void MpiManager::send<bool>(bool *buf, int count, int dest, int tag) {
     MPI_Send(static_cast<void*>(buf), count*sizeof(bool), MPI_CHAR, dest, tag, getGlobalCommunicator());
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::send<long long>(long long *buf, int count, int dest, int tag) {
     if (!ok) return;
-    MPI_Send(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, dest, tag, getGlobalCommunicator());
+    MPI_Send(static_cast<void*>(buf), count, MPI_LONG_LONG, dest, tag, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::send<unsigned long>(unsigned long *buf, int count, int dest, int tag) {
+    if (!ok) return;
+    MPI_Send(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, dest, tag, getGlobalCommunicator());
 }
 
 template <>
 void MpiManager::send<unsigned long long>(unsigned long long *buf, int count, int dest, int tag) {
     if (!ok) return;
-    MPI_Send(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, dest, tag, getGlobalCommunicator());
+    MPI_Send(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, dest, tag, getGlobalCommunicator());
 }
-#endif
 
 template <>
 void MpiManager::send<long>(long *buf, int count, int dest, int tag) {
@@ -170,6 +174,12 @@ void MpiManager::send<__float128 >(__float128  *buf, int count, int dest, int ta
     MPI_Send(static_cast<void*>(buf), count*sizeof(__float128), MPI_CHAR, dest, tag, getGlobalCommunicator());
 }
 #endif
+
+template <>
+void MpiManager::send<Complex<float> >(Complex<float>  *buf, int count, int dest, int tag) {
+    if (!ok) return;
+    MPI_Send(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, dest, tag, getGlobalCommunicator());
+}
 
 template <>
 void MpiManager::send<Complex<double> >(Complex<double>  *buf, int count, int dest, int tag) {
@@ -218,13 +228,21 @@ void MpiManager::iSend<bool>
     }
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::iSend<long long>
     (long long *buf, int count, int dest, MPI_Request* request, int tag)
 {
     if (ok) {
-        MPI_Isend(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, dest, tag, getGlobalCommunicator(), request);
+        MPI_Isend(static_cast<void*>(buf), count, MPI_LONG_LONG, dest, tag, getGlobalCommunicator(), request);
+    }
+}
+
+template <>
+void MpiManager::iSend<unsigned long>
+    (unsigned long *buf, int count, int dest, MPI_Request* request, int tag)
+{
+    if (ok) {
+        MPI_Isend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, dest, tag, getGlobalCommunicator(), request);
     }
 }
 
@@ -233,10 +251,9 @@ void MpiManager::iSend<unsigned long long>
     (unsigned long long *buf, int count, int dest, MPI_Request* request, int tag)
 {
     if (ok) {
-        MPI_Isend(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, dest, tag, getGlobalCommunicator(), request);
+        MPI_Isend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, dest, tag, getGlobalCommunicator(), request);
     }
 }
-#endif
 
 template <>
 void MpiManager::iSend<long>
@@ -286,6 +303,15 @@ void MpiManager::iSend<__float128 >
 #endif
 
 template <>
+void MpiManager::iSend<Complex<float> >
+    (Complex<float>  *buf, int count, int dest, MPI_Request* request, int tag)
+{
+    if (ok) {
+        MPI_Isend(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, dest, tag, getGlobalCommunicator(), request);
+    }
+}
+
+template <>
 void MpiManager::iSend<Complex<double> >
     (Complex<double>  *buf, int count, int dest, MPI_Request* request, int tag)
 {
@@ -332,19 +358,23 @@ void MpiManager::rSend<bool>(bool *buf, int count, int dest, int tag) {
     MPI_Rsend(static_cast<void*>(buf), count*sizeof(bool), MPI_CHAR, dest, tag, getGlobalCommunicator());
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::rSend<long long>(long long *buf, int count, int dest, int tag) {
     if (!ok) return;
-    MPI_Rsend(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, dest, tag, getGlobalCommunicator());
+    MPI_Rsend(static_cast<void*>(buf), count, MPI_LONG_LONG, dest, tag, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::rSend<unsigned long>(unsigned long *buf, int count, int dest, int tag) {
+    if (!ok) return;
+    MPI_Rsend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, dest, tag, getGlobalCommunicator());
 }
 
 template <>
 void MpiManager::rSend<unsigned long long>(unsigned long long *buf, int count, int dest, int tag) {
     if (!ok) return;
-    MPI_Rsend(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, dest, tag, getGlobalCommunicator());
+    MPI_Rsend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, dest, tag, getGlobalCommunicator());
 }
-#endif
 
 template <>
 void MpiManager::rSend<long>(long *buf, int count, int dest, int tag) {
@@ -377,6 +407,12 @@ void MpiManager::rSend<__float128 >(__float128  *buf, int count, int dest, int t
     MPI_Rsend(static_cast<void*>(buf), count*sizeof(__float128), MPI_CHAR, dest, tag, getGlobalCommunicator());
 }
 #endif
+
+template <>
+void MpiManager::rSend<Complex<float> >(Complex<float>  *buf, int count, int dest, int tag) {
+    if (!ok) return;
+    MPI_Rsend(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, dest, tag, getGlobalCommunicator());
+}
 
 template <>
 void MpiManager::rSend<Complex<double> >(Complex<double>  *buf, int count, int dest, int tag) {
@@ -431,14 +467,24 @@ void MpiManager::iSendRequestFree<bool>
     MPI_Request_free(&request);
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::iSendRequestFree<long long>
     (long long *buf, int count, int dest, int tag)
 {
     MPI_Request request;
     if (ok) {
-        MPI_Isend(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, dest, tag, getGlobalCommunicator(), &request);
+        MPI_Isend(static_cast<void*>(buf), count, MPI_LONG_LONG, dest, tag, getGlobalCommunicator(), &request);
+    }
+    MPI_Request_free(&request);
+}
+
+template <>
+void MpiManager::iSendRequestFree<unsigned long>
+    (unsigned long *buf, int count, int dest, int tag)
+{
+    MPI_Request request;
+    if (ok) {
+        MPI_Isend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, dest, tag, getGlobalCommunicator(), &request);
     }
     MPI_Request_free(&request);
 }
@@ -449,11 +495,10 @@ void MpiManager::iSendRequestFree<unsigned long long>
 {
     MPI_Request request;
     if (ok) {
-        MPI_Isend(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, dest, tag, getGlobalCommunicator(), &request);
+        MPI_Isend(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, dest, tag, getGlobalCommunicator(), &request);
     }
     MPI_Request_free(&request);
 }
-#endif
 
 template <>
 void MpiManager::iSendRequestFree<long>
@@ -511,6 +556,17 @@ void MpiManager::iSendRequestFree<__float128 >
     MPI_Request_free(&request);
 }
 #endif
+
+template <>
+void MpiManager::iSendRequestFree<Complex<float> >
+    (Complex<float>  *buf, int count, int dest, int tag)
+{
+    MPI_Request request;
+    if (ok) {
+        MPI_Isend(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, dest, tag, getGlobalCommunicator(), &request);
+    }
+    MPI_Request_free(&request);
+}
 
 template <>
 void MpiManager::iSendRequestFree<Complex<double> >
@@ -571,13 +627,20 @@ void MpiManager::receive<bool>(bool *buf, int count, int source, int tag)
     MPI_Recv(static_cast<void*>(buf), count*sizeof(bool), MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::receive<long long>(long long *buf, int count, int source, int tag)
 {
     if (!ok) return;
     MPI_Status status;
-    MPI_Recv(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+    MPI_Recv(static_cast<void*>(buf), count, MPI_LONG_LONG, source, tag, getGlobalCommunicator(), &status);
+}
+
+template <>
+void MpiManager::receive<unsigned long>(unsigned long *buf, int count, int source, int tag)
+{
+    if (!ok) return;
+    MPI_Status status;
+    MPI_Recv(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, source, tag, getGlobalCommunicator(), &status);
 }
 
 template <>
@@ -585,9 +648,8 @@ void MpiManager::receive<unsigned long long>(unsigned long long *buf, int count,
 {
     if (!ok) return;
     MPI_Status status;
-    MPI_Recv(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+    MPI_Recv(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, source, tag, getGlobalCommunicator(), &status);
 }
-#endif
 
 template <>
 void MpiManager::receive<long>(long *buf, int count, int source, int tag)
@@ -630,6 +692,14 @@ void MpiManager::receive<__float128 >(__float128 *buf, int count, int source, in
     MPI_Recv(static_cast<void*>(buf), count*sizeof(__float128), MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
 }
 #endif
+
+template <>
+void MpiManager::receive<Complex<float> >(Complex<float> *buf, int count, int source, int tag)
+{
+    if (!ok) return;
+    MPI_Status status;
+    MPI_Recv(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+}
 
 template <>
 void MpiManager::receive<Complex<double> >(Complex<double> *buf, int count, int source, int tag)
@@ -693,9 +763,20 @@ void MpiManager::sendToMaster<bool>(bool* sendBuf, int sendCount, bool iAmRoot)
     }
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::sendToMaster<long long>(long long* sendBuf, int sendCount, bool iAmRoot)
+{
+    if (!ok) return;
+    if (iAmRoot && !isMainProcessor()) {
+        send(sendBuf, sendCount, 0);
+    }
+    if (isMainProcessor() && !iAmRoot) {
+        receive(sendBuf, sendCount, MPI_ANY_SOURCE);
+    }
+}
+
+template <>
+void MpiManager::sendToMaster<unsigned long>(unsigned long* sendBuf, int sendCount, bool iAmRoot)
 {
     if (!ok) return;
     if (iAmRoot && !isMainProcessor()) {
@@ -717,7 +798,6 @@ void MpiManager::sendToMaster<unsigned long long>(unsigned long long* sendBuf, i
         receive(sendBuf, sendCount, MPI_ANY_SOURCE);
     }
 }
-#endif
 
 template <>
 void MpiManager::sendToMaster<long>(long* sendBuf, int sendCount, bool iAmRoot)
@@ -782,6 +862,18 @@ void MpiManager::sendToMaster<__float128 >(__float128* sendBuf, int sendCount, b
 #endif
 
 template <>
+void MpiManager::sendToMaster<Complex<float> >(Complex<float>* sendBuf, int sendCount, bool iAmRoot)
+{
+    if (!ok) return;
+    if (iAmRoot && !isMainProcessor()) {
+        send(sendBuf, sendCount, 0);
+    }
+    if (isMainProcessor() && !iAmRoot) {
+        receive(sendBuf, sendCount, MPI_ANY_SOURCE);
+    }
+}
+
+template <>
 void MpiManager::sendToMaster<Complex<double> >(Complex<double>* sendBuf, int sendCount, bool iAmRoot)
 {
     if (!ok) return;
@@ -819,6 +911,28 @@ void MpiManager::sendToMaster<Complex<__float128> >(Complex<__float128>* sendBuf
 }
 #endif
 
+void MpiManager::sendToMaster(std::string& message, bool iAmRoot)
+{
+    if (!ok) return;
+    int length = 0;
+    char* buffer = 0;
+    if (iAmRoot && !isMainProcessor()) {
+        length = (int) message.size();
+        send(&length, 1, 0);
+        buffer = new char[length+1];
+        std::copy(message.c_str(), message.c_str()+length+1, buffer);
+        send(buffer, length+1, 0);
+        delete [] buffer;
+    }
+    if (isMainProcessor() && !iAmRoot) {
+        receive(&length, 1, MPI_ANY_SOURCE);
+        buffer = new char[length+1];
+        receive(buffer, length+1, MPI_ANY_SOURCE);
+        message = buffer;
+        delete [] buffer;
+    }
+}
+
 
 template <>
 void MpiManager::iRecv<char>(char *buf, int count, int source, MPI_Request* request, int tag)
@@ -844,12 +958,19 @@ void MpiManager::iRecv<bool>(bool *buf, int count, int source, MPI_Request* requ
     }
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::iRecv<long long>(long long *buf, int count, int source, MPI_Request* request, int tag)
 {
     if (ok) {
-      MPI_Irecv(static_cast<void*>(buf), count*sizeof(long long), MPI_CHAR, source, tag, getGlobalCommunicator(), request);
+      MPI_Irecv(static_cast<void*>(buf), count, MPI_LONG_LONG, source, tag, getGlobalCommunicator(), request);
+    }
+}
+
+template <>
+void MpiManager::iRecv<unsigned long>(unsigned long *buf, int count, int source, MPI_Request* request, int tag)
+{
+    if (ok) {
+      MPI_Irecv(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG, source, tag, getGlobalCommunicator(), request);
     }
 }
 
@@ -857,10 +978,9 @@ template <>
 void MpiManager::iRecv<unsigned long long>(unsigned long long *buf, int count, int source, MPI_Request* request, int tag)
 {
     if (ok) {
-      MPI_Irecv(static_cast<void*>(buf), count*sizeof(unsigned long long), MPI_CHAR, source, tag, getGlobalCommunicator(), request);
+      MPI_Irecv(static_cast<void*>(buf), count, MPI_UNSIGNED_LONG_LONG, source, tag, getGlobalCommunicator(), request);
     }
 }
-#endif
 
 template <>
 void MpiManager::iRecv<long>(long *buf, int count, int source, MPI_Request* request, int tag)
@@ -903,6 +1023,14 @@ void MpiManager::iRecv<__float128 >(__float128 *buf, int count, int source, MPI_
     }
 }
 #endif
+
+template <>
+void MpiManager::iRecv<Complex<float> >(Complex<float> *buf, int count, int source, MPI_Request* request, int tag)
+{
+    if (ok) {
+      MPI_Irecv(static_cast<void*>(buf), count*sizeof(Complex<float>), MPI_CHAR, source, tag, getGlobalCommunicator(), request);
+    }
+}
 
 template <>
 void MpiManager::iRecv<Complex<double> >(Complex<double> *buf, int count, int source, MPI_Request* request, int tag)
@@ -972,7 +1100,6 @@ void MpiManager::sendRecv<bool>
                  MPI_LONG, source, tag, getGlobalCommunicator(), &status);
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::sendRecv<long long>
     (long long *sendBuf, long long *recvBuf, int count, int dest, int source, int tag)
@@ -980,11 +1107,25 @@ void MpiManager::sendRecv<long long>
     if (!ok) return;
     MPI_Status status;
     MPI_Sendrecv(static_cast<void*>(sendBuf),
-                 count*sizeof(long long),
-                 MPI_CHAR, dest, tag,
+                 count,
+                 MPI_LONG_LONG, dest, tag,
                  static_cast<void*>(recvBuf),
-                 count*sizeof(long long),
-                 MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+                 count,
+                 MPI_LONG_LONG, source, tag, getGlobalCommunicator(), &status);
+}
+
+template <>
+void MpiManager::sendRecv<unsigned long>
+    (unsigned long *sendBuf, unsigned long *recvBuf, int count, int dest, int source, int tag)
+{
+    if (!ok) return;
+    MPI_Status status;
+    MPI_Sendrecv(static_cast<void*>(sendBuf),
+                 count,
+                 MPI_UNSIGNED_LONG, dest, tag,
+                 static_cast<void*>(recvBuf),
+                 count,
+                 MPI_UNSIGNED_LONG, source, tag, getGlobalCommunicator(), &status);
 }
 
 template <>
@@ -994,13 +1135,12 @@ void MpiManager::sendRecv<unsigned long long>
     if (!ok) return;
     MPI_Status status;
     MPI_Sendrecv(static_cast<void*>(sendBuf),
-                 count*sizeof(unsigned long long),
-                 MPI_CHAR, dest, tag,
+                 count,
+                 MPI_UNSIGNED_LONG_LONG, dest, tag,
                  static_cast<void*>(recvBuf),
-                 count*sizeof(long long),
-                 MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+                 count,
+                 MPI_UNSIGNED_LONG_LONG, source, tag, getGlobalCommunicator(), &status);
 }
-#endif
 
 template <>
 void MpiManager::sendRecv<long>
@@ -1076,6 +1216,21 @@ void MpiManager::sendRecv<__float128 >
 
 }
 #endif
+
+template <>
+void MpiManager::sendRecv<Complex<float> >
+    (Complex<float> *sendBuf, Complex<float> *recvBuf, int count, int dest, int source, int tag)
+{
+    if (!ok) return;
+    MPI_Status status;
+    MPI_Sendrecv(static_cast<void*>(sendBuf),
+                 count*sizeof(Complex<float>),
+                 MPI_CHAR, dest, tag,
+                 static_cast<void*>(recvBuf),
+                 count*sizeof(Complex<float>),
+                 MPI_CHAR, source, tag, getGlobalCommunicator(), &status);
+
+}
 
 template <>
 void MpiManager::sendRecv<Complex<double> >
@@ -1201,6 +1356,14 @@ void MpiManager::scatterv_impl<__float128 >(__float128 *sendBuf, int* sendCounts
 #endif
 
 template <>
+void MpiManager::scatterv_impl<Complex<float> >(Complex<float> *sendBuf, int* sendCounts, int* displs,
+                                       Complex<float>* recvBuf, int recvCount, int root)
+{
+    if (!ok) return;
+    PLB_ASSERT( false ); // Not yet implemented.
+}
+
+template <>
 void MpiManager::scatterv_impl<Complex<double> >(Complex<double> *sendBuf, int* sendCounts, int* displs,
                                        Complex<double>* recvBuf, int recvCount, int root)
 {
@@ -1304,6 +1467,15 @@ void MpiManager::gatherv_impl<__float128 >(__float128 * sendBuf, int sendCount,
 #endif
 
 template <>
+void MpiManager::gatherv_impl<Complex<float> >(Complex<float> * sendBuf, int sendCount,
+                                  Complex<float> * recvBuf, int* recvCounts, int* displs,
+                                  int root)
+{
+    if (!ok) return;
+    PLB_ASSERT( false ); // Not yet implemented.
+}
+
+template <>
 void MpiManager::gatherv_impl<Complex<double> >(Complex<double> * sendBuf, int sendCount,
                                   Complex<double> * recvBuf, int* recvCounts, int* displs,
                                   int root)
@@ -1371,13 +1543,20 @@ void MpiManager::bCast<bool>(bool* sendBuf, int sendCount, int root)
               sendCount*sizeof(bool), MPI_CHAR, root, getGlobalCommunicator());
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::bCast<long long>(long long* sendBuf, int sendCount, int root)
 {
     if (!ok) return;
     MPI_Bcast(static_cast<void*>(sendBuf),
-              sendCount*sizeof(long long), MPI_CHAR, root, getGlobalCommunicator());
+              sendCount, MPI_LONG_LONG, root, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::bCast<unsigned long>(unsigned long* sendBuf, int sendCount, int root)
+{
+    if (!ok) return;
+    MPI_Bcast(static_cast<void*>(sendBuf),
+              sendCount, MPI_UNSIGNED_LONG, root, getGlobalCommunicator());
 }
 
 template <>
@@ -1385,9 +1564,8 @@ void MpiManager::bCast<unsigned long long>(unsigned long long* sendBuf, int send
 {
     if (!ok) return;
     MPI_Bcast(static_cast<void*>(sendBuf),
-              sendCount*sizeof(unsigned long long), MPI_CHAR, root, getGlobalCommunicator());
+              sendCount, MPI_UNSIGNED_LONG_LONG, root, getGlobalCommunicator());
 }
-#endif
 
 template <>
 void MpiManager::bCast<long>(long* sendBuf, int sendCount, int root)
@@ -1430,6 +1608,14 @@ void MpiManager::bCast<__float128 >(__float128* sendBuf, int sendCount, int root
               sendCount*sizeof(__float128), MPI_CHAR, root, getGlobalCommunicator());
 }
 #endif
+
+template <>
+void MpiManager::bCast<Complex<float> >(Complex<float>* sendBuf, int sendCount, int root)
+{
+    if (!ok) return;
+    MPI_Bcast(static_cast<void*>(sendBuf),
+              sendCount*sizeof(Complex<float>), MPI_CHAR, root, getGlobalCommunicator());
+}
 
 template <>
 void MpiManager::bCast<Complex<double> >(Complex<double>* sendBuf, int sendCount, int root)
@@ -1496,9 +1682,21 @@ void MpiManager::bCastThroughMaster<bool>(bool* sendBuf, int sendCount, bool iAm
     bCast(sendBuf, sendCount, 0);
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::bCastThroughMaster<long long>(long long* sendBuf, int sendCount, bool iAmRoot)
+{
+    if (!ok) return;
+    if (iAmRoot && !isMainProcessor()) {
+        send(sendBuf, sendCount, 0);
+    }
+    if (isMainProcessor() && !iAmRoot) {
+        receive(sendBuf, sendCount, MPI_ANY_SOURCE);
+    }
+    bCast(sendBuf, sendCount, 0);
+}
+
+template <>
+void MpiManager::bCastThroughMaster<unsigned long>(unsigned long* sendBuf, int sendCount, bool iAmRoot)
 {
     if (!ok) return;
     if (iAmRoot && !isMainProcessor()) {
@@ -1522,7 +1720,6 @@ void MpiManager::bCastThroughMaster<unsigned long long>(unsigned long long* send
     }
     bCast(sendBuf, sendCount, 0);
 }
-#endif
 
 template <>
 void MpiManager::bCastThroughMaster<long>(long* sendBuf, int sendCount, bool iAmRoot)
@@ -1592,6 +1789,19 @@ void MpiManager::bCastThroughMaster<__float128 >(__float128 * sendBuf, int sendC
 #endif
 
 template <>
+void MpiManager::bCastThroughMaster<Complex<float> >(Complex<float> * sendBuf, int sendCount, bool iAmRoot)
+{
+    if (!ok) return;
+    if (iAmRoot && !isMainProcessor()) {
+        send(sendBuf, sendCount, 0);
+    }
+    if (isMainProcessor() && !iAmRoot) {
+        receive(sendBuf, sendCount, MPI_ANY_SOURCE);
+    }
+    bCast(sendBuf, sendCount, 0);
+}
+
+template <>
 void MpiManager::bCastThroughMaster<Complex<double> >(Complex<double> * sendBuf, int sendCount, bool iAmRoot)
 {
     if (!ok) return;
@@ -1659,7 +1869,6 @@ void MpiManager::reduce<long>(long sendVal, long& recvVal,  MPI_Op op, int root)
                static_cast<void*>(&recvVal), 1, MPI_LONG, op, root, getGlobalCommunicator());
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::reduce<long long>(long long sendVal, long long& recvVal,  MPI_Op op, int root)
 {
@@ -1669,13 +1878,20 @@ void MpiManager::reduce<long long>(long long sendVal, long long& recvVal,  MPI_O
 }
 
 template <>
+void MpiManager::reduce<unsigned long>(unsigned long sendVal, unsigned long& recvVal,  MPI_Op op, int root)
+{
+    if (!ok) return;
+    MPI_Reduce(static_cast<void*>(&sendVal),
+               static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG, op, root, getGlobalCommunicator());
+}
+
+template <>
 void MpiManager::reduce<unsigned long long>(unsigned long long sendVal, unsigned long long& recvVal,  MPI_Op op, int root)
 {
     if (!ok) return;
     MPI_Reduce(static_cast<void*>(&sendVal),
                static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG_LONG, op, root, getGlobalCommunicator());
 }
-#endif
 
 template <>
 void MpiManager::reduce<float>(float sendVal, float& recvVal,  MPI_Op op, int root)
@@ -1706,10 +1922,22 @@ template <>
 void MpiManager::reduce<__float128 >(__float128 sendVal, __float128& recvVal,  MPI_Op op, int root)
 {
     if (!ok) return;
-    MPI_Reduce(static_cast<void*>(&sendVal),
-               static_cast<void*>(&recvVal), sizeof(__float128), MPI_CHAR, op, root, getGlobalCommunicator());
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    long double sendValTmp = sendVal;
+    long double recvValTmp = recvVal;
+    MPI_Reduce(static_cast<void*>(&sendValTmp),
+               static_cast<void*>(&recvValTmp), 1, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    recvVal = recvValTmp;
 }
 #endif
+
+template <>
+void MpiManager::reduce<Complex<float> >(Complex<float> sendVal, Complex<float>& recvVal,  MPI_Op op, int root)
+{
+    if (!ok) return;
+    MPI_Reduce(static_cast<void*>(&sendVal),
+               static_cast<void*>(&recvVal), 2, MPI_FLOAT, op, root, getGlobalCommunicator());
+}
 
 template <>
 void MpiManager::reduce<Complex<double> >(Complex<double> sendVal, Complex<double>& recvVal,  MPI_Op op, int root)
@@ -1732,8 +1960,12 @@ template <>
 void MpiManager::reduce<Complex<__float128> >(Complex<__float128> sendVal, Complex<__float128>& recvVal,  MPI_Op op, int root)
 {
     if (!ok) return;
-    MPI_Reduce(static_cast<void*>(&sendVal),
-               static_cast<void*>(&recvVal), 2*sizeof(__float128), MPI_CHAR, op, root, getGlobalCommunicator());
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    Complex<long double> sendValTmp((long double) sendVal.real(), (long double) sendVal.imaginary());
+    Complex<long double> recvValTmp((long double) recvVal.real(), (long double) recvVal.imaginary());
+    MPI_Reduce(static_cast<void*>(&sendValTmp),
+               static_cast<void*>(&recvValTmp), 2, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    recvVal = Complex<__float128>((__float128) recvValTmp.real(), (__float128) recvValTmp.imaginary());
 }
 #endif
 
@@ -1848,7 +2080,6 @@ void MpiManager::reduceVect<long double>(std::vector<long double>& sendVal,
                sendVal.size(), MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::reduceVect<long long>(std::vector<long long>& sendVal,
                                        std::vector<long long>& recvVal, MPI_Op op, int root)
@@ -1866,12 +2097,44 @@ void MpiManager::reduceVect<long long>(std::vector<long long>& sendVal,
     MPI_Reduce(static_cast<void*>(&(sendVal[0])), recvPtr,
                sendVal.size(), MPI_LONG_LONG, op, root, getGlobalCommunicator());
 }
-#endif
 
 #ifdef PLB_USE_GCC
 template <>
 void MpiManager::reduceVect<__float128 >(std::vector<__float128 >& sendVal,
                                          std::vector<__float128 >& recvVal, MPI_Op op, int root)
+{
+    if (!ok) return;
+    if (sendVal.empty()) return;
+
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    std::vector<long double> sendValTmp(sendVal.size());
+    for (size_t i = 0; i < sendValTmp.size(); i++) {
+        sendValTmp[i] = sendVal[i];
+    }
+
+    std::vector<long double> recvValTmp;
+    void* recvPtr;
+    if (getRank()==root) {
+        recvValTmp.resize(sendValTmp.size());
+        recvPtr = static_cast<void*>(&(recvValTmp[0]));
+    }
+    else {
+        recvPtr = 0;
+    }
+    MPI_Reduce(static_cast<void*>(&(sendValTmp[0])), recvPtr,
+               sendValTmp.size(), MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    if (getRank()==root) {
+        recvVal.resize(sendValTmp.size());
+        for (size_t i = 0; i < recvVal.size(); i++) {
+            recvVal[i] = recvValTmp[i];
+        }
+    }
+}
+#endif
+
+template <>
+void MpiManager::reduceVect<Complex<float> >(std::vector<Complex<float> >& sendVal,
+                                             std::vector<Complex<float> >& recvVal, MPI_Op op, int root)
 {
     if (!ok) return;
     if (sendVal.empty()) return;
@@ -1884,9 +2147,8 @@ void MpiManager::reduceVect<__float128 >(std::vector<__float128 >& sendVal,
         recvPtr = 0;
     }
     MPI_Reduce(static_cast<void*>(&(sendVal[0])), recvPtr,
-               sendVal.size()*sizeof(__float128), MPI_CHAR, op, root, getGlobalCommunicator());
+               2*sendVal.size(), MPI_FLOAT, op, root, getGlobalCommunicator());
 }
-#endif
 
 template <>
 void MpiManager::reduceVect<Complex<double> >(std::vector<Complex<double> >& sendVal,
@@ -1931,16 +2193,30 @@ void MpiManager::reduceVect<Complex<__float128> >(std::vector<Complex<__float128
 {
     if (!ok) return;
     if (sendVal.empty()) return;
+
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    std::vector<Complex<long double> > sendValTmp(sendVal.size());
+    for (size_t i = 0; i < sendValTmp.size(); i++) {
+        sendValTmp[i] = Complex<long double>((long double) sendVal[i].real(), (long double) sendVal[i].imaginary());
+    }
+
+    std::vector<Complex<long double> > recvValTmp;
     void* recvPtr;
     if (getRank()==root) {
-        recvVal.resize(sendVal.size());
-        recvPtr = static_cast<void*>(&(recvVal[0]));
+        recvValTmp.resize(sendValTmp.size());
+        recvPtr = static_cast<void*>(&(recvValTmp[0]));
     }
     else {
         recvPtr = 0;
     }
-    MPI_Reduce(static_cast<void*>(&(sendVal[0])), recvPtr,
-               2*sendVal.size(), MPI_CHAR, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&(sendValTmp[0])), recvPtr,
+               2*sendValTmp.size(), MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    if (getRank()==root) {
+        recvVal.resize(sendValTmp.size());
+        for (size_t i = 0; i < recvVal.size(); i++) {
+            recvVal[i] = Complex<__float128>((__float128) recvValTmp[i].real(), (__float128) recvValTmp[i].imaginary());
+        }
+    }
 }
 #endif
 
@@ -1949,11 +2225,17 @@ void MpiManager::allReduceVect<char>(std::vector<char>& sendRecvVal, MPI_Op op)
 {
     if (!ok) return;
     if (sendRecvVal.empty()) return;
-    std::vector<char> recvVal(sendRecvVal.size());
-    MPI_Allreduce( static_cast<void*>(&(sendRecvVal[0])),
+    std::vector<int> sendRecvValTmp(sendRecvVal.size());
+    for (size_t i = 0; i < sendRecvValTmp.size(); i++) {
+        sendRecvValTmp[i] = sendRecvVal[i];
+    }
+    std::vector<int> recvVal(sendRecvValTmp.size());
+    MPI_Allreduce( static_cast<void*>(&(sendRecvValTmp[0])),
                    static_cast<void*>(&(recvVal[0])),
-                   sendRecvVal.size(), MPI_CHAR, op, getGlobalCommunicator() );
-    sendRecvVal.swap(recvVal);
+                   sendRecvValTmp.size(), MPI_INT, op, getGlobalCommunicator() );
+    for (size_t i = 0; i < sendRecvVal.size(); i++) {
+        sendRecvVal[i] = recvVal[i];
+    }
 }
 
 template <>
@@ -1980,7 +2262,6 @@ void MpiManager::allReduceVect<long>(std::vector<long>& sendRecvVal, MPI_Op op)
     sendRecvVal.swap(recvVal);
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::allReduceVect<long long>(std::vector<long long>& sendRecvVal, MPI_Op op)
 {
@@ -1990,6 +2271,18 @@ void MpiManager::allReduceVect<long long>(std::vector<long long>& sendRecvVal, M
     MPI_Allreduce( static_cast<void*>(&(sendRecvVal[0])),
                    static_cast<void*>(&(recvVal[0])),
                    sendRecvVal.size(), MPI_LONG_LONG, op, getGlobalCommunicator() );
+    sendRecvVal.swap(recvVal);
+}
+
+template <>
+void MpiManager::allReduceVect<unsigned long>(std::vector<unsigned long>& sendRecvVal, MPI_Op op)
+{
+    if (!ok) return;
+    if (sendRecvVal.empty()) return;
+    std::vector<unsigned long> recvVal(sendRecvVal.size());
+    MPI_Allreduce( static_cast<void*>(&(sendRecvVal[0])),
+                   static_cast<void*>(&(recvVal[0])),
+                   sendRecvVal.size(), MPI_UNSIGNED_LONG, op, getGlobalCommunicator() );
     sendRecvVal.swap(recvVal);
 }
 
@@ -2004,8 +2297,6 @@ void MpiManager::allReduceVect<unsigned long long>(std::vector<unsigned long lon
                    sendRecvVal.size(), MPI_UNSIGNED_LONG_LONG, op, getGlobalCommunicator() );
     sendRecvVal.swap(recvVal);
 }
-
-#endif
 
 template <>
 void MpiManager::allReduceVect<float>(std::vector<float>& sendRecvVal, MPI_Op op)
@@ -2047,10 +2338,34 @@ void MpiManager::allReduceVect<long double>(std::vector<long double>& sendRecvVa
 template <>
 void MpiManager::allReduceVect<__float128 >(std::vector<__float128 >& sendRecvVal, MPI_Op op)
 {
-    // Reductions are not defined for this type.
-    PLB_ASSERT( false );
+    if (!ok) return;
+    if (sendRecvVal.empty()) return;
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    std::vector<long double> sendRecvValTmp(sendRecvVal.size());
+    for (size_t i = 0; i < sendRecvValTmp.size(); i++) {
+        sendRecvValTmp[i] = sendRecvVal[i];
+    }
+    std::vector<long double> recvVal(sendRecvValTmp.size());
+    MPI_Allreduce( static_cast<void*>(&(sendRecvValTmp[0])),
+                   static_cast<void*>(&(recvVal[0])),
+                   sendRecvValTmp.size(), MPI_LONG_DOUBLE, op, getGlobalCommunicator() );
+    for (size_t i = 0; i < sendRecvVal.size(); i++) {
+        sendRecvVal[i] = recvVal[i];
+    }
 }
 #endif
+
+template <>
+void MpiManager::allReduceVect<Complex<float> >(std::vector<Complex<float> >& sendRecvVal, MPI_Op op)
+{
+    if (!ok) return;
+    if (sendRecvVal.empty()) return;
+    std::vector<Complex<float> > recvVal(sendRecvVal.size());
+    MPI_Allreduce( static_cast<void*>(&(sendRecvVal[0])),
+                   static_cast<void*>(&(recvVal[0])),
+                   2*sendRecvVal.size(), MPI_FLOAT, op, getGlobalCommunicator() );
+    sendRecvVal.swap(recvVal);
+}
 
 template <>
 void MpiManager::allReduceVect<Complex<double> >(std::vector<Complex<double> >& sendRecvVal, MPI_Op op)
@@ -2080,8 +2395,20 @@ void MpiManager::allReduceVect<Complex<long double> >(std::vector<Complex<long d
 template <>
 void MpiManager::allReduceVect<Complex<__float128> >(std::vector<Complex<__float128> >& sendRecvVal, MPI_Op op)
 {
-    // Reductions are not defined for this type.
-    PLB_ASSERT( false );
+    if (!ok) return;
+    if (sendRecvVal.empty()) return;
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    std::vector<Complex<long double> > sendRecvValTmp(sendRecvVal.size());
+    for (size_t i = 0; i < sendRecvValTmp.size(); i++) {
+        sendRecvValTmp[i] = Complex<long double>((long double) sendRecvVal[i].real(), (long double) sendRecvVal[i].imaginary());
+    }
+    std::vector<Complex<long double> > recvVal(sendRecvValTmp.size());
+    MPI_Allreduce( static_cast<void*>(&(sendRecvValTmp[0])),
+                   static_cast<void*>(&(recvVal[0])),
+                   2*sendRecvValTmp.size(), MPI_LONG_DOUBLE, op, getGlobalCommunicator() );
+    for (size_t i = 0; i < sendRecvVal.size(); i++) {
+        sendRecvVal[i] = Complex<__float128>((__float128) recvVal[i].real(), (__float128) recvVal[i].imaginary());
+    }
 }
 #endif
 
@@ -2089,10 +2416,11 @@ template <>
 void MpiManager::reduceAndBcast<char>(char& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
-    char recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_CHAR, op, root, getGlobalCommunicator());
+    int reductValTmp = reductVal;
+    int recvVal;
+    MPI_Reduce(static_cast<void*>(&reductValTmp), static_cast<void*>(&recvVal), 1, MPI_INT, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_CHAR, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_CHAR, root, getGlobalCommunicator());
 
 }
 
@@ -2101,9 +2429,9 @@ void MpiManager::reduceAndBcast<int>(int& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
     int recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_INT, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_INT, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_INT, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_INT, root, getGlobalCommunicator());
 
 }
 
@@ -2112,21 +2440,31 @@ void MpiManager::reduceAndBcast<long>(long& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
     long recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_LONG, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_LONG, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_LONG, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_LONG, root, getGlobalCommunicator());
 
 }
 
-#ifdef PLB_BGP
 template <>
 void MpiManager::reduceAndBcast<long long>(long long& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
-    int recvVal;
-    MPI_Reduce(&reductVal, &recvVal, sizeof(long long), MPI_CHAR, op, root, getGlobalCommunicator());
+    long long recvVal;
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_LONG_LONG, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, sizeof(long long), MPI_CHAR, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_LONG_LONG, root, getGlobalCommunicator());
+
+}
+
+template <>
+void MpiManager::reduceAndBcast<unsigned long>(unsigned long& reductVal, MPI_Op op, int root)
+{
+    if (!ok) return;
+    unsigned long recvVal;
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG, op, root, getGlobalCommunicator());
+    reductVal = recvVal;
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_UNSIGNED_LONG, root, getGlobalCommunicator());
 
 }
 
@@ -2134,22 +2472,21 @@ template <>
 void MpiManager::reduceAndBcast<unsigned long long>(unsigned long long& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
-    int recvVal;
-    MPI_Reduce(&reductVal, &recvVal, sizeof(unsigned long long), MPI_CHAR, op, root, getGlobalCommunicator());
+    unsigned long long recvVal;
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG_LONG, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, sizeof(unsigned long long), MPI_CHAR, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_UNSIGNED_LONG_LONG, root, getGlobalCommunicator());
 
 }
-#endif
 
 template <>
 void MpiManager::reduceAndBcast<float>(float& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
     float recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_FLOAT, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_FLOAT, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_FLOAT, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_FLOAT, root, getGlobalCommunicator());
 
 }
 
@@ -2158,9 +2495,9 @@ void MpiManager::reduceAndBcast<double>(double& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
     double recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_DOUBLE, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_DOUBLE, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_DOUBLE, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_DOUBLE, root, getGlobalCommunicator());
 
 }
 
@@ -2169,9 +2506,9 @@ void MpiManager::reduceAndBcast<long double>(long double& reductVal, MPI_Op op, 
 {
     if (!ok) return;
     long double recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 1, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 1, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 1, MPI_LONG_DOUBLE, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 1, MPI_LONG_DOUBLE, root, getGlobalCommunicator());
 
 }
 
@@ -2180,22 +2517,35 @@ template <>
 void MpiManager::reduceAndBcast<__float128 >(__float128& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
-    __float128  recvVal;
-    MPI_Reduce(&reductVal, &recvVal, sizeof(__float128), MPI_CHAR, op, root, getGlobalCommunicator());
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    long double reductValTmp = reductVal;
+    long double recvVal;
+    MPI_Reduce(static_cast<void*>(&reductValTmp), static_cast<void*>(&recvVal), 1, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, sizeof(__float128), MPI_CHAR, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), sizeof(__float128), MPI_CHAR, root, getGlobalCommunicator());
 
 }
 #endif
+
+template <>
+void MpiManager::reduceAndBcast<Complex<float> >(Complex<float>& reductVal, MPI_Op op, int root)
+{
+    if (!ok) return;
+    Complex<float>  recvVal;
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 2, MPI_FLOAT, op, root, getGlobalCommunicator());
+    reductVal = recvVal;
+    MPI_Bcast(static_cast<void*>(&reductVal), 2, MPI_FLOAT, root, getGlobalCommunicator());
+
+}
 
 template <>
 void MpiManager::reduceAndBcast<Complex<double> >(Complex<double>& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
     Complex<double>  recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 2, MPI_DOUBLE, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 2, MPI_DOUBLE, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 2, MPI_DOUBLE, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 2, MPI_DOUBLE, root, getGlobalCommunicator());
 
 }
 
@@ -2204,9 +2554,9 @@ void MpiManager::reduceAndBcast<Complex<long double> >(Complex<long double>& red
 {
     if (!ok) return;
     Complex<long double>  recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 2, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    MPI_Reduce(static_cast<void*>(&reductVal), static_cast<void*>(&recvVal), 2, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
     reductVal = recvVal;
-    MPI_Bcast(&reductVal, 2, MPI_DOUBLE, root, getGlobalCommunicator());
+    MPI_Bcast(static_cast<void*>(&reductVal), 2, MPI_LONG_DOUBLE, root, getGlobalCommunicator());
 
 }
 
@@ -2215,11 +2565,140 @@ template <>
 void MpiManager::reduceAndBcast<Complex<__float128> >(Complex<__float128>& reductVal, MPI_Op op, int root)
 {
     if (!ok) return;
-    Complex<__float128>  recvVal;
-    MPI_Reduce(&reductVal, &recvVal, 2*sizeof(__float128), MPI_CHAR, op, root, getGlobalCommunicator());
-    reductVal = recvVal;
-    MPI_Bcast(&reductVal, 2*sizeof(__float128), MPI_CHAR, root, getGlobalCommunicator());
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    Complex<long double> reductValTmp = Complex<long double>((long double) reductVal.real(), (long double) reductVal.imaginary());
+    Complex<long double> recvVal;
+    MPI_Reduce(static_cast<void*>(&reductValTmp), static_cast<void*>(&recvVal), 2, MPI_LONG_DOUBLE, op, root, getGlobalCommunicator());
+    reductVal = Complex<__float128>((__float128) recvVal.real(), (__float128) recvVal.imaginary());
+    MPI_Bcast(static_cast<void*>(&reductVal), sizeof(Complex<__float128>), MPI_CHAR, root, getGlobalCommunicator());
 
+}
+#endif
+
+template <>
+void MpiManager::scan<char>(char sendVal, char& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    int tmpSend = sendVal;
+    int tmpRecv;
+    MPI_Scan(static_cast<void*>(&tmpSend),
+             static_cast<void*>(&tmpRecv), 1, MPI_INT, op, getGlobalCommunicator());
+    recvVal = tmpRecv;
+}
+
+template <>
+void MpiManager::scan<int>(int sendVal, int& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_INT, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<long>(long sendVal, long& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_LONG, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<long long>(long long sendVal, long long& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_LONG_LONG, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<unsigned long>(unsigned long sendVal, unsigned long& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<unsigned long long>(unsigned long long sendVal, unsigned long long& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_UNSIGNED_LONG_LONG, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<float>(float sendVal, float& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_FLOAT, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<double>(double sendVal, double& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_DOUBLE, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<long double>(long double sendVal, long double& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 1, MPI_LONG_DOUBLE, op, getGlobalCommunicator());
+}
+
+#ifdef PLB_USE_GCC
+template <>
+void MpiManager::scan<__float128 >(__float128 sendVal, __float128& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    long double sendValTmp = sendVal;
+    long double recvValTmp = recvVal;
+    MPI_Scan(static_cast<void*>(&sendValTmp),
+             static_cast<void*>(&recvValTmp), 1, MPI_LONG_DOUBLE, op, getGlobalCommunicator());
+    recvVal = recvValTmp;
+}
+#endif
+
+template <>
+void MpiManager::scan<Complex<float> >(Complex<float> sendVal, Complex<float>& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 2, MPI_FLOAT, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<Complex<double> >(Complex<double> sendVal, Complex<double>& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 2, MPI_DOUBLE, op, getGlobalCommunicator());
+}
+
+template <>
+void MpiManager::scan<Complex<long double> >(Complex<long double> sendVal, Complex<long double>& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    MPI_Scan(static_cast<void*>(&sendVal),
+             static_cast<void*>(&recvVal), 2, MPI_LONG_DOUBLE, op, getGlobalCommunicator());
+}
+
+#ifdef PLB_USE_GCC
+template <>
+void MpiManager::scan<Complex<__float128> >(Complex<__float128> sendVal, Complex<__float128>& recvVal,  MPI_Op op)
+{
+    if (!ok) return;
+    // __float128 is turned into long double for reduction operations (possible loss of accuracy)
+    Complex<long double> sendValTmp((long double) sendVal.real(), (long double) sendVal.imaginary());
+    Complex<long double> recvValTmp((long double) recvVal.real(), (long double) recvVal.imaginary());
+    MPI_Scan(static_cast<void*>(&sendValTmp),
+             static_cast<void*>(&recvValTmp), 2, MPI_LONG_DOUBLE, op, getGlobalCommunicator());
+    recvVal = Complex<__float128>((__float128) recvValTmp.real(), (__float128) recvValTmp.imaginary());
 }
 #endif
 

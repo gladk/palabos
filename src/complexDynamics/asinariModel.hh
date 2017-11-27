@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -48,7 +48,7 @@ namespace plb {
 
 template<typename T, template<typename U> class Descriptor>
 int AsinariDynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,AsinariDynamics<T,Descriptor> >("Asinari");
+    meta::registerGeneralDynamics<T,Descriptor,AsinariDynamics<T,Descriptor> >("Asinari");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -57,6 +57,13 @@ AsinariDynamics<T,Descriptor>::AsinariDynamics(T omega_ )
     : IsoThermalBulkDynamics<T,Descriptor>(omega_)
 {
     computePrefactor();
+}
+
+template<typename T, template<typename U> class Descriptor>
+AsinariDynamics<T,Descriptor>::AsinariDynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -151,7 +158,7 @@ T AsinariDynamics<T,Descriptor>::getParameter(plint whichParameter) const {
 
 template<typename T, template<typename U> class Descriptor>
 int IncAsinariDynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,IncAsinariDynamics<T,Descriptor> >("Asinari_Incompressible");
+    meta::registerGeneralDynamics<T,Descriptor,IncAsinariDynamics<T,Descriptor> >("Asinari_Incompressible");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -160,6 +167,13 @@ IncAsinariDynamics<T,Descriptor>::IncAsinariDynamics(T omega_ )
     : IsoThermalBulkDynamics<T,Descriptor>(omega_)
 {
     computePrefactor();
+}
+
+template<typename T, template<typename U> class Descriptor>
+IncAsinariDynamics<T,Descriptor>::IncAsinariDynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>

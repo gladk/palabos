@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -131,6 +131,24 @@ private:
 };
 
 template< typename T, template<typename U> class Descriptor >
+class LinearScalarFieldToParticle3D : public BoxProcessingFunctional3D
+{
+public:
+    LinearScalarFieldToParticle3D(
+        int flowType_, plint whichScalar_ = -1 );
+    LinearScalarFieldToParticle3D(
+        std::vector<int> const &usableFlowTypes_, plint whichScalar_ = -1);
+    /// Arguments: [0] Particle-field; [1] Scalar-Field; [2] Voxel matrix
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual LinearScalarFieldToParticle3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    std::vector<int> usableFlowTypes;
+    plint whichScalar;
+};
+
+template< typename T, template<typename U> class Descriptor >
 class ScalarFieldToParticle3D : public BoxProcessingFunctional3D
 {
 public:
@@ -138,6 +156,20 @@ public:
     /// Arguments: [0] Particle-field; [1] Scalar-Field
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual ScalarFieldToParticle3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    plint whichScalar;
+};
+
+template<typename T, int nDim, template<typename U> class Descriptor >
+class TensorFieldToParticle3D : public BoxProcessingFunctional3D
+{
+public:
+    TensorFieldToParticle3D(plint whichScalar_=-1);
+    /// Arguments: [0] Particle-field; [1] Scalar-Field
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual TensorFieldToParticle3D<T,nDim,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     plint whichScalar;

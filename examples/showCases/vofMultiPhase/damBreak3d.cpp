@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,9 +30,9 @@
 #include "palabos3D.hh"
 
 using namespace plb;
-using namespace std;
 
 #define DESCRIPTOR descriptors::ForcedD3Q19Descriptor
+
 typedef double T;
 
 
@@ -100,13 +100,13 @@ int initialFluidFlags(plint iX, plint iY, plint iZ) {
         iZ <= obstacleHeight+1;
     
     if (insideObstacle) {
-        return twoPhaseFlag::wall;
+        return freeSurfaceFlag::wall;
     }
     else if (iX >= beginWaterReservoir && iZ <= waterReservoirHeight) {
-        return twoPhaseFlag::fluid;
+        return freeSurfaceFlag::fluid;
     }
     else {
-        return twoPhaseFlag::empty;
+        return freeSurfaceFlag::empty;
     }
 }
 
@@ -137,18 +137,17 @@ void writeResults(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, MultiScalarField3D
     vtkOut.writeData<float>(volumeFraction, "vf", 1.);
 }
 
-//void writeStatistics(FreeSurfaceFields3D<T,DESCRIPTOR>& fields) {
-void writeStatistics(TwoPhaseFields3D<T,DESCRIPTOR>& fields) {
-    pcout << " -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- " << endl;
-    T averageMass = freeSurfaceAverageMass<T,DESCRIPTOR>(fields.twoPhaseArgs, fields.lattice.getBoundingBox());
-    pcout << "Average Mass: " << averageMass  << endl;
-    T averageDensity = freeSurfaceAverageDensity<T,DESCRIPTOR>(fields.twoPhaseArgs, fields.lattice.getBoundingBox());
-    pcout << "Average Density: " << setprecision(12) << averageDensity  << endl;
+void writeStatistics(FreeSurfaceFields3D<T,DESCRIPTOR>& fields) {
+    pcout << " -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- " << std::endl;
+    T averageMass = freeSurfaceAverageMass<T,DESCRIPTOR>(fields.freeSurfaceArgs, fields.lattice.getBoundingBox());
+    pcout << "Average Mass: " << averageMass  << std::endl;
+    T averageDensity = freeSurfaceAverageDensity<T,DESCRIPTOR>(fields.freeSurfaceArgs, fields.lattice.getBoundingBox());
+    pcout << "Average Density: " << std::setprecision(12) << averageDensity  << std::endl;
 
-    T averageVolumeFraction = freeSurfaceAverageVolumeFraction<T,DESCRIPTOR>(fields.twoPhaseArgs, fields.lattice.getBoundingBox());
-    pcout << "Average Volume-Fraction: " << setprecision(12) << averageVolumeFraction  << endl;
+    T averageVolumeFraction = freeSurfaceAverageVolumeFraction<T,DESCRIPTOR>(fields.freeSurfaceArgs, fields.lattice.getBoundingBox());
+    pcout << "Average Volume-Fraction: " << std::setprecision(12) << averageVolumeFraction  << std::endl;
 
-    pcout << " -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- " << endl;
+    pcout << " -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- " << std::endl;
 }
 
 
@@ -189,14 +188,14 @@ int main(int argc, char **argv)
     
     setupParameters();
     
-    pcout << "delta_t= " << delta_t << endl;
-    pcout << "delta_x= " << delta_x << endl;
-    pcout << "delta_t*delta_t/delta_x= " << delta_t*delta_t/delta_x << endl;
-    pcout << "externalForce= " << externalForce[2] << endl;
-    pcout << "relaxation time= " << tau << endl;
-    pcout << "omega= " << omega << endl;
-    pcout << "kinematic viscosity physical units = " << nuPhys << endl;
-    pcout << "kinematic viscosity lattice units= " << nuLB << endl;
+    pcout << "delta_t= " << delta_t << std::endl;
+    pcout << "delta_x= " << delta_x << std::endl;
+    pcout << "delta_t*delta_t/delta_x= " << delta_t*delta_t/delta_x << std::endl;
+    pcout << "externalForce= " << externalForce[2] << std::endl;
+    pcout << "relaxation time= " << tau << std::endl;
+    pcout << "omega= " << omega << std::endl;
+    pcout << "kinematic viscosity physical units = " << nuPhys << std::endl;
+    pcout << "kinematic viscosity lattice units= " << nuLB << std::endl;
     
     global::timer("initialization").start();
     
@@ -208,15 +207,13 @@ int main(int argc, char **argv)
 
     // If surfaceTensionLB is 0, then the surface tension algorithm is deactivated.
     // If contactAngle is less than 0, then the contact angle algorithm is deactivated.
-    TwoPhaseFields3D<T,DESCRIPTOR> fields( blockStructure, dynamics->clone(), rhoEmpty,
-                                           surfaceTensionLB, contactAngle, externalForce );
-    //FreeSurfaceFields3D<T,DESCRIPTOR> fields( blockStructure, dynamics->clone(), rhoEmpty,
-    //                                       surfaceTensionLB, contactAngle, externalForce, false );
-    //integrateProcessingFunctional(new ShortenBounceBack3D<T,DESCRIPTOR>, fields.lattice.getBoundingBox(), fields.twoPhaseArgs, 0);
+    FreeSurfaceFields3D<T,DESCRIPTOR> fields( blockStructure, dynamics->clone(), rhoEmpty,
+                                              surfaceTensionLB, contactAngle, externalForce );
+    //integrateProcessingFunctional(new ShortenBounceBack3D<T,DESCRIPTOR>, fields.lattice.getBoundingBox(), fields.freeSurfaceArgs, 0);
 
     // Set all outer-wall cells to "wall" (here, bulk-cells are also set to "wall", but it
     // doesn't matter, because they are overwritten on the next line).
-    setToConstant(fields.flag, fields.flag.getBoundingBox(), (int)twoPhaseFlag::wall);
+    setToConstant(fields.flag, fields.flag.getBoundingBox(), (int)freeSurfaceFlag::wall);
     // In the bulk (all except outer wall layer), initialize the flags as specified by
     // the function "initialFluidFlags".
     setToFunction(fields.flag, fields.flag.getBoundingBox().enlarge(-1), initialFluidFlags);
@@ -224,7 +221,7 @@ int main(int argc, char **argv)
     fields.defaultInitialize();
 
     pcout << "Time spent for setting up lattices: "
-          << global::timer("initialization").stop() << endl;
+          << global::timer("initialization").stop() << std::endl;
     T lastIterationTime = T();
 
     for (plint iT = 0; iT <= maxIter; ++iT) {
@@ -233,9 +230,9 @@ int main(int argc, char **argv)
         T sum_of_mass_matrix = T();
         T lost_mass = T();
         if (iT % getStatisticsIter==0) {
-            pcout << endl;
-            pcout << "ITERATION = " << iT << endl;
-            pcout << "Time of last iteration is " << lastIterationTime << " seconds" << endl;
+            pcout << std::endl;
+            pcout << "ITERATION = " << iT << std::endl;
+            pcout << "Time of last iteration is " << lastIterationTime << " seconds" << std::endl;
             writeStatistics(fields);
             sum_of_mass_matrix = fields.lattice.getInternalStatistics().getSum(0);
             pcout << "Sum of mass matrix: " << sum_of_mass_matrix << std::endl;
@@ -249,7 +246,7 @@ int main(int argc, char **argv)
             global::timer("images").start();
             writeResults(fields.lattice, fields.volumeFraction, iT);
             pcout << "Total time spent for writing images: "
-                << global::timer("images").stop() << endl;
+                << global::timer("images").stop() << std::endl;
         }                           
 
         // This includes the collision-streaming cycle, plus all free-surface operations.

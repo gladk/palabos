@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,48 +26,42 @@
 #include "palabos3D.hh"
 
 using namespace plb;
-using namespace std;
 
-//#define MRT
-
-#ifdef MRT
-    #define DESCRIPTOR descriptors::ForcedMRTD3Q19Descriptor
-#else
-    #define DESCRIPTOR descriptors::ForcedD3Q19Descriptor
-#endif
+#define DESCRIPTOR descriptors::ForcedD3Q19Descriptor
 
 #define PADDING 8
-#define CBUFSIZ 256
 
 typedef double T;
 
 // Smagorinsky constant for LES model.
-const T cSmago = 0.14;
+static T cSmago = 0.14;
 
 // Physical dimensions of the system (in meters).
-const T lx = 0.02;
-const T ly = 0.02;
-const T lz = 0.06;
+static T lx = 0.02;
+static T ly = 0.02;
+static T lz = 0.06;
 
-const T radius = 0.002;
+static T radius = 0.002;
 
-const T rhoEmpty = 1.0;
-const T rho = 1000.0; // Water density.
+static T rhoEmpty = 1.0;
+static T rho = 1000.0; // Water density.
+
+static std::string outDir("./tmp/");
     
-plint writeImagesIter;
-plint statIter;
+static plint writeImagesIter;
+static plint statIter;
 
-plint maxIter;
-plint N;
-plint nx, ny, nz, radiusLB;
-T delta_t, delta_x;
-Array<T,3> externalForce;
-Array<T,3> externalForce2;
-T nuPhys, nuLB, tau, omega, surfaceTensionPhys, surfaceTensionLB, contactAngle;
-T nuPhys2, nuLB2, tau2, omega2;
-T densityRatio, viscosityRatio;
+static plint maxIter;
+static plint N;
+static plint nx, ny, nz, radiusLB;
+static T delta_t, delta_x;
+static Array<T,3> externalForce;
+static Array<T,3> externalForce2;
+static T nuPhys, nuLB, tau, omega, surfaceTensionPhys, surfaceTensionLB, contactAngle;
+static T nuPhys2, nuLB2, tau2, omega2;
+static T densityRatio, viscosityRatio;
 
-TwoPhaseModel model;
+static TwoPhaseModel model;
 
 void setupParameters()
 {
@@ -108,7 +102,7 @@ bool insideFluid(T x, T y, T z)
     return false;
 }
 
-void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
+void writeTwoPhaseResults(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
 {
     std::auto_ptr<MultiScalarField3D<T> > smoothVF(lbmSmoothen<T,DESCRIPTOR>(fields->volumeFraction,
                 fields->volumeFraction.getBoundingBox().enlarge(-1)));
@@ -122,7 +116,7 @@ void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
     {
         TriangleSet<T> triangleSet(triangles);
         triangleSet.scale(delta_x);
-        triangleSet.writeBinarySTL(createFileName("out_interface_", iT, PADDING)+".stl");
+        triangleSet.writeBinarySTL(createFileName(outDir + "interface_", iT, PADDING) + ".stl");
     }
 
     plint centx = util::roundToInt(0.5 * nx);
@@ -133,18 +127,15 @@ void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
     Box3D box_y(0, nx - 1, centy - 1, centy + 1, 0, nz - 1);
     Box3D box_z(0, nx - 1, 0, ny - 1, centz - 1, centz + 1);
 
-    char fname_x[CBUFSIZ];
-    char fname_y[CBUFSIZ];
-    char fname_z[CBUFSIZ];
-    sprintf(fname_x, "out_phases_x_");
-    sprintf(fname_y, "out_phases_y_");
-    sprintf(fname_z, "out_phases_z_");
+    std::string fname_x = createFileName(outDir + "phases_x_", iT, PADDING);
+    std::string fname_y = createFileName(outDir + "phases_y_", iT, PADDING);
+    std::string fname_z = createFileName(outDir + "phases_z_", iT, PADDING);
 
     bool computeFluid1 = true;
     bool computeFluid2 = true;
 
     {
-        VtkImageOutput3D<T> vtkOut_x(createFileName(fname_x, iT, PADDING), delta_x);
+        VtkImageOutput3D<T> vtkOut_x(fname_x, delta_x);
         std::auto_ptr<MultiTensorField3D<T,3> > vx = fields->computeVelocity(box_x, computeFluid1, computeFluid2);
         std::auto_ptr<MultiScalarField3D<T> > px = fields->computePressure(box_x, computeFluid1, computeFluid2);
         vtkOut_x.writeData<3,float>(*vx, "v", delta_x / delta_t);
@@ -153,7 +144,7 @@ void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
     }
 
     {
-        VtkImageOutput3D<T> vtkOut_y(createFileName(fname_y, iT, PADDING), delta_x);
+        VtkImageOutput3D<T> vtkOut_y(fname_y, delta_x);
         std::auto_ptr<MultiTensorField3D<T,3> > vy = fields->computeVelocity(box_y, computeFluid1, computeFluid2);
         std::auto_ptr<MultiScalarField3D<T> > py = fields->computePressure(box_y, computeFluid1, computeFluid2);
         vtkOut_y.writeData<3,float>(*vy, "v", delta_x / delta_t);
@@ -162,7 +153,7 @@ void writeTwoPhaseVTK(TwoPhaseFields3D<T,DESCRIPTOR> *fields, plint iT)
     }
 
     {
-        VtkImageOutput3D<T> vtkOut_z(createFileName(fname_z, iT, PADDING), delta_x);
+        VtkImageOutput3D<T> vtkOut_z(fname_z, delta_x);
         std::auto_ptr<MultiTensorField3D<T,3> > vz = fields->computeVelocity(box_z, computeFluid1, computeFluid2);
         std::auto_ptr<MultiScalarField3D<T> > pz = fields->computePressure(box_z, computeFluid1, computeFluid2);
         vtkOut_z.writeData<3,float>(*vz, "v", delta_x / delta_t);
@@ -210,34 +201,26 @@ int main(int argc, char **argv)
     
     setupParameters();
     
-    pcout << "delta_t = " << delta_t << endl;
-    pcout << "delta_x = " << delta_x << endl;
-    pcout << "externalForce = " << externalForce[2] << endl;
-    pcout << "externalForce2 = " << externalForce2[2] << endl;
-    pcout << "relaxation time = " << tau << endl;
-    pcout << "relaxation time fluid 2 = " << tau2 << endl;
-    pcout << "kinematic viscosity physical units = " << nuPhys << endl;
-    pcout << "kinematic viscosity fluid 2, physical units = " << nuPhys2 << endl;
-    pcout << "kinematic viscosity lattice units = " << nuLB << endl;
-    pcout << "kinematic viscosity 2, lattice units = " << nuLB2 << endl;
-    pcout << "surface tension, lattice units = " << surfaceTensionLB << endl;
-    pcout << "Size of the domain is " << nx << " x " << ny << " x " << nz << endl;
+    pcout << "delta_t = " << delta_t << std::endl;
+    pcout << "delta_x = " << delta_x << std::endl;
+    pcout << "externalForce = " << externalForce[2] << std::endl;
+    pcout << "externalForce2 = " << externalForce2[2] << std::endl;
+    pcout << "relaxation time = " << tau << std::endl;
+    pcout << "relaxation time fluid 2 = " << tau2 << std::endl;
+    pcout << "kinematic viscosity physical units = " << nuPhys << std::endl;
+    pcout << "kinematic viscosity fluid 2, physical units = " << nuPhys2 << std::endl;
+    pcout << "kinematic viscosity lattice units = " << nuLB << std::endl;
+    pcout << "kinematic viscosity 2, lattice units = " << nuLB2 << std::endl;
+    pcout << "surface tension, lattice units = " << surfaceTensionLB << std::endl;
+    pcout << "Size of the domain is " << nx << " x " << ny << " x " << nz << std::endl;
     
     SparseBlockStructure3D blockStructure(createRegularDistribution3D(nx, ny, nz));
 
-#ifdef MRT
-    Dynamics<T,DESCRIPTOR>* dynamics
-        = new SmagorinskyDynamics<T,DESCRIPTOR>(new VariableOmegaMRTdynamics<T,DESCRIPTOR>(omega), omega, cSmago);
-
-    Dynamics<T,DESCRIPTOR>* dynamics2
-        = new SmagorinskyDynamics<T,DESCRIPTOR>(new VariableOmegaMRTdynamics<T,DESCRIPTOR>(omega2), omega2, cSmago);
-#else
     Dynamics<T,DESCRIPTOR>* dynamics
         = new SmagorinskyBGKdynamics<T,DESCRIPTOR>(omega, cSmago);
 
     Dynamics<T,DESCRIPTOR>* dynamics2
         = new SmagorinskyBGKdynamics<T,DESCRIPTOR>(omega2, cSmago);
-#endif
 
     // If surfaceTensionLB is 0, then the surface tension algorithm is deactivated.
     // If contactAngle is less than 0, then the contact angle algorithm is deactivated.
@@ -247,13 +230,14 @@ int main(int argc, char **argv)
 
     // Initialization
 
-    analyticalIniVolumeFraction(fields.volumeFraction, fields.flag, insideFluid, 32);
+    analyticalIniVolumeFraction(fields.volumeFraction, fields.flag, insideFluid, 8);
+    //analyticalIniVolumeFraction(fields.volumeFraction, fields.flag, insideFluid, 32);
 
     Box3D bottom  (0,    nx-1, 0,    ny-1, 0,    0);
     Box3D top     (0,    nx-1, 0,    ny-1, nz-1, nz-1);
 
-    setToConstant(fields.flag, bottom,   (int) twoPhaseFlag::wall);
-    setToConstant(fields.flag, top,      (int) twoPhaseFlag::wall);
+    setToConstant(fields.flag, bottom,   (int) freeSurfaceFlag::wall);
+    setToConstant(fields.flag, top,      (int) freeSurfaceFlag::wall);
 
     fields.periodicityToggle(0, true);
     fields.periodicityToggle(1, true);
@@ -263,7 +247,7 @@ int main(int argc, char **argv)
 
     for (plint iT = 0; iT <= maxIter; ++iT) {
         if (iT % writeImagesIter == 0) {
-            writeTwoPhaseVTK(&fields, iT);
+            writeTwoPhaseResults(&fields, iT);
         }
 
         if (iT % statIter == 0) {

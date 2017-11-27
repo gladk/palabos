@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -130,7 +130,6 @@ int main(int argc, char* argv[]) {
     cavitySetup(lattice, parameters, *boundaryCondition);
 
     std::map<int,std::string> nameOfDynamics;
-    plb_ofstream ofile("dynamics.dat");
     ImageWriter<int>("earth").writeScaledGif(
             "dynamics",
             *extractDynamicsChain(lattice,nameOfDynamics,Box3D(nx/2,nx/2,0,ny-1,0,nz-1)), 600,600 );

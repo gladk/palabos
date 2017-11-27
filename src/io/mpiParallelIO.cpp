@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,7 +34,8 @@ namespace plb {
 namespace parallelIO {
 
 void writeRawData_mpi( FileName fName, std::vector<plint> const& myBlockIds,
-                       std::vector<plint> const& offset, std::vector<std::vector<char> >& data )
+                       std::vector<plint> const& offset, std::vector<std::vector<char> >& data,
+                       bool appendMode )
 {
 #ifdef PLB_MPI_PARALLEL
     char fNameBuf[1024];
@@ -45,13 +46,26 @@ void writeRawData_mpi( FileName fName, std::vector<plint> const& myBlockIds,
         plbIOError(std::string("File name is too long: ")+fName.get());
     }
     MPI_File fh;
-    int err = MPI_File_open( MPI_COMM_SELF, fNameBuf,
-                             MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
+    plint globalOffset = 0;
+    if (appendMode) {
+        int err = MPI_File_open( MPI_COMM_SELF, fNameBuf,
+                                 MPI_MODE_APPEND | MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+        plbIOError(err!=MPI_SUCCESS, "Could not open file "+fName.get());
+        MPI_Offset offset;
+        MPI_File_get_position(fh, &offset);
+        globalOffset = offset;
+        MPI_File_close(&fh);
+    }
+    int amode = MPI_MODE_CREATE | MPI_MODE_WRONLY;
+    if (appendMode) {
+        amode = MPI_MODE_WRONLY;
+    }
+    int err = MPI_File_open(MPI_COMM_SELF, fNameBuf, amode, MPI_INFO_NULL, &fh);
     plbIOError(err!=MPI_SUCCESS, "Could not open file "+fName.get());
     bool ioError = false;
     for (plint iBlock=0; iBlock<(plint)myBlockIds.size(); ++iBlock) {
         plint blockId = myBlockIds[iBlock];
-        plint nextOffset=0;
+        MPI_Offset nextOffset=0;
         if (blockId==0) {
             PLB_ASSERT( offset[blockId] == (plint)data[iBlock].size() );
         }
@@ -59,7 +73,7 @@ void writeRawData_mpi( FileName fName, std::vector<plint> const& myBlockIds,
             PLB_ASSERT( offset[blockId]-offset[blockId-1] == (plint)data[iBlock].size() );
             nextOffset = offset[blockId-1];
         }
-        err = MPI_File_seek(fh, nextOffset, MPI_SEEK_SET);
+        err = MPI_File_seek(fh, nextOffset+globalOffset, MPI_SEEK_SET);
         if (err != MPI_SUCCESS) {
             ioError = true;
             break;
@@ -90,14 +104,33 @@ void writeRawData_mpi( FileName fName, std::vector<plint> const& myBlockIds,
 }
 
 void writeRawData_posix( FileName fName, std::vector<plint> const& myBlockIds,
-                         std::vector<plint> const& offset, std::vector<std::vector<char> >& data )
+                         std::vector<plint> const& offset, std::vector<std::vector<char> >& data,
+                         bool appendMode )
 {
+    bool errorFlag = false;
+    plint globalOffset = 0;
+    if (appendMode) {
+        if (global::mpi().getRank()==0) {
+            FILE *fp = fopen(fName.get().c_str(), "a");
+            errorFlag = !fp;
+            if (!errorFlag) {
+                globalOffset = (plint)ftell(fp);
+                fclose(fp);
+            }
+        }
+        plbIOError(errorFlag, std::string("Unsuccessful writing into file.")+fName.get());
+        global::mpi().bCast(&globalOffset, 1);
+    }
     for (plint iProcess=0; iProcess<global::mpi().getSize(); ++iProcess) {
-        bool errorFlag = false;
         if (global::mpi().getRank()==iProcess) {
             FILE *fp = 0;
             if (iProcess==0) {
-                fp = fopen(fName.get().c_str(), "wb");
+                if (appendMode) {
+                    fp = fopen(fName.get().c_str(), "r+b");
+                }
+                else {
+                    fp = fopen(fName.get().c_str(), "wb");
+                }
             }
             else {
                 fp = fopen(fName.get().c_str(), "r+b");
@@ -114,9 +147,9 @@ void writeRawData_posix( FileName fName, std::vector<plint> const& myBlockIds,
                     nextOffset = offset[blockId-1];
                 }
 #if defined PLB_MAC_OS_X || defined PLB_BSD
-                int fSeekVal = fseek(fp, (long int)nextOffset, SEEK_SET);
+                int fSeekVal = fseek(fp, (long int)(nextOffset+globalOffset), SEEK_SET);
 #else
-                int fSeekVal = fseeko64(fp, nextOffset, SEEK_SET);
+                int fSeekVal = fseeko64(fp, nextOffset+globalOffset, SEEK_SET);
 #endif
                 errorFlag = fSeekVal != 0;
                 if (!errorFlag) {
@@ -135,17 +168,20 @@ void writeRawData_posix( FileName fName, std::vector<plint> const& myBlockIds,
 }
 
 void writeRawData( FileName fName, std::vector<plint> const& myBlockIds,
-                   std::vector<plint> const& offset, std::vector<std::vector<char> >& data )
+                   std::vector<plint> const& offset, std::vector<std::vector<char> >& data,
+                   bool appendMode )
 {
     PLB_ASSERT( myBlockIds.size() == data.size() );
-    fName.defaultPath(global::directories().getOutputDir());
-    fName.defaultExt("dat");
+    if (!appendMode) {
+        fName.defaultPath(global::directories().getOutputDir());
+        fName.defaultExt("dat");
+    }
     if (global::IOpolicy().useParallelIO() && global::mpi().getSize()>1) {
-        writeRawData_mpi(fName, myBlockIds, offset, data);
+        writeRawData_mpi(fName, myBlockIds, offset, data, appendMode );
     }
     else {
         // Works in parallel too, but has no parallel efficiency.
-        writeRawData_posix(fName, myBlockIds, offset, data);
+        writeRawData_posix(fName, myBlockIds, offset, data, appendMode );
     }
 }
 

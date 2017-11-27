@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,6 +59,37 @@ public:
         modified[1] = modif::staticVariables;
     }
     virtual BoussinesqThermalProcessor3D<T,FluidDescriptor,TemperatureDescriptor>* clone() const;
+    
+private:
+    T gravity, T0, deltaTemp;
+    Array<T,FluidDescriptor<T>::d> dir;
+};
+
+
+/**
+* Multiphysics class for coupling between Navier-Stokes and advection-diffusion
+* equations using the Boussinesq approximation.
+*/
+template< typename T,
+          template<typename U1> class FluidDescriptor, 
+          template<typename U2> class TemperatureDescriptor
+        >
+class CompleteBoussinesqThermalProcessor3D :
+    public BoxProcessingFunctional3D_LL<T,FluidDescriptor,T,TemperatureDescriptor>
+{
+public:
+    
+    CompleteBoussinesqThermalProcessor3D(T gravity_, T T0_, T deltaTemp_,
+                                 Array<T,FluidDescriptor<T>::d> dir_);
+    
+    virtual void process( Box3D domain,
+                          BlockLattice3D<T,FluidDescriptor>& fluid,
+                          BlockLattice3D<T,TemperatureDescriptor>& temperature );
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::staticVariables;
+        modified[1] = modif::staticVariables;
+    }
+    virtual CompleteBoussinesqThermalProcessor3D<T,FluidDescriptor,TemperatureDescriptor>* clone() const;
     
 private:
     T gravity, T0, deltaTemp;

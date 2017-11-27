@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,11 +47,44 @@ ShanChenMultiComponentProcessor2D <T,Descriptor>::ShanChenMultiComponentProcesso
 { }
 
 template<typename T, template<typename U> class Descriptor>
+ShanChenMultiComponentProcessor2D <T,Descriptor>::ShanChenMultiComponentProcessor2D(
+        std::vector<std::vector<T> > const& speciesG_)
+    : G((T) 0)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 ShanChenMultiComponentProcessor2D <T,Descriptor>::ShanChenMultiComponentProcessor2D (
         T G_, std::vector<T> const& imposedOmega_)
     : G(G_),
       imposedOmega(imposedOmega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+ShanChenMultiComponentProcessor2D <T,Descriptor>::ShanChenMultiComponentProcessor2D (
+        std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_)
+    : G((T) 0),
+      imposedOmega(imposedOmega_)
+{
+    pluint numSpecies = speciesG_.size();
+    // Although speciesG_ has a 2D "matrix structure", speciesG has a 1D "array structure".
+    speciesG.resize(numSpecies * numSpecies);
+    for (pluint iSpecies = 0; iSpecies < numSpecies; iSpecies++) {
+        PLB_ASSERT(speciesG_[iSpecies].size() == numSpecies);
+        for (pluint jSpecies = 0; jSpecies < numSpecies; jSpecies++) {
+            speciesG[iSpecies * numSpecies + jSpecies] = speciesG_[iSpecies][jSpecies];
+        }
+    }
+}
 
 template<typename T, template<typename U> class Descriptor>
 void ShanChenMultiComponentProcessor2D<T,Descriptor>::process (
@@ -99,10 +132,15 @@ void ShanChenMultiComponentProcessor2D<T,Descriptor>::process (
     // If omega is constant and imposed by the user, copy its value to
     //   the vector "omega", and compute the inverse.
     if (!imposedOmega.empty()) {
+        PLB_ASSERT( (plint)imposedOmega.size() == numSpecies );
         omega = imposedOmega;
-        for (pluint iOmega=0; iOmega<omega.size(); ++iOmega) {
+        for (plint iOmega=0; iOmega<numSpecies; ++iOmega) {
             invOmega[iOmega] = (T)1 / omega[iOmega];
         }
+    }
+
+    if (speciesG.empty()) {
+        speciesG.resize(numSpecies * numSpecies, G);
     }
 
     // Compute the interaction force between the species, and store it by
@@ -152,7 +190,8 @@ void ShanChenMultiComponentProcessor2D<T,Descriptor>::process (
                     // Then, add a contribution from the potential of all other species.
                     for (plint iPartnerSpecies=0; iPartnerSpecies<numSpecies; ++iPartnerSpecies) {
                         if (iPartnerSpecies != iSpecies) {
-                            forceContribution -= G * rhoContribution[iPartnerSpecies][iD];
+                            forceContribution -= speciesG[iSpecies * numSpecies + iPartnerSpecies] *
+                                rhoContribution[iPartnerSpecies][iD];
                         }
                     }
                     momentum[iD] += invOmega[iSpecies]*forceContribution;

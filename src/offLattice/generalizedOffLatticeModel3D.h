@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,15 +35,14 @@ class ExtrapolatedGeneralizedOffLatticeModel3D : public OffLatticeModel3D<T,Arra
 {
 public:
     ExtrapolatedGeneralizedOffLatticeModel3D(BoundaryShape3D<T,Array<T,3> >* shape_, int flowType_);
-    ExtrapolatedGeneralizedOffLatticeModel3D(ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor> const& rhs);
-    ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor>& operator=(ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor> const& rhs);
     virtual ExtrapolatedGeneralizedOffLatticeModel3D<T,Descriptor>* clone() const;
     virtual plint getNumNeighbors() const;
+    virtual bool isExtrapolated() const;
     virtual void prepareCell (
             Dot3D const& cellLocation, AtomicContainerBlock3D& container );
     virtual void boundaryCompletion (
             AtomicBlock3D& lattice, AtomicContainerBlock3D& container,
-            std::vector<AtomicBlock3D const*> const& args );
+            std::vector<AtomicBlock3D *> const& args );
     virtual ContainerBlockData* generateOffLatticeInfo() const;
     virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const;
 private:
@@ -53,12 +52,7 @@ private:
             std::vector<std::pair<int,int> > const& dryNodeFluidDirections,
             std::vector<int > const& dryNodeFluidNoSolidDirections,
             std::vector<plint> const& dryNodeIds, Dot3D const& absoluteOffset,
-            Array<T,3>& localForce );
-    void computeVelocity (
-              BlockLattice3D<T,Descriptor> const& lattice, Dot3D const& genNode,
-              Dot3D const& fluidDirection, int depth, Array<T,3> const& wallNode, T delta,
-              Array<T,3> const& wall_vel, OffBoundary::Type bdType, Array<T,3> const& wallNormal,
-              Array<T,Descriptor<T>::d>& u) const;
+            Array<T,3>& localForce, std::vector<AtomicBlock3D *> const& args );
 private:
     /// Store the location of wall nodes, as well as the pattern of missing vs. known
     ///   populations.
@@ -102,30 +96,27 @@ class InterpolatedGeneralizedOffLatticeModel3D : public OffLatticeModel3D<T,Arra
 {
 public:
     InterpolatedGeneralizedOffLatticeModel3D(BoundaryShape3D<T,Array<T,3> >* shape_, int flowType_);
-    InterpolatedGeneralizedOffLatticeModel3D(InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor> const& rhs);
-    InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor>& operator=(InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor> const& rhs);
     virtual InterpolatedGeneralizedOffLatticeModel3D<T,Descriptor>* clone() const;
     virtual plint getNumNeighbors() const;
+    virtual bool isExtrapolated() const;
     virtual void prepareCell (
         Dot3D const& cellLocation, AtomicContainerBlock3D& container );
     virtual void boundaryCompletion (
         AtomicBlock3D& lattice, AtomicContainerBlock3D& container,
-        std::vector<AtomicBlock3D const*> const& args );
+        std::vector<AtomicBlock3D *> const& args );
     virtual ContainerBlockData* generateOffLatticeInfo() const;
     virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const;
 private:
     void cellCompletion (
         BlockLattice3D<T,Descriptor>& lattice,
         Dot3D const& genNode,
-        std::vector<std::pair<int,int> > const& wetNodeSolidDirections,
+        std::vector<std::pair<int,int> > const& wetNodeSolidUsableDirections,
         std::vector<int > const& wetNodeFluidDirections,
-        std::vector<plint> const& wetNodeIds, Dot3D const& absoluteOffset,
-        Array<T,3>& localForce );
-    void computeVelocity (
-        BlockLattice3D<T,Descriptor> const& lattice, Dot3D const& genNode,
-        Dot3D const& soldDirection, int depth, Array<T,3> const& wallNode, T wallDistance, T cellDistance,
-        Array<T,3> const& wall_vel, OffBoundary::Type bdType, Array<T,3> const& wallNormal,
-        Array<T,Descriptor<T>::d>& u) const;
+        std::vector<plint> const& wetNodeIds, 
+        std::vector<plint> const& allWetNodeIds, 
+        std::vector<int> const& solidDirections, Dot3D const& absoluteOffset,
+        Array<T,3>& localForce,
+        std::vector<AtomicBlock3D *> const& args );
 private:
     /// Store the location of wall nodes, as well as the pattern of missing vs. known
     ///   populations.
@@ -135,18 +126,26 @@ private:
         { return wetNodes; }
         std::vector<Dot3D>&                                     getWetNodes()
         { return wetNodes; }
-        std::vector<std::vector<std::pair<int,int> > > const&   getWetNodeSolidDirections() const
-        { return wetNodeSolidDirections; }
-        std::vector<std::vector<std::pair<int,int> > >&         getWetNodeSolidDirections()
-        { return wetNodeSolidDirections; }
+        std::vector<std::vector<std::pair<int,int> > > const&   getWetNodeSolidUsableDirections() const
+        { return wetNodeSolidUsableDirections; }
+        std::vector<std::vector<std::pair<int,int> > >&         getWetNodeSolidUsableDirections()
+        { return wetNodeSolidUsableDirections; }
         std::vector<std::vector<int> > const&   getWetNodeFluidDirections() const
         { return wetNodeFluidDirections; }
         std::vector<std::vector<int> >&         getWetNodeFluidDirections()
         { return wetNodeFluidDirections; }
+        std::vector<std::vector<int> > const&   getSolidNeighbors() const
+        { return solidNeighbors; }
+        std::vector<std::vector<int> >&         getSolidNeighbors()
+        { return solidNeighbors; }
         std::vector<std::vector<plint> > const&                 getWetNodeIds() const
         { return wetNodeIds; }
         std::vector<std::vector<plint> >&                       getWetNodeIds()
         { return wetNodeIds; }
+        std::vector<std::vector<plint> > const&                 getAllWetNodeIds() const
+        { return allWetNodeIds; }
+        std::vector<std::vector<plint> >&                       getAllWetNodeIds()
+        { return allWetNodeIds; }
         Array<T,3> const&                                       getLocalForce() const
         { return localForce; }
         Array<T,3>&                                             getLocalForce()
@@ -156,9 +155,96 @@ private:
         }
     private:
         std::vector<Dot3D> wetNodes;
-        std::vector<std::vector<std::pair<int,int> > > wetNodeSolidDirections; // stores the directions where there is a wall and valid neighbors in its opposite direction
+        std::vector<std::vector<std::pair<int,int> > > wetNodeSolidUsableDirections; // stores the directions where there is a wall and valid neighbors in its opposite direction
+        std::vector<std::vector<int> >                 wetNodeFluidDirections; // 
+        std::vector<std::vector<int> >                 solidNeighbors; // 
+        std::vector<std::vector<plint> >               wetNodeIds, allWetNodeIds;
+        Array<T,3>                                     localForce;
+    };
+};
+
+
+template<typename T, template<typename U> class Descriptor>
+class InterpolatedFdOffLatticeModel3D : public OffLatticeModel3D<T,Array<T,3> >
+{
+public:
+    InterpolatedFdOffLatticeModel3D(BoundaryShape3D<T,Array<T,3> >* shape_, int flowType_);
+    virtual InterpolatedFdOffLatticeModel3D<T,Descriptor>* clone() const;
+    virtual plint getNumNeighbors() const;
+    virtual bool isExtrapolated() const;
+    virtual void prepareCell (
+        Dot3D const& cellLocation, AtomicContainerBlock3D& container );
+    virtual void boundaryCompletion (
+        AtomicBlock3D& lattice, AtomicContainerBlock3D& container,
+        std::vector<AtomicBlock3D *> const& args );
+    virtual ContainerBlockData* generateOffLatticeInfo() const;
+    virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const;
+private:
+    void cellCompletion (
+        BlockLattice3D<T,Descriptor>& lattice,
+        Dot3D const& genNode,
+        std::vector<std::pair<int,int> > const& wetNodeSolidUsableDirections,
+        std::vector<int > const& wetNodeFluidDirections,
+        std::vector<plint> const& wetNodeIds, 
+        std::vector<int> const& solidDirections, Dot3D const& absoluteOffset,
+        const std::pair<int,int> &xDerivDirAndOrder, 
+        const std::pair<int,int> &yDerivDirAndOrder, 
+        const std::pair<int,int> &zDerivDirAndOrder,
+        Array<T,3>& localForce,
+        std::vector<AtomicBlock3D *> const& args );
+    bool isUsable(const Dot3D &pos) const;
+    std::pair<int,int> computeOrderAndDirection(const Dot3D &pos, const Dot3D &dx) const;
+private:
+    /// Store the location of wall nodes, as well as the pattern of missing vs. known
+    ///   populations.
+    class InterpolatedFdOffLatticeInfo3D : public ContainerBlockData {
+    public:
+        std::vector<Dot3D> const&                               getWetNodes() const
+        { return wetNodes; }
+        std::vector<Dot3D>&                                     getWetNodes()
+        { return wetNodes; }
+        std::vector<std::vector<std::pair<int,int> > > const&   getWetNodeSolidUsableDirections() const
+        { return wetNodeSolidUsableDirections; }
+        std::vector<std::vector<std::pair<int,int> > >&         getWetNodeSolidUsableDirections()
+        { return wetNodeSolidUsableDirections; }
+        std::vector<std::vector<int> > const&   getWetNodeFluidDirections() const
+        { return wetNodeFluidDirections; }
+        std::vector<std::vector<int> >&         getWetNodeFluidDirections()
+        { return wetNodeFluidDirections; }
+        std::vector<std::vector<plint> > const&                 getWetNodeIds() const
+        { return wetNodeIds; }
+        std::vector<std::vector<plint> >&                       getWetNodeIds()
+        { return wetNodeIds; }
+        std::vector<std::vector<int> > const&   getSolidNeighbors() const
+        { return solidNeighbors; }
+        std::vector<std::vector<int> >&         getSolidNeighbors()
+        { return solidNeighbors; }
+        std::vector<std::pair<int,int> > const&                 getXderivDirAndOrder() const
+        { return xDerivDirAndOrder; }
+        std::vector<std::pair<int,int> >&                       getXderivDirAndOrder()
+        { return xDerivDirAndOrder; }
+        std::vector<std::pair<int,int> > const&                 getYderivDirAndOrder() const
+        { return yDerivDirAndOrder; }
+        std::vector<std::pair<int,int> >&                       getYderivDirAndOrder()
+        { return yDerivDirAndOrder; }
+        std::vector<std::pair<int,int> > const&                 getZderivDirAndOrder() const
+        { return zDerivDirAndOrder; }
+        std::vector<std::pair<int,int> >&                       getZderivDirAndOrder()
+        { return zDerivDirAndOrder; }
+        Array<T,3> const&                                       getLocalForce() const
+        { return localForce; }
+        Array<T,3>&                                             getLocalForce()
+        { return localForce; }
+        virtual InterpolatedFdOffLatticeInfo3D* clone() const {
+            return new InterpolatedFdOffLatticeInfo3D(*this);
+        }
+    private:
+        std::vector<Dot3D> wetNodes;
+        std::vector<std::vector<std::pair<int,int> > > wetNodeSolidUsableDirections; // stores the directions where there is a wall and valid neighbors in its opposite direction
         std::vector<std::vector<int> >                 wetNodeFluidDirections; // 
         std::vector<std::vector<plint> >               wetNodeIds;
+        std::vector<std::vector<int> >               solidNeighbors;
+        std::vector<std::pair<int,int> > xDerivDirAndOrder, yDerivDirAndOrder, zDerivDirAndOrder;
         Array<T,3>                                     localForce;
     };
 };

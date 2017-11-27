@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -68,6 +68,37 @@ void addInternalProcessor( DataProcessorGenerator2D const& generator,
 void addInternalProcessor( DataProcessorGenerator2D const& generator,
                            MultiBlock2D& object1, MultiBlock2D& object2,
                            plint level=0 );
+
+
+template<class OriginalGenerator, class MutableGenerator>
+class MultiProcessing2D {
+public:
+    MultiProcessing2D( OriginalGenerator& generator_,
+                       std::vector<MultiBlock2D*> multiBlocks_ );
+    ~MultiProcessing2D();
+    void extractProcessorsOnFirstBlock(BlockDomain::DomainT appliesTo);
+    void intersectWithRemainingBlocks(BlockDomain::DomainT appliesTo);
+    void subdivideGenerator();
+    void adjustCoordinates();
+    std::vector<MutableGenerator*> const& getRetainedGenerators() const;
+    std::vector<std::vector<plint> > const& getAtomicBlockNumbers() const;
+    void multiBlocksWhichRequireUpdate (
+            std::vector<MultiBlock2D*>& multiBlocksModifiedByProcessor,
+            std::vector<modif::ModifT>& typesOfModification ) const;
+    void updateEnvelopesWhereRequired();
+    std::vector<MutableGenerator*> releaseRetainedGenerators();
+private:
+    void extractGeneratorOnBlocks(std::vector<Box2D> const& finalDomains,
+                                  std::vector<std::vector<plint> > const& finalIds,
+                                  plint shiftX=0, plint shiftY=0);
+private:
+    OriginalGenerator&               generator;
+    std::vector<MultiBlock2D*>       multiBlocks;
+    MultiBlock2D*                    firstMultiBlock;
+    std::vector<MutableGenerator*>   retainedGenerators;
+    std::vector<std::vector<plint> > atomicBlockNumbers;
+};
+
 
 } // namespace plb
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,8 +26,11 @@
 #define OFF_LATTICE_BOUNDARY_PROFILES_3D_H
 
 #include "core/globalDefs.h"
+#include "core/array.h"
+#include "core/functions.h"
+#include "atomicBlock/atomicBlock3D.h"
 #include "offLattice/triangularSurfaceMesh.h"
-#include "algorithm/functions.h"
+#include "offLattice/boundaryShapes3D.h"
 
 namespace plb {
 
@@ -156,6 +159,22 @@ public:
 private:
     Array<T,3> u;
     plint maxT;
+};
+
+template< typename T, template<typename U> class Descriptor>
+class IncreasingVelocityPlugProfile3D : public BoundaryProfile3D<T, Array<T,3> >
+{
+public:
+    IncreasingVelocityPlugProfile3D(T uMax_, plint maxT_);
+    virtual void setNormal(Array<T,3> const& normal_);
+    virtual void defineCircularShape(Array<T,3> const& center_, T radius_);
+    virtual void getData( Array<T,3> const& pos, plint id, AtomicBlock3D const* argument,
+                          Array<T,3>& data, OffBoundary::Type& bdType ) const;
+    virtual IncreasingVelocityPlugProfile3D<T,Descriptor>* clone() const;
+private:
+    T uMax;
+    plint maxT;
+    Array<T,3> normal;
 };
 
 template< typename T, template<typename U> class Descriptor>

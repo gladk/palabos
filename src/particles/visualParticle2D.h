@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,6 +43,7 @@ public:
                       std::vector<T> const& scalars_,
                       std::vector<Array<T,2> > const& vectors_ );
     virtual void velocityToParticle(TensorField2D<T,2>& velocityField, T scaling=1.) { }
+    virtual void velocityToParticle(NTensorField2D<T>& velocityField, T scaling=1.) { }
     virtual void rhoBarJtoParticle(NTensorField2D<T>& rhoBarJfield, bool velIsJ,
                                    T scaling=1.) { }
     virtual void fluidToParticle(BlockLattice2D<T,Descriptor>& fluid, T scaling=1.) { }

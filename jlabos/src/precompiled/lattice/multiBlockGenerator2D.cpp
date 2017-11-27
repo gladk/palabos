@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,7 +37,7 @@ namespace plb {
 
 template std::auto_ptr<MultiBlockLattice2D<FLOAT_T,descriptors::DESCRIPTOR_2D> > 
  defaultGenerateMultiBlockLattice2D< FLOAT_T,descriptors::DESCRIPTOR_2D > (
-        MultiBlockManagement2D const& management, plint nDim );
+        MultiBlockManagement2D const& management, plint unnamedDummyArg );
 
 template
 std::auto_ptr<MultiBlockLattice2D<FLOAT_T,descriptors::DESCRIPTOR_2D> > clone<FLOAT_T, descriptors::DESCRIPTOR_2D> (

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,6 +55,9 @@ private:
 
 template<typename T, class Function>
 bool bisect(Function const& function, T x0, T x1, T xacc, plint maxIter, T& result);
+
+template<typename T, class Function>
+bool brentSolve(Function const& func, T x0, T x1, T xacc, plint maxIter, T& result);
 
 }  // namespace plb
 

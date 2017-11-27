@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,7 +47,7 @@ static void massExchangeFluidCell1 (
     plint iX, plint iY, plint iZ )
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     // Calculate mass at time t+1 --> eq 6 Thurey's paper.
     for(plint iPop=0; iPop < D::q; ++iPop) {
         plint nextX = iX + D::c[iPop][0];
@@ -69,7 +69,7 @@ static void massExchangeFluidCell2 (
     plint iX, plint iY, plint iZ )
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     // Calculate mass at time t+1 --> eq 6 Thurey's paper.
     for(plint iPop=0; iPop < D::q; ++iPop) {
         plint nextX = iX + D::c[iPop][0];
@@ -117,7 +117,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhasePunchSphere3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
@@ -176,7 +176,7 @@ void TwoPhasePunchSphere3D<T,Descriptor>
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rhoEmpty);
-                        param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                         param.outsideDensity(iX,iY,iZ) = referenceDensity;
 
@@ -190,7 +190,7 @@ void TwoPhasePunchSphere3D<T,Descriptor>
                         iniCellAtEquilibrium(param.cell2(iX,iY,iZ), density2, momentum2);
                         param.setDensity2(iX,iY,iZ, density2);
                         param.setMomentum2(iX,iY,iZ, momentum2);
-                        param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                     }
                 }
             }
@@ -205,8 +205,9 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhasePunchRectangle3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
+    typedef Descriptor<T> D;
 
     Dot3D offset = param.absOffset();
     
@@ -284,7 +285,7 @@ void TwoPhasePunchRectangle3D<T,Descriptor>
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rhoEmpty);
-                        param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                         param.outsideDensity(iX,iY,iZ) = referenceDensity;
 
@@ -296,7 +297,7 @@ void TwoPhasePunchRectangle3D<T,Descriptor>
                     iniCellAtEquilibrium(param.cell2(iX,iY,iZ), density2, momentum2);
                     param.setDensity2(iX,iY,iZ, density2);
                     param.setMomentum2(iX,iY,iZ, momentum2);
-                    param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                    param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                 }
             }
         }
@@ -310,7 +311,7 @@ template< typename T,template<typename U> class Descriptor>
 void DefaultInitializeTwoPhase3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
@@ -344,11 +345,13 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                 }
                 param.setDensity(iX,iY,iZ, rhoIni);
                 param.setMomentum(iX,iY,iZ, j);
-                param.setForce(iX,iY,iZ, g);
+                param.setForce(iX,iY,iZ, force);
+                param.outsideDensity(iX,iY,iZ) = rhoIni;
 
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
+                    case temporarilyProtect:
                         param.attributeDynamics(iX,iY,iZ, dynamicsTemplate->clone());
                         param.mass(iX,iY,iZ) = rhoIni;
                         param.volumeFraction(iX,iY,iZ) = (T)1.;
@@ -361,12 +364,18 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                     case empty:
                     case protectEmpty:
                         param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                        param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
                         param.attributeDynamics(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                        param.mass(iX,iY,iZ) = (T)0.;
+                        param.volumeFraction(iX,iY,iZ) = (T)0.;
+                        break;
+                    case slipWall:
+                        // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                        param.attributeDynamics(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
@@ -378,12 +387,13 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                     // twophase
                     param.setDensity2(iX,iY,iZ, rhoIni);
                     param.setMomentum2(iX,iY,iZ, j2);
-                    param.setForce2(iX,iY,iZ, g2);
+                    param.setForce2(iX,iY,iZ, force2);
                     switch(param.flag(iX,iY,iZ)) {
                         case fluid:
                         case protect:
+                        case temporarilyProtect:
                             param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                            param.setForce2(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                            param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         case interface:
@@ -397,6 +407,11 @@ void DefaultInitializeTwoPhase3D<T,Descriptor>
                             break;
                         case wall:
                             param.attributeDynamics2(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                            param.mass2(iX,iY,iZ) = (T)0.;
+                            break;
+                        case slipWall:
+                            // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                            param.attributeDynamics2(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         default:
@@ -416,7 +431,7 @@ template< typename T,template<typename U> class Descriptor>
 void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
@@ -447,11 +462,13 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                 iniCellAtEquilibrium(param.cell(iX,iY,iZ), rhoIni, j/rhoIni);
                 param.setDensity(iX,iY,iZ, rhoIni);
                 param.setMomentum(iX,iY,iZ, j);
-                param.setForce(iX,iY,iZ, g);
+                param.setForce(iX,iY,iZ, force);
+                param.outsideDensity(iX,iY,iZ) = rhoIni;
 
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
+                    case temporarilyProtect:
                         param.attributeDynamics(iX,iY,iZ, dynamicsTemplate->clone());
                         param.mass(iX,iY,iZ) = rhoIni;
                         param.volumeFraction(iX,iY,iZ) = (T)1.;
@@ -463,11 +480,16 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                     case empty:
                     case protectEmpty:
                         param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                        param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
                         param.attributeDynamics(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                        param.mass(iX,iY,iZ) = (T)0.;
+                        break;
+                    case slipWall:
+                        // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                        param.attributeDynamics(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     default:
@@ -478,13 +500,14 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                     Array<T,3> j2((T)0.,(T)0.,(T)0.);
                     param.setDensity2(iX,iY,iZ, rhoIni);
                     param.setMomentum2(iX,iY,iZ, j2);
-                    param.setForce2(iX,iY,iZ, g2);
+                    param.setForce2(iX,iY,iZ, force2);
                     iniCellAtEquilibrium(param.cell2(iX,iY,iZ), rhoIni, j2/rhoIni);
                     switch(param.flag(iX,iY,iZ)) {
                         case fluid:
                         case protect:
+                        case temporarilyProtect:
                             param.attributeDynamics2(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                            param.setForce2(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                            param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         case interface:
@@ -498,6 +521,11 @@ void PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>
                             break;
                         case wall:
                             param.attributeDynamics2(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                            param.mass2(iX,iY,iZ) = (T)0.;
+                            break;
+                        case slipWall:
+                            // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                            param.attributeDynamics2(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                             param.mass2(iX,iY,iZ) = (T)0.;
                             break;
                         default:
@@ -517,7 +545,7 @@ template<typename T,template<typename U> class Descriptor, class Function>
 void ConstantIniVelocityTwoPhase3D<T,Descriptor,Function>::processGenericBlocks (
         Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks )
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Dot3D absOfs = param.absOffset();
@@ -559,7 +587,7 @@ void TwoPhaseMassChange3D<T,Descriptor>::processGenericBlocks (
         Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks )
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // This loop updates the mass, summarizing  Eq. 6/7, and Eq.8, in
@@ -636,7 +664,7 @@ void TwoPhaseComputeInterfaceLists3D<T,Descriptor>::processGenericBlocks (
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::ExtrapolInfo ExtrapolInfo;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     param.massExcess().clear();
     param.massExcess2().clear();
@@ -679,7 +707,7 @@ void TwoPhaseComputeInterfaceLists3D<T,Descriptor>::processGenericBlocks (
                             plint nextX = iX+D::c[iPop][0];
                             plint nextY = iY+D::c[iPop][1];
                             plint nextZ = iZ+D::c[iPop][2];
-                            if (param.flag(nextX,nextY,nextZ)==protect) {
+                            if (isProtected(param.flag(nextX,nextY,nextZ))) {
                                 isAdjacentToProtected = true;
                                 break;
                             }
@@ -900,7 +928,7 @@ void TwoPhaseEqualMassExcessReDistribution3D<T,Descriptor>
 {
     typedef Descriptor<T> D;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Box3D originalDomain(domain);
@@ -1022,7 +1050,7 @@ void TwoPhaseCompletion3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
 
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
@@ -1064,7 +1092,7 @@ void TwoPhaseCompletion3D<T,Descriptor>
 
                         // If the f_i[iPop] would be streamed from an empty cell
                         if ( isEmpty(param.flag(prevX,prevY,prevZ)) ||
-                             param.flag(prevX,prevY,prevZ) == wall )
+                             isAnyWall(param.flag(prevX,prevY,prevZ)) )
                         {
                             savedPop[iPop] = param.cell(prevX,prevY,prevZ)[opp];
                             needsModification = true;
@@ -1075,7 +1103,7 @@ void TwoPhaseCompletion3D<T,Descriptor>
 
                         if (!useFreeSurfaceLimit) {
                             if ( param.flag(prevX,prevY,prevZ) == fluid ||
-                                 param.flag(prevX,prevY,prevZ) == wall )
+                                 isAnyWall(param.flag(prevX,prevY,prevZ)) )
                             {
                                 savedPop2[iPop] = param.cell2(prevX,prevY,prevZ)[opp];
                                 needsModification2 = true;
@@ -1157,7 +1185,7 @@ void VerifyTwoPhase<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // Save macroscopic fields in external scalars and update the mass-fraction.
@@ -1184,7 +1212,7 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     T lostMass = param.getSumLostMass();
@@ -1207,7 +1235,7 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 T rhoBar, rhoBar2; 
                 Array<T,3> j((T)0.,(T)0.,(T)0.), j2((T)0.,(T)0.,(T)0.);
-		T density=param.outsideDensity(iX,iY,iZ), density2=param.outsideDensity(iX,iY,iZ);
+                T density=param.outsideDensity(iX,iY,iZ), density2=param.outsideDensity(iX,iY,iZ);
                 if (isWet(param.flag(iX,iY,iZ))) {
                     momentTemplates<T,Descriptor>::get_rhoBar_j(param.cell(iX,iY,iZ), rhoBar, j);
                     density = Descriptor<T>::fullRho(rhoBar);
@@ -1300,7 +1328,7 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
                         // ratio is zero.
                         if (model==dynamic) {
                             newDensity1 = referenceDensity+0.5*(deltaP+deltaP2*densityRatio);
-                            newDensity2 = referenceDensity+0.5*(1./densityRatio*deltaP+(2.0-densityRatio)*deltaP2);
+                            newDensity2 = referenceDensity+0.5*(densityRatio*deltaP+(2.0-densityRatio)*deltaP2);
                         }
                         // In the bubble-pressure model, there's only a one-way coupling from fluid2 to fluid1.
                         else { // model=bubblePressure
@@ -1341,30 +1369,63 @@ void TwoPhaseMacroscopic3D<T,Descriptor>
                         j2 = rho2*velAverage;
                     }
                 }
-                    
-                if (isWet(param.flag(iX,iY,iZ))) {
-                    Array<T,3> force = param.getForce(iX,iY,iZ);
-                    T tau = T(1)/param.cell(iX,iY,iZ).getDynamics().getOmega();
-                    // Two comments:
-                    // - Here the force is multiplied by rho0 and not rho so that, under
-                    //   gravity, a linear pressure profile is obtained.
-                    // - The force is not multiplied by the volume fraction (some authors
-                    //   do multiply it by the volumeFraction), because there is a 
-                    //   point-wise interpretation of quantities like momentum.
-                    j += rhoDefault*tau*force;
-                }
+
                 param.setDensity(iX,iY,iZ, density);
                 param.setMomentum(iX,iY,iZ, j);
 
                 if (model!=freeSurface) {
-                    if (isEmpty(param.flag(iX,iY,iZ)) || param.flag(iX,iY,iZ)==interface) {
-                        Array<T,3> force = param.getForce2(iX,iY,iZ);
-                        T tau = T(1)/param.cell2(iX,iY,iZ).getDynamics().getOmega();
-                        j2 += rhoDefault*tau*force;
-                    }
-
                     param.setDensity2(iX,iY,iZ, density2);
                     param.setMomentum2(iX,iY,iZ, j2);
+                }
+            }
+        }
+    }   
+}
+
+/* *************** Class TwoPhaseStabilize3D ******************************** */
+
+template< typename T,template<typename U> class Descriptor>
+void TwoPhaseStabilize3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace freeSurfaceFlag;
+    TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (param.flag(iX,iY,iZ)==interface) {
+                    Cell<T,Descriptor>& cell = param.cell(iX,iY,iZ);
+                    T oldRhoBar;
+                    Array<T,3> oldJ;
+                    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, oldRhoBar, oldJ);
+                    T oldJsqr = normSqr(oldJ);
+                    T newDensity = param.getDensity(iX,iY,iZ);
+                    T newRhoBar = Descriptor<T>::rhoBar(newDensity);
+                    Array<T,3> newJ = param.getMomentum(iX,iY,iZ);
+                    T newJsqr = normSqr(newJ);
+                    for (int iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                        T oldEq = cell.getDynamics().computeEquilibrium(iPop, oldRhoBar, oldJ, oldJsqr);
+                        T newEq = cell.getDynamics().computeEquilibrium(iPop, newRhoBar, newJ, newJsqr);
+                        cell[iPop] += newEq - oldEq;
+                    }
+
+                    if (model!=freeSurface) {
+                        Cell<T,Descriptor>& cell = param.cell2(iX,iY,iZ);
+                        T oldRhoBar;
+                        Array<T,3> oldJ;
+                        momentTemplates<T,Descriptor>::get_rhoBar_j(cell, oldRhoBar, oldJ);
+                        T oldJsqr = normSqr(oldJ);
+                        T newDensity = param.getDensity2(iX,iY,iZ);
+                        T newRhoBar = Descriptor<T>::rhoBar(newDensity);
+                        Array<T,3> newJ = param.getMomentum2(iX,iY,iZ);
+                        T newJsqr = normSqr(newJ);
+                        for (int iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                            T oldEq = cell.getDynamics().computeEquilibrium(iPop, oldRhoBar, oldJ, oldJsqr);
+                            T newEq = cell.getDynamics().computeEquilibrium(iPop, newRhoBar, newJ, newJsqr);
+                            cell[iPop] += newEq - oldEq;
+                        }
+                    }
                 }
             }
         }
@@ -1375,7 +1436,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseInterfaceFilter<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     std::vector< Array<plint,3> > interfaceNodes;
@@ -1462,7 +1523,7 @@ void TwoPhaseIniInterfaceToAnyNodes3D<T,Descriptor>
     typedef Descriptor<T> D;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::ExtrapolInfo ExtrapolInfo;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
@@ -1498,7 +1559,7 @@ void TwoPhaseIniInterfaceToAnyNodes3D<T,Descriptor>
                 if (model!=freeSurface) {
                     // interface->fluid for phase 1 means interface->empty for phase 2.
                     param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
-                    param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                    param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                     param.setDensity2(iX,iY,iZ, rhoDefault);
                     param.setMomentum2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                     T massExcess2 = param.mass2(iX,iY,iZ);
@@ -1580,7 +1641,7 @@ void TwoPhaseIniEmptyToInterfaceNodes3D<T,Descriptor>
 {
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::ExtrapolInfo ExtrapolInfo;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
             
@@ -1631,7 +1692,7 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
 {
     typedef Descriptor<T> D;
     typedef typename TwoPhaseInterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
@@ -1646,6 +1707,7 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
             for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {    
                 Node node(iX,iY,iZ);
                 if (param.flag(iX,iY,iZ) == interface) {
+                    bool noEmptyNeighbor = true;
                     bool noFluidNeighbor = true;
                     
                     for(plint iPop=1;iPop<D::q; iPop++) {
@@ -1653,69 +1715,52 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
                         plint nextY = iY+D::c[iPop][1];
                         plint nextZ = iZ+D::c[iPop][2];
                 
+                        if (isEmpty(param.flag(nextX,nextY,nextZ))) noEmptyNeighbor = false;
                         if (isFullWet(param.flag(nextX,nextY,nextZ))) noFluidNeighbor = false;
                     }
-                    if (noFluidNeighbor) {
-                        bool allInterface = true;
-                        for(plint iPop=1;iPop<D::q; iPop++) {
-                            plint nextX = iX+D::c[iPop][0];
-                            plint nextY = iY+D::c[iPop][1];
-                            plint nextZ = iZ+D::c[iPop][2];
-                            int fl = param.flag(nextX,nextY,nextZ);
-                            if (fl!=interface && fl!=wall) {
-                                allInterface = false;
-                            }
-                        }
-                        // By default (if it's not the case that all
-                        // neighbors are interface), the interface cell is
-                        // converted to empty (because it has no fluid neighbor).
-                        bool convertToFluid = false;
-                        if (allInterface) {
-                            convertToFluid = param.volumeFraction(iX,iY,iZ)>=0.5;
-                        }
-                        if (convertToFluid) {
-                            interfaceToFluidNodes.push_back(Node(iX,iY,iZ));
-                            // Store the coordinates, so flag on this node
-                            // can be changed in a loop outside the current one.
-                            
-                            T massExcess = param.mass(iX,iY,iZ) - param.getDensity(iX,iY,iZ);
-                            param.massExcess().insert(std::pair<Node,T>(node,massExcess));
-                            param.mass(iX,iY,iZ) = param.getDensity(iX,iY,iZ);
-                            param.volumeFraction(iX,iY,iZ) = T(1);
 
-                            if (model!=freeSurface) {
-                                // interface->fluid for phase 1 means interface->empty for phase 2.
-                                T massExcess2 = param.mass2(iX,iY,iZ);
-                                param.massExcess2().insert(std::pair<Node,T>(node,massExcess2));
-                                param.mass2(iX,iY,iZ) = T();
-                                param.setDensity2(iX,iY,iZ, rhoDefault);
-                                param.setMomentum2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                                param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
-                                param.setForce2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                            }
-                        }
-                        else { // convert to empty
-                            interfaceToEmptyNodes.push_back(Node(iX,iY,iZ));
-                            // Store the coordinates, so flag on this node
-                            // can be changed in a loop outside the current one.
+                    if (noEmptyNeighbor) {
+                        interfaceToFluidNodes.push_back(Node(iX,iY,iZ));
+                        // Store the coordinates, so flag on this node
+                        // can be changed in a loop outside the current one.
+                        
+                        T massExcess = param.mass(iX,iY,iZ) - param.getDensity(iX,iY,iZ);
+                        param.massExcess().insert(std::pair<Node,T>(node,massExcess));
+                        param.mass(iX,iY,iZ) = param.getDensity(iX,iY,iZ);
+                        param.volumeFraction(iX,iY,iZ) = T(1);
 
-                            T massExcess = param.mass(iX,iY,iZ);
-                            param.massExcess().insert(std::pair<Node,T>(node,massExcess));
-                            
-                            param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
-                            param.mass(iX,iY,iZ) = T();
-                            param.volumeFraction(iX,iY,iZ) = T();
-                            param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                            // Don't modify density and momentum, because they are needed by the second phase.
-                            param.setDensity(iX,iY,iZ, rhoDefault);
-                            param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                            
-                            if (model != freeSurface) {
-                                // interface->empty for phase 1 means interface->fluid for phase 2.
-                                T massExcess2 = param.mass2(iX,iY,iZ) - param.getDensity2(iX,iY,iZ);
-                                param.massExcess2().insert(std::pair<Node,T>(node,massExcess2));
-                                param.mass2(iX,iY,iZ) = param.getDensity2(iX,iY,iZ);
-                            }
+                        if (model!=freeSurface) {
+                            // interface->fluid for phase 1 means interface->empty for phase 2.
+                            T massExcess2 = param.mass2(iX,iY,iZ);
+                            param.massExcess2().insert(std::pair<Node,T>(node,massExcess2));
+                            param.mass2(iX,iY,iZ) = T();
+                            param.setDensity2(iX,iY,iZ, rhoDefault);
+                            param.setMomentum2(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                            param.attributeDynamics2(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
+                            param.setForce2(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
+                        }
+                    }
+                    else if (noFluidNeighbor) {
+                        interfaceToEmptyNodes.push_back(Node(iX,iY,iZ));
+                        // Store the coordinates, so flag on this node
+                        // can be changed in a loop outside the current one.
+
+                        T massExcess = param.mass(iX,iY,iZ);
+                        param.massExcess().insert(std::pair<Node,T>(node,massExcess));
+                        
+                        param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
+                        param.mass(iX,iY,iZ) = T();
+                        param.volumeFraction(iX,iY,iZ) = T();
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
+                        // Don't modify density and momentum, because they are needed by the second phase.
+                        param.setDensity(iX,iY,iZ, rhoDefault);
+                        param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        
+                        if (model != freeSurface) {
+                            // interface->empty for phase 1 means interface->fluid for phase 2.
+                            T massExcess2 = param.mass2(iX,iY,iZ) - param.getDensity2(iX,iY,iZ);
+                            param.massExcess2().insert(std::pair<Node,T>(node,massExcess2));
+                            param.mass2(iX,iY,iZ) = param.getDensity2(iX,iY,iZ);
                         }
                     }
                 }
@@ -1735,13 +1780,80 @@ void TwoPhaseRemoveFalseInterfaceCells3D<T,Descriptor>
     }
 }
 
+/* *************** Class TwoPhaseAddExternalForce3D ******************************** */
+
+template< typename T,template<typename U> class Descriptor>
+void TwoPhaseAddExternalForce3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace freeSurfaceFlag;
+    TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
+
+    if (Descriptor<T>::ExternalField::sizeOfForce == 0) {
+        return;
+    }
+    PLB_ASSERT(Descriptor<T>::ExternalField::sizeOfForce == 3);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (isWet(param.flag(iX,iY,iZ))) {
+                    Array<T,3> newJ = param.getMomentum(iX,iY,iZ);
+                    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force = param.getForce(iX,iY,iZ);
+
+                    T dynamicOmega = param.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau = 0.0;
+                    if (!util::isZero(dynamicOmega)) {
+                        tau = (T) 1 / dynamicOmega;
+                    } else {
+                        tau = (T) 1 / param.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
+                    // Two comments:
+                    // - Here the force is multiplied by rho0 and not rho so that, under
+                    //   gravity, a linear pressure profile is obtained.
+                    // - The force is not multiplied by the volume fraction (some authors
+                    //   do multiply it by the volumeFraction), because there is a 
+                    //   point-wise interpretation of quantities like momentum.
+                    for (plint i = 0; i < Descriptor<T>::ExternalField::sizeOfForce; i++) {
+                        newJ[i] += rhoDefault*tau*force[i];
+                    }
+                    param.setMomentum(iX,iY,iZ, newJ);
+                }
+
+                if (model!=freeSurface) {
+                    if (isEmpty(param.flag(iX,iY,iZ)) || param.flag(iX,iY,iZ)==interface) {
+                        Array<T,3> newJ = param.getMomentum2(iX,iY,iZ);
+                        Array<T,Descriptor<T>::ExternalField::sizeOfForce> force = param.getForce2(iX,iY,iZ);
+
+                        T dynamicOmega = param.cell2(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                                param.cell2(iX,iY,iZ));  // In case of a Smagorinsky model.
+                        T tau = 0.0;
+                        if (!util::isZero(dynamicOmega)) {
+                            tau = (T) 1 / dynamicOmega;
+                        } else {
+                            tau = (T) 1 / param.cell2(iX,iY,iZ).getDynamics().getOmega();
+                        }
+
+                        for (plint i = 0; i < Descriptor<T>::ExternalField::sizeOfForce; i++) {
+                            newJ[i] += rhoDefault*tau*force[i];
+                        }
+                        param.setMomentum2(iX,iY,iZ, newJ);
+                    }
+                }
+            }
+        }
+    }   
+}
+
 /* *************** Class TwoPhaseOutletMaximumVolumeFraction3D ******************************************* */
 
 template< typename T,template<typename U> class Descriptor>
 void TwoPhaseOutletMaximumVolumeFraction3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
     
@@ -1811,7 +1923,7 @@ void TwoPhaseOutletMaximumVolumeFraction3D<T,Descriptor>
                         plint nextY = iY + D::c[iPop][1];
                         plint nextZ = iZ + D::c[iPop][2];
                         int nextFlag = param.flag(nextX,nextY,nextZ);
-                        if (nextFlag==wall) {
+                        if (isAnyWall(nextFlag)) {
                             plint opp = indexTemplates::opposite<D>(iPop);
                             Array<T,3> j2 = param.getMomentum2(iX,iY,iZ);
                             T j2Sqr = normSqr(j2);
@@ -1837,7 +1949,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseComputePressure3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     ScalarField3D<T>* pressure =
         (model==freeSurface) ?
             dynamic_cast<ScalarField3D<T>*>(atomicBlocks[10]) :
@@ -1879,7 +1991,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseComputeVelocity3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TensorField3D<T,3>* velocity = 
         useFreeSurfaceLimit ?
             dynamic_cast<TensorField3D<T,3>*>(atomicBlocks[10]) :
@@ -1935,7 +2047,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseAverageVelocity3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     BlockStatistics& statistics = this->getStatistics();
     
@@ -2005,7 +2117,7 @@ template< typename T,template<typename U> class Descriptor>
 void TwoPhaseAveragePressure3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     TwoPhaseProcessorParam3D<T,Descriptor> param(atomicBlocks);
     BlockStatistics& statistics = this->getStatistics();
     

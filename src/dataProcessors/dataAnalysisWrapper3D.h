@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -164,7 +164,6 @@ std::auto_ptr<TensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
     computeStrainRateFromStress(BlockLattice3D<T,Descriptor>& lattice);
 
 
-
 /* *************** Population **************************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -194,6 +193,12 @@ T computeSum(ScalarField3D<T>& scalarField, Box3D domain);
 
 template<typename T>
 T computeSum(ScalarField3D<T>& scalarField);
+
+template<typename T>
+T computeSum(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T>
+T computeSum(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag);
 
 template<typename T>
 T computeAverage(ScalarField3D<T>& scalarField, Box3D domain);
@@ -518,6 +523,25 @@ void computeBulkVorticity(TensorField3D<T,3>& velocity, TensorField3D<T,3>& vort
 template<typename T>
 std::auto_ptr<TensorField3D<T,3> > computeBulkVorticity(TensorField3D<T,3>& velocity);
 
+
+/* *************** Helicity from Velocity field *********************** */
+
+template<typename T>
+void computeHelicity(TensorField3D<T,3>& velocity, ScalarField3D<T>& helicity);
+
+template<typename T>
+std::auto_ptr<ScalarField3D<T> > computeHelicity(TensorField3D<T,3>& velocity);
+
+
+/* *************** Helicity, witout boundary treatment, from Velocity field ************** */
+
+template<typename T>
+void computeBulkHelicity(TensorField3D<T,3>& velocity, ScalarField3D<T>& helicity);
+
+template<typename T>
+std::auto_ptr<ScalarField3D<T> > computeBulkHelicity(TensorField3D<T,3>& velocity);
+
+
 /* *************** Divergence, witout boundary treatment, from Velocity field ************* */
 
 template<typename T>
@@ -645,12 +669,38 @@ template<typename T, template<typename U> class Descriptor>
 T computeAverageEnergy(MultiBlockLattice3D<T,Descriptor>& lattice);
 
 
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain);
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force);
+
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force);
+
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f);
+
+
 template<typename T, template<typename U> class Descriptor, class BoolMask> 
 plint count(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, BoolMask boolMask);
 
 template<typename T, template<typename U> class Descriptor, class BoolMask> 
 plint count(MultiBlockLattice3D<T,Descriptor>& lattice, BoolMask boolMask);
 
+template<typename T>
+std::vector<T> scalarSingleProbes (
+        MultiScalarField3D<T>& scalarField, Box3D domain,
+        std::vector<Array<T,3> > const& positions );
 
 template<typename T, template<typename U> class Descriptor>
 std::vector<T> densitySingleProbes (
@@ -724,6 +774,13 @@ template<typename T, template<typename U> class Descriptor>
 void computeRhoBarJ( MultiBlockLattice3D<T,Descriptor>& lattice,
                      MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j, Box3D domain );
 
+/* *************** RhoBarJPiNeq ******************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeRhoBarJPiNeq( MultiBlockLattice3D<T,Descriptor>& lattice,
+                          MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j,
+                          TensorField3D<T,SymmetricTensor<T,Descriptor>::n>& PiNeq, Box3D domain );
+
 
 /* *************** Packed RhoBar J *********************************** */
 
@@ -765,6 +822,21 @@ template<typename T>
 std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarJ(MultiNTensorField3D<T>& rhoBarJ, bool velIsJ=false);
 
 
+template<typename T>
+void computeVelocityFromRhoBarAndJ (
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j,
+        MultiTensorField3D<T,3>& velocity, Box3D domain, bool velIsJ=false);
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarAndJ (
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j,
+        Box3D domain, bool velIsJ=false);
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarAndJ(
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j, bool velIsJ=false);
+
+
 /* *************** Kinetic Energy ************************************ */
 
 template<typename T, template<typename U> class Descriptor>
@@ -788,6 +860,42 @@ std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm(MultiBlockLattice3D<T,
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice);
 
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force);
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f);
+
 
 /* *************** Velocity Component ******************************** */
 
@@ -801,6 +909,42 @@ std::auto_ptr<MultiScalarField3D<T> > computeVelocityComponent(MultiBlockLattice
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > computeVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain, plint iComponent);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, plint iComponent);
 
 
 /* *************** Velocity ****************************************** */
@@ -816,6 +960,43 @@ std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
     computeVelocity(MultiBlockLattice3D<T,Descriptor>& lattice);
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force);
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f);
+
     
 /* *************** Temperature ******************************************* */
 
@@ -847,7 +1028,7 @@ std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
 
 template<typename T, template<typename U> class Descriptor>
 void computeShearStress(MultiBlockLattice3D<T,Descriptor>& lattice,
-                             MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n>& PiNeq, Box3D domain);
+                        MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n>& PiNeq, Box3D domain);
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
@@ -857,6 +1038,20 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
     computeShearStress(MultiBlockLattice3D<T,Descriptor>& lattice);
 
+/* *************** Stress ********************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void computeStress( MultiBlockLattice3D<T,Descriptor>& lattice,
+                    MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n>& stress,
+                    T rho0, bool isCompressible, Box3D domain );
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
+    computeStress(MultiBlockLattice3D<T,Descriptor>& lattice, T rho0, bool isCompressible, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
+    computeStress(MultiBlockLattice3D<T,Descriptor>& lattice, T rho0, bool isCompressible);
 
 /* *************** Strain Rate from Stress *************************** */
 
@@ -871,6 +1066,24 @@ std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
     computeStrainRateFromStress(MultiBlockLattice3D<T,Descriptor>& lattice);
+
+
+/* *************** Shear Rate ******************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+void computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<T>& shearRate, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice);
+
+template<typename T, template<typename U> class Descriptor>
+void computeShearRate_N(MultiBlockLattice3D<T,Descriptor>& lattice, MultiNTensorField3D<T>& shearRate, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+MultiNTensorField3D<T>* computeShearRate_N(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
 
 
 /* *************** Population **************************************** */
@@ -995,6 +1208,12 @@ std::auto_ptr<MultiScalarField3D<T> > computeKinematicViscosity(MultiBlockLattic
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > computeKinematicViscosity(MultiBlockLattice3D<T,Descriptor>& lattice);
 
+template<typename T, template<typename U> class Descriptor>
+void computeKinematicViscosity_N(MultiBlockLattice3D<T,Descriptor>& lattice, MultiNTensorField3D<T>& nu, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+MultiNTensorField3D<T>* computeKinematicViscosity_N(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
+
 /* *************** ExternalForce ****************************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1083,6 +1302,15 @@ template<typename T>
 T computeSum(MultiScalarField3D<T>& scalarField);
 
 template<typename T>
+T computeSum(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T>
+T computeSum(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag);
+
+template<typename T>
+plint computeIntSum(MultiScalarField3D<T>& scalarField, Box3D domain);
+
+template<typename T>
 T computeAverage(MultiScalarField3D<T>& scalarField, Box3D domain);
 
 template<typename T>
@@ -1100,12 +1328,24 @@ T computeMin(MultiScalarField3D<T>& scalarField, Box3D domain);
 template<typename T>
 T computeMin(MultiScalarField3D<T>& scalarField);
 
+template<typename T>
+T computeMin(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T>
+T computeMin(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag);
+
 
 template<typename T>
 T computeMax(MultiScalarField3D<T>& scalarField, Box3D domain);
 
 template<typename T>
 T computeMax(MultiScalarField3D<T>& scalarField);
+
+template<typename T>
+T computeMax(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T>
+T computeMax(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag);
 
 
 template<typename T>
@@ -1429,6 +1669,13 @@ template<typename T>
 void uniformlyBoundScalarField(MultiScalarField3D<T>& data, T bound);
 
 
+template<typename T>
+void boundScalarField(MultiScalarField3D<T>& data, Box3D domain, T lowerBound, T upperBound);
+
+template<typename T>
+void boundScalarField(MultiScalarField3D<T>& data, T lowerBound, T upperBound);
+
+
 /* *************** LBMsmoothen3D ******************************************* */
 // This is a "bulk" version. It has no special boundary treatment.
 
@@ -1440,6 +1687,16 @@ std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data, B
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data);
+
+
+/* *************** LBMsmoothenInPlace3D ******************************************* */
+// This is a "bulk" version. It has no special boundary treatment.
+
+template<typename T, template<typename U> class Descriptor>
+void lbmSmoothenInPlace(MultiScalarField3D<T>& data, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+void lbmSmoothenInPlace(MultiScalarField3D<T>& data);
 
 
 /* *************** Smoothen3D ******************************************* */
@@ -1569,6 +1826,17 @@ std::auto_ptr<MultiScalarField3D<T> > computeNormSqr(MultiTensorField3D<T,nDim>&
 template<typename T, int nDim>
 std::auto_ptr<MultiScalarField3D<T> > computeNormSqr(MultiTensorField3D<T,nDim>& tensorField);
 
+/* *************** Max element of each array of each cell *************** */
+
+template<typename T, int nDim>
+void computeMaximumElement(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& result, Box3D domain);
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField3D<T> > computeMaximumElement(MultiTensorField3D<T,nDim>& A, Box3D domain);
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField3D<T> > computeMaximumElement(MultiTensorField3D<T,nDim>& A);
+
 
 /* *************** Tensor-norm of each symmetric tensor of a field ***** */
 
@@ -1653,6 +1921,59 @@ std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticity(MultiTensorField3D<
 template<typename T>
 std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticity(MultiTensorField3D<T,3>& velocity);
 
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticity(MultiBlockLattice3D<T,Descriptor>& lattice);
+
+
+/* *************** 4th order Vorticity, witout boundary treatment, from Velocity field ************** */
+
+template<typename T, int nDim>
+std::auto_ptr<MultiTensorField3D<T,nDim> > computeBulkVorticityOrderFour(MultiTensorField3D<T,nDim> &vel);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderFour(MultiBlockLattice3D<T,Descriptor> &lattice);
+
+/* *************** 6th order Vorticity, witout boundary treatment, from Velocity field ************** */
+
+template<typename T, int nDim>
+std::auto_ptr<MultiTensorField3D<T,nDim> > computeBulkVorticityOrderSix(MultiTensorField3D<T,nDim> &vel);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderSix(MultiBlockLattice3D<T,Descriptor> &lattice);
+
+
+/* *************** Helicity from Velocity field *********************** */
+
+template<typename T>
+void computeHelicity(MultiTensorField3D<T,3>& velocity, MultiScalarField3D<T>& helicity, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeHelicity(MultiTensorField3D<T,3>& velocity, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeHelicity(MultiTensorField3D<T,3>& velocity);
+
+
+/* *************** Helicity, witout boundary treatment, from Velocity field ************** */
+
+template<typename T>
+void computeBulkHelicity(MultiTensorField3D<T,3>& velocity, MultiScalarField3D<T>& helicity, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiTensorField3D<T,3>& velocity, Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiTensorField3D<T,3>& velocity);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiBlockLattice3D<T,Descriptor>& lattice);
+
 
 /* *************** Divergence, witout boundary treatment, from Velocity field *************** */
 
@@ -1713,7 +2034,8 @@ std::auto_ptr<MultiTensorField3D<T,6> > computeInstantaneousReynoldsStress(Multi
 
 /* *************** lambda2-criterion from vorticity and strain rate fields ******************** */
 // This is useful for vortex identification. Vortex regions are where lambda2 < 0.
-
+#ifndef PLB_BGP
+#ifdef PLB_USE_EIGEN
 template<typename T>
 void computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S, MultiScalarField3D<T>& lambda2, Box3D domain);
 
@@ -1722,7 +2044,8 @@ std::auto_ptr<MultiScalarField3D<T> > computeLambda2(MultiTensorField3D<T,3>& vo
 
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S);
-
+#endif
+#endif
 
 /* *************** MultiTensorField - MultiTensorField operations *************** */
 
@@ -1785,13 +2108,13 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > divide(MultiTensorField3D<T,nDim>& A,
 
 
 template<typename T, int nDim>
-void normalize(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain, Precision precision = DBL);
+void normalize(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain);
 
 template<typename T, int nDim>
-std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Box3D domain, Precision precision = DBL);
+std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Box3D domain);
 
 template<typename T, int nDim>
-std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Precision precision = DBL);
+std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data);
 
 template<typename T, int nDim>
 void symmetricTensorProduct(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,SymmetricTensorImpl<T,nDim>::n>& result, Box3D domain);
@@ -1864,7 +2187,7 @@ void multiplyInPlace(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,nDim>& 
 
 
 template<typename T, int nDim>
-void multiplyInPlace(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,nDim>& B, Box3D domain);
+void multiplyInPlace(MultiTensorField3D<T,nDim>& A, T alpha, Box3D domain);
 
 template<typename T, int nDim>
 void multiplyInPlace(MultiTensorField3D<T,nDim>& A, T alpha);
@@ -1876,12 +2199,24 @@ void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,nDim>& B,
 template<typename T, int nDim>
 void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,nDim>& B);
 
+template<typename T, int nDim>
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, Box3D domain);
 
 template<typename T, int nDim>
-void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Box3D domain, Precision precision = DBL);
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B);
 
 template<typename T, int nDim>
-void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Precision precision = DBL);
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, MultiScalarField3D<int>& mask, int flag, Box3D domain);
+
+template<typename T, int nDim>
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, MultiScalarField3D<int>& mask, int flag);
+
+
+template<typename T, int nDim>
+void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Box3D domain);
+
+template<typename T, int nDim>
+void normalizeInPlace(MultiTensorField3D<T,nDim>& data);
 
 
 /* *************** LBMsmoothenTensor3D ******************************************* */
@@ -1937,6 +2272,21 @@ std::auto_ptr<MultiScalarField3D<T> > lbmComputeDivergence(MultiTensorField3D<T,
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > lbmComputeDivergence(MultiTensorField3D<T,3>& vectorField);
+
+
+/* ********************************************************************* */
+/* *************** PART VII. Multi-block wrappers: NTensor-field ******* */
+/* ********************************************************************* */
+
+/* *************** Extract Sub-NTensorField **************************** */
+
+template<typename T>
+void extractSubDomain( MultiNTensorField3D<T>& field,
+                       MultiNTensorField3D<T>& extractedField,
+                       Box3D domain);
+
+template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > extractSubDomain(MultiNTensorField3D<T>& field, Box3D domain);
 
 }  // namespace plb
 

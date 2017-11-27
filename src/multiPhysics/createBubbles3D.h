@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,22 +29,33 @@
 #include "atomicBlock/reductiveDataProcessingFunctional3D.h"
 #include "atomicBlock/atomicContainerBlock3D.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
+#include "multiPhysics/freeSurfaceModel3D.h"
 #include <limits>
 
 
 namespace plb {
 
 template<typename T, template<typename U> class Descriptor>
-void punchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
-                  T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics, Box3D domain );
+void punchSphere( FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius,
+                  T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics );
 
 template<typename T, template<typename U> class Descriptor>
-void analyticalPunchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
-                            T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics, Box3D domain );
+void analyticalPunchSphere( FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius,
+                            T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics );
 
 template<typename T, template<typename U> class Descriptor>
-T computeAverageSphereDensity( std::vector<MultiBlock3D*> const& twoPhaseArgs,
-                               Array<T,3> const& center, T radius, Box3D domain );
+T computeAverageSphereDensity(FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius);
+
+template<typename T, template<typename U> class Descriptor>
+void punchSphere( FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius,
+                  T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics );
+
+template<typename T, template<typename U> class Descriptor>
+void analyticalPunchSphere( FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius,
+                            T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics );
+
+template<typename T, template<typename U> class Descriptor>
+T computeAverageSphereDensity(FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius);
 
 }  // namespace plb
 

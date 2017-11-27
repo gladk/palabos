@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -48,7 +48,7 @@ private:
 class BubbleMatch3D
 {
 public:
-    BubbleMatch3D(MultiBlock3D& templ, bool matchEmpty_=true);
+    BubbleMatch3D(MultiBlock3D& templ);
     ~BubbleMatch3D();
     template<typename T>
         void execute(MultiScalarField3D<int>& flag, MultiScalarField3D<T>& volumeFraction);
@@ -82,7 +82,6 @@ private:
     MultiScalarField3D<plint> *tagMatrix;
     std::vector<double> bubbleVolume;
     std::vector<Array<double,3> > bubbleCenter;
-    bool matchEmpty;
     static const plint maxNumBubbles = 100000;
 };
 
@@ -166,7 +165,7 @@ struct BubbleAnalysisData3D : public ContainerBlockData {
 class CountBubbleIteration3D : public PlainReductiveBoxProcessingFunctional3D
 {
 public:
-    CountBubbleIteration3D(bool matchEmpty_);
+    CountBubbleIteration3D();
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
     virtual CountBubbleIteration3D* clone() const;
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
@@ -177,14 +176,13 @@ public:
     plint getNumConflicts() const;
 private:
     plint numConflictsId;
-    bool matchEmpty;
 };
 
 template<typename T>
 class AnalyzeBubbles3D : public BoxProcessingFunctional3D
 {
 public:
-    AnalyzeBubbles3D(pluint numBubbles_, bool matchEmpty_);
+    AnalyzeBubbles3D(pluint numBubbles_);
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
     virtual AnalyzeBubbles3D<T>* clone() const;
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
@@ -195,7 +193,6 @@ public:
     }
 private:
     pluint numBubbles;
-    bool matchEmpty;
 };
 
 

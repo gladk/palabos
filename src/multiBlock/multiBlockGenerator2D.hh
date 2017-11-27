@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -112,6 +112,26 @@ std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
             defaultMultiBlockPolicy2D().getCombinedStatistics(),
             defaultMultiBlockPolicy2D().getMultiScalarAccess<T>(), iniVal )
     );
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
+        MultiBlock2D& multiBlock, plint envelopeWidth )
+{
+    MultiBlockManagement2D sparseBlockManagement(multiBlock.getMultiBlockManagement());
+    MultiScalarField2D<T>* field = new MultiScalarField2D<T> (
+            MultiBlockManagement2D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy2D().getBlockCommunicator(),
+            defaultMultiBlockPolicy2D().getCombinedStatistics(),
+            defaultMultiBlockPolicy2D().getMultiScalarAccess<T>() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+
+    return std::auto_ptr<MultiScalarField2D<T> >(field);
 }
 
 template<typename T>
@@ -351,12 +371,46 @@ std::auto_ptr<MultiNTensorField2D<T> > defaultGenerateMultiNTensorField2D (
 }
 
 template<typename T>
+MultiNTensorField2D<T>* generateMultiNTensorField2D (
+        MultiBlock2D& multiBlock, plint envelopeWidth, plint ndim )
+{
+    MultiBlockManagement2D sparseBlockManagement(multiBlock.getMultiBlockManagement());
+    MultiNTensorField2D<T>* field = new MultiNTensorField2D<T> (
+            ndim,
+            MultiBlockManagement2D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth,
+                sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy2D().getBlockCommunicator(),
+            defaultMultiBlockPolicy2D().getCombinedStatistics(),
+            defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+
+    return field;
+}
+
+template<typename T>
 MultiNTensorField2D<T>* generateMultiNTensorField2D(Box2D const& domain, plint ndim)
 {
     plint defaultEnvelopeWidth = 1;
     MultiNTensorField2D<T>* field = new MultiNTensorField2D<T> (
         ndim,
         defaultMultiBlockPolicy2D().getMultiBlockManagement(domain,defaultEnvelopeWidth),
+        defaultMultiBlockPolicy2D().getBlockCommunicator(),
+        defaultMultiBlockPolicy2D().getCombinedStatistics(),
+        defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
+    return field;
+}
+
+template<typename T>
+MultiNTensorField2D<T>* generateMultiNTensorField2D(Box2D const& domain, plint ndim, T* iniVal, plint envelopeWidth)
+{
+    MultiNTensorField2D<T>* field = new MultiNTensorField2D<T> (
+        ndim, iniVal,
+        defaultMultiBlockPolicy2D().getMultiBlockManagement(domain, envelopeWidth),
         defaultMultiBlockPolicy2D().getBlockCommunicator(),
         defaultMultiBlockPolicy2D().getCombinedStatistics(),
         defaultMultiBlockPolicy2D().getMultiNTensorAccess<T>() );
@@ -617,7 +671,7 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > generateMultiTensorField (
 
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField2D<T,nDim> > defaultGenerateMultiTensorField2D (
-        MultiBlockManagement2D const& management, plint nDimParam )
+        MultiBlockManagement2D const& management, plint unnamedDummyArg )
 {
     Array<T,nDim> iniVal;
     iniVal.resetToZero();
@@ -882,7 +936,7 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > generateMultiBlockLattice (
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > defaultGenerateMultiBlockLattice2D (
-        MultiBlockManagement2D const& management, plint nDim )
+        MultiBlockManagement2D const& management, plint unnamedDummyArg )
 {
     return std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > (
         new MultiBlockLattice2D<T,Descriptor> (
@@ -1110,6 +1164,51 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > reparallelize (
 
     return newBlock;
 }
+
+
+
+/* *************** 4. MultiParticleField ************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField2D<DenseParticleField2D<T,Descriptor> > > generateMultiDenseParticleField (
+        Box2D boundingBox, plint envelopeWidth )
+{
+    return std::auto_ptr<MultiParticleField2D<DenseParticleField2D<T,Descriptor> > > (
+        new MultiParticleField2D<DenseParticleField2D<T,Descriptor> > (
+            defaultMultiBlockPolicy2D().getMultiBlockManagement(boundingBox, envelopeWidth),
+            defaultMultiBlockPolicy2D().getCombinedStatistics() )
+    );
+}
+
+template<class ParticleFieldT>
+std::auto_ptr<MultiParticleField2D<ParticleFieldT> > generateMultiParticleField2D (
+        Box2D boundingBox, plint envelopeWidth )
+{
+    return std::auto_ptr<MultiParticleField2D<ParticleFieldT> > (
+        new MultiParticleField2D<ParticleFieldT> (
+            defaultMultiBlockPolicy2D().getMultiBlockManagement(boundingBox, envelopeWidth),
+            defaultMultiBlockPolicy2D().getCombinedStatistics() )
+    );
+}
+
+template<class ParticleFieldT>
+std::auto_ptr<MultiParticleField2D<ParticleFieldT> > generateMultiParticleField2D (
+        MultiBlock2D& multiBlock, plint envelopeWidth )
+{
+    MultiBlockManagement2D sparseBlockManagement(multiBlock.getMultiBlockManagement());
+    MultiParticleField2D<ParticleFieldT>* field = new MultiParticleField2D<ParticleFieldT> (
+            MultiBlockManagement2D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy2D().getCombinedStatistics() );
+
+    field->periodicity().toggle(0, multiBlock.periodicity().get(0));
+    field->periodicity().toggle(1, multiBlock.periodicity().get(1));
+
+    return std::auto_ptr<MultiParticleField2D<ParticleFieldT> >(field);
+}
+
 
 }  // namespace plb
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -180,7 +180,8 @@ inline CoProcessor3D<T>& defaultCoProcessor3D() {
     /// @Tomasz: At this stage, I'd suggest that you simply replace the
     //  D3Q19ExampleCoProcessor3D singleton by a
     //  D3Q19CudaCoProcessor3D singleton to get your code running.
-    static D3Q19CudaCoProcessor3D<T> singleton;
+    static D3Q19ExampleCoProcessor3D<T> singleton;
+    //static D3Q19CudaCoProcessor3D<T> singleton;
     return singleton;
 };
 

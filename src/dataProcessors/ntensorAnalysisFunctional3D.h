@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,6 +42,26 @@ class CopyConvertNTensorFunctional3D : public BoxProcessingFunctional3D_NN<T1,T2
 public:
     virtual void process(Box3D domain, NTensorField3D<T1>& field1, NTensorField3D<T2>& field2);
     virtual CopyConvertNTensorFunctional3D<T1,T2>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class ConvertNTensorToScalarFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual ConvertNTensorToScalarFunctional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+};
+
+template<typename T>
+class ConvertScalarToNTensorFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual ConvertScalarToNTensorFunctional3D<T>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual BlockDomain::DomainT appliesTo() const;
 };

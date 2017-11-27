@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,7 +36,7 @@ namespace plb {
 template<typename T, template<typename U> class Descriptor>
 class ParticleField3D : public AtomicBlock3D {
 public:
-    ParticleField3D(plint nx, plint ny, plint nz);
+    ParticleField3D(plint nx, plint ny, plint nz, BlockDataTransfer3D* dataTransfer);
     /// Add a particle if it is part of the domain, else delete it.
     /** This method with domain-argument is provided here exclusively,
      *    because it may not be easy for an outside instance to decide
@@ -56,6 +56,8 @@ public:
                                std::vector<Particle3D<T,Descriptor> const*>& found) const =0;
     /// Execute velocity-particle interaction for all particles contained in the domain.
     virtual void velocityToParticleCoupling(Box3D domain, TensorField3D<T,3>& velocity, T scaling=0.) =0;
+    /// Execute velocity-particle interaction for all particles contained in the domain.
+    virtual void velocityToParticleCoupling(Box3D domain, NTensorField3D<T>& velocity, T scaling=0.) =0;
     /// Execute velocity-particle interaction for all particles contained in the domain.
     virtual void rhoBarJtoParticleCoupling(Box3D domain, NTensorField3D<T>& rhoBarJ, bool velIsJ, T scaling=0.) =0;
     /// Execute fluid-particle interaction for all particles contained in the domain.
@@ -80,7 +82,10 @@ template<typename T, template<typename U> class Descriptor> class DenseParticleF
 template<typename T, template<typename U> class Descriptor>
 class DenseParticleDataTransfer3D : public BlockDataTransfer3D {
 public:
-    DenseParticleDataTransfer3D(DenseParticleField3D<T,Descriptor>& particleField_);
+    DenseParticleDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual DenseParticleDataTransfer3D<T,Descriptor>* clone() const;
     virtual plint staticCellSize() const;
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
     virtual void receive(Box3D domain, std::vector<char> const& buffer, modif::ModifT kind);
@@ -95,7 +100,8 @@ public:
     virtual void attribute(Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
                            AtomicBlock3D const& from, modif::ModifT kind, Dot3D absoluteOffset);
 private:
-    DenseParticleField3D<T,Descriptor>& particleField;
+    DenseParticleField3D<T,Descriptor>* particleField;
+    DenseParticleField3D<T,Descriptor> const* constParticleField;
 };
 
 template<typename T, template<typename U> class Descriptor>
@@ -118,12 +124,11 @@ public:
     virtual void findParticles(Box3D domain,
                                std::vector<Particle3D<T,Descriptor> const*>& found) const;
     virtual void velocityToParticleCoupling(Box3D domain, TensorField3D<T,3>& velocity, T scaling=0.);
+    virtual void velocityToParticleCoupling(Box3D domain, NTensorField3D<T>& velocity, T scaling=0.);
     virtual void rhoBarJtoParticleCoupling(Box3D domain, NTensorField3D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
     virtual void fluidToParticleCoupling(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, T scaling=0.);
     virtual void advanceParticles(Box3D domain, T cutOffValue=-1.);
 public:
-    virtual DenseParticleDataTransfer3D<T,Descriptor>& getDataTransfer();
-    virtual DenseParticleDataTransfer3D<T,Descriptor> const& getDataTransfer() const;
     static std::string getBlockName();
     static std::string basicType();
     static std::string descriptorType();
@@ -138,7 +143,10 @@ template<typename T, template<typename U> class Descriptor> class LightParticleF
 template<typename T, template<typename U> class Descriptor>
 class LightParticleDataTransfer3D : public BlockDataTransfer3D {
 public:
-    LightParticleDataTransfer3D(LightParticleField3D<T,Descriptor>& particleField_);
+    LightParticleDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual LightParticleDataTransfer3D<T,Descriptor>* clone() const;
     virtual plint staticCellSize() const;
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
     virtual void receive(Box3D domain, std::vector<char> const& buffer, modif::ModifT kind);
@@ -153,7 +161,8 @@ public:
     virtual void attribute(Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
                            AtomicBlock3D const& from, modif::ModifT kind, Dot3D absoluteOffset);
 private:
-    LightParticleField3D<T,Descriptor>& particleField;
+    LightParticleField3D<T,Descriptor>* particleField;
+    LightParticleField3D<T,Descriptor> const* constParticleField;
 };
 
 template<typename T, template<typename U> class Descriptor>
@@ -176,12 +185,11 @@ public:
     virtual void findParticles(Box3D domain,
                                std::vector<Particle3D<T,Descriptor> const*>& found) const;
     virtual void velocityToParticleCoupling(Box3D domain, TensorField3D<T,3>& velocity, T scaling=0.);
+    virtual void velocityToParticleCoupling(Box3D domain, NTensorField3D<T>& velocity, T scaling=0.);
     virtual void rhoBarJtoParticleCoupling(Box3D domain, NTensorField3D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
     virtual void fluidToParticleCoupling(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, T scaling=0.);
     virtual void advanceParticles(Box3D domain, T cutOffValue=-1.);
 public:
-    virtual LightParticleDataTransfer3D<T,Descriptor>& getDataTransfer();
-    virtual LightParticleDataTransfer3D<T,Descriptor> const& getDataTransfer() const;
     static std::string getBlockName();
     static std::string basicType();
     static std::string descriptorType();

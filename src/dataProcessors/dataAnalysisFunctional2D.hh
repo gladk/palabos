@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -218,12 +218,12 @@ LatticeCopyAllFunctional2D<T,Descriptor>* LatticeCopyAllFunctional2D<T,Descripto
 template<typename T, template<typename U> class Descriptor> 
 void LatticeCopyAllFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
     modified[0] = modif::nothing;
-    modified[1] = modif::staticVariables;
+    modified[1] = modif::allVariables;
 }
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT LatticeCopyAllFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -286,7 +286,7 @@ void BoxDensityFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<mod
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxDensityFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -318,7 +318,7 @@ void BoxRhoBarFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modi
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxRhoBarFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -416,7 +416,7 @@ void BoxKineticEnergyFunctional2D<T,Descriptor>::getTypeOfModification(std::vect
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxKineticEnergyFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -452,7 +452,7 @@ void BoxVelocityNormFunctional2D<T,Descriptor>::getTypeOfModification(std::vecto
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxVelocityNormFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -490,7 +490,7 @@ void BoxVelocityComponentFunctional2D<T,Descriptor>::getTypeOfModification(std::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxVelocityComponentFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -520,7 +520,7 @@ void BoxVelocityFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<mo
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxVelocityFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -551,7 +551,7 @@ void BoxPiNeqFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxPiNeqFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -582,7 +582,7 @@ void BoxShearStressFunctional2D<T,Descriptor>::getTypeOfModification(std::vector
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxShearStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -622,7 +622,7 @@ void BoxStrainRateFromStressFunctional2D<T,Descriptor>::getTypeOfModification(st
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxStrainRateFromStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor> 
@@ -652,7 +652,7 @@ void BoxTemperatureFunctional2D<T,Descriptor>::getTypeOfModification(std::vector
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxTemperatureFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor> 
@@ -685,7 +685,7 @@ void BoxSoundSpeedFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxSoundSpeedFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -720,7 +720,7 @@ void BoxPopulationFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxPopulationFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -760,7 +760,7 @@ void BoxEquilibriumFunctional2D<T,Descriptor>::getTypeOfModification(std::vector
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxEquilibriumFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -796,7 +796,7 @@ void BoxAllPopulationsFunctional2D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxAllPopulationsFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -833,7 +833,7 @@ void BoxAllPopulationsToLatticeFunctional2D<T,Descriptor>::getTypeOfModification
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT BoxAllPopulationsToLatticeFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor> 
@@ -863,7 +863,7 @@ void BoxOmegaFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxOmegaFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -963,7 +963,7 @@ void BoxExternalVectorFunctional2D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT BoxExternalVectorFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1089,6 +1089,53 @@ T BoxScalarMinFunctional2D<T>::getMinScalar() const {
 
 
 template<typename T>
+MaskedBoxScalarMinFunctional2D<T>::MaskedBoxScalarMinFunctional2D(int flag_)
+    : maxScalarId(this->getStatistics().subscribeMax()),
+      flag(flag_)
+{ }
+
+template<typename T>
+void MaskedBoxScalarMinFunctional2D<T>::process (
+        Box2D domain,
+        ScalarField2D<T>& scalarField,
+        ScalarField2D<int>& mask )
+{
+    BlockStatistics& statistics = this->getStatistics();
+    Dot2D offset = computeRelativeDisplacement(scalarField, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            if (mask.get(iX+offset.x, iY+offset.y)==flag) {
+                // BlockStatistics computes only maximum, no minimum. Therefore,
+                //   the relation min(x) = -max(-x) is used.
+                statistics.gatherMax(maxScalarId, -(double)scalarField.get(iX,iY));
+            }
+        }
+    }
+}
+
+template<typename T>
+MaskedBoxScalarMinFunctional2D<T>* MaskedBoxScalarMinFunctional2D<T>::clone() const
+{
+    return new MaskedBoxScalarMinFunctional2D<T>(*this);
+}
+
+template<typename T>
+T MaskedBoxScalarMinFunctional2D<T>::getMinScalar() const {
+    // The minus sign accounts for the relation min(x) = -max(-x).
+    // The sum is internally computed on floating-point values. If T is
+    //   integer, the value must be rounded at the end.
+    double doubleMin = - this->getStatistics().getMax(maxScalarId);
+    if (std::numeric_limits<T>::is_integer) {
+        return (T) util::roundToInt(doubleMin);
+    }
+    return (T) doubleMin;
+}
+
+
+
+
+
+template<typename T>
 BoxScalarMaxFunctional2D<T>::BoxScalarMaxFunctional2D()
     : maxScalarId(this->getStatistics().subscribeMax())
 { }
@@ -1121,6 +1168,49 @@ T BoxScalarMaxFunctional2D<T>::getMaxScalar() const {
     }
     return (T) doubleMax;
 }
+
+
+template<typename T>
+MaskedBoxScalarMaxFunctional2D<T>::MaskedBoxScalarMaxFunctional2D(int flag_)
+    : maxScalarId(this->getStatistics().subscribeMax()),
+      flag(flag_)
+{ }
+
+template<typename T>
+void MaskedBoxScalarMaxFunctional2D<T>::process (
+        Box2D domain,
+        ScalarField2D<T>& scalarField,
+        ScalarField2D<int>& mask )
+{
+    BlockStatistics& statistics = this->getStatistics();
+    Dot2D offset = computeRelativeDisplacement(scalarField, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            if (mask.get(iX+offset.x, iY+offset.y)==flag) {
+                statistics.gatherMax(maxScalarId, (double)scalarField.get(iX,iY));
+            }
+        }
+    }
+}
+
+template<typename T>
+MaskedBoxScalarMaxFunctional2D<T>* MaskedBoxScalarMaxFunctional2D<T>::clone() const
+{
+    return new MaskedBoxScalarMaxFunctional2D<T>(*this);
+}
+
+template<typename T>
+T MaskedBoxScalarMaxFunctional2D<T>::getMaxScalar() const {
+    // The sum is internally computed on floating-point values. If T is
+    //   integer, the value must be rounded at the end.
+    double doubleMax = this->getStatistics().getMax(maxScalarId);
+    if (std::numeric_limits<T>::is_integer) {
+        return (T) util::roundToInt(doubleMax);
+    }
+    return (T) doubleMax;
+}
+
+
 
 
 template<typename T>
@@ -1252,7 +1342,7 @@ void ExtractScalarSubDomainFunctional2D<T>::getTypeOfModification(std::vector<mo
 
 template<typename T>
 BlockDomain::DomainT ExtractScalarSubDomainFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 /* ******** compute absolute value functional 2D ************************************* */
@@ -1284,7 +1374,7 @@ void ComputeAbsoluteValueFunctional2D<T>::getTypeOfModification(std::vector<modi
 
 template<typename T>
 BlockDomain::DomainT ComputeAbsoluteValueFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 /* ******** compute sqrt functional 2D ************************************* */
@@ -1297,7 +1387,6 @@ void ComputeScalarSqrtFunctional2D<T>::process (
     Dot2D offset = computeRelativeDisplacement(A, B);
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            PLB_ASSERT( A.get(iX,iY) >= T());
             B.get(iX+offset.x,iY+offset.y) = std::sqrt( A.get(iX,iY) );
         }
     }
@@ -1317,7 +1406,43 @@ void ComputeScalarSqrtFunctional2D<T>::getTypeOfModification(std::vector<modif::
 
 template<typename T>
 BlockDomain::DomainT ComputeScalarSqrtFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
+}
+
+/* ******** compute pow functional 2D ************************************* */
+
+template<typename T>
+ComputeScalarPowFunctional2D<T>::ComputeScalarPowFunctional2D(T power_) : power(power_)
+{ }
+
+template<typename T>
+void ComputeScalarPowFunctional2D<T>::process (
+        Box2D domain, ScalarField2D<T>& A,
+                      ScalarField2D<T>& B )
+{
+    Dot2D offset = computeRelativeDisplacement(A, B);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            B.get(iX+offset.x,iY+offset.y) = std::pow( A.get(iX,iY), power );
+        }
+    }
+}
+
+template<typename T>
+ComputeScalarPowFunctional2D<T>* ComputeScalarPowFunctional2D<T>::clone() const
+{
+    return new ComputeScalarPowFunctional2D<T>(*this);
+}
+
+template<typename T>
+void ComputeScalarPowFunctional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
+template<typename T>
+BlockDomain::DomainT ComputeScalarPowFunctional2D<T>::appliesTo() const {
+    return BlockDomain::bulk;
 }
 
 /* ******** compute log functional 2D ************************************* */
@@ -1350,7 +1475,7 @@ void ComputeScalarLogFunctional2D<T>::getTypeOfModification(std::vector<modif::M
 
 template<typename T>
 BlockDomain::DomainT ComputeScalarLogFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 /* ******** compute sqrt functional 2D ************************************* */
@@ -1385,7 +1510,7 @@ void ComputeTensorSqrtFunctional2D<T,nDim>::getTypeOfModification(std::vector<mo
 
 template<typename T, int nDim>
 BlockDomain::DomainT ComputeTensorSqrtFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1422,7 +1547,7 @@ void A_lt_alpha_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_lt_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1459,7 +1584,7 @@ void A_gt_alpha_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_gt_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1495,7 +1620,7 @@ void A_plus_alpha_functional2D<T>::getTypeOfModification(std::vector<modif::Modi
 
 template<typename T>
 BlockDomain::DomainT A_plus_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1531,7 +1656,7 @@ void A_minus_alpha_functional2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT A_minus_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1567,7 +1692,7 @@ void Alpha_minus_A_functional2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT Alpha_minus_A_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1604,7 +1729,7 @@ void A_times_alpha_functional2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT A_times_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 /* ******** Tensor_A_times_alpha_functional2D ************************************* */
@@ -1641,7 +1766,7 @@ void Tensor_A_times_alpha_functional2D<T,nDim>::getTypeOfModification(std::vecto
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_times_alpha_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1677,7 +1802,7 @@ void A_dividedBy_alpha_functional2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT A_dividedBy_alpha_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1713,7 +1838,7 @@ void Alpha_dividedBy_A_functional2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Alpha_dividedBy_A_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1888,7 +2013,7 @@ void A_lt_B_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& m
 
 template<typename T>
 BlockDomain::DomainT A_lt_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1926,7 +2051,7 @@ void A_gt_B_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& m
 
 template<typename T>
 BlockDomain::DomainT A_gt_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1964,7 +2089,7 @@ void A_plus_B_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT>&
 
 template<typename T>
 BlockDomain::DomainT A_plus_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2002,7 +2127,7 @@ void A_minus_B_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT>
 
 template<typename T>
 BlockDomain::DomainT A_minus_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2040,7 +2165,7 @@ void A_times_B_functional2D<T>::getTypeOfModification(std::vector<modif::ModifT>
 
 template<typename T>
 BlockDomain::DomainT A_times_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2078,7 +2203,7 @@ void A_dividedBy_B_functional2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT A_dividedBy_B_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2109,7 +2234,7 @@ void A_plus_B_inplace_functional2D<T>::getTypeOfModification(std::vector<modif::
 
 template<typename T>
 BlockDomain::DomainT A_plus_B_inplace_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2140,7 +2265,7 @@ void A_minus_B_inplace_functional2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT A_minus_B_inplace_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2171,7 +2296,7 @@ void A_times_B_inplace_functional2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT A_times_B_inplace_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2202,7 +2327,7 @@ void A_dividedBy_B_inplace_functional2D<T>::getTypeOfModification(std::vector<mo
 
 template<typename T>
 BlockDomain::DomainT A_dividedBy_B_inplace_functional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2276,14 +2401,16 @@ void ExtractTensorSubDomainFunctional2D<T,nDim>::getTypeOfModification(std::vect
 
 template<typename T, int nDim>
 BlockDomain::DomainT ExtractTensorSubDomainFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
 template<typename T, int nDim>
 ExtractTensorComponentFunctional2D<T,nDim>::ExtractTensorComponentFunctional2D(int iComponent_)
     : iComponent(iComponent_)
-{ }
+{
+    PLB_ASSERT( iComponent<nDim );
+}
 
 template<typename T, int nDim>
 void ExtractTensorComponentFunctional2D<T,nDim>::process (
@@ -2312,7 +2439,7 @@ void ExtractTensorComponentFunctional2D<T,nDim>::getTypeOfModification(std::vect
 
 template<typename T, int nDim>
 BlockDomain::DomainT ExtractTensorComponentFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2344,7 +2471,7 @@ void ComputeNormFunctional2D<T,nDim>::getTypeOfModification(std::vector<modif::M
 
 template<typename T, int nDim>
 BlockDomain::DomainT ComputeNormFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2380,7 +2507,7 @@ void ComputeNormSqrFunctional2D<T,nDim>::getTypeOfModification(std::vector<modif
 
 template<typename T, int nDim>
 BlockDomain::DomainT ComputeNormSqrFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2417,7 +2544,7 @@ void ComputeSymmetricTensorNormFunctional2D<T>::getTypeOfModification(std::vecto
 
 template<typename T>
 BlockDomain::DomainT ComputeSymmetricTensorNormFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2454,7 +2581,7 @@ void ComputeSymmetricTensorNormSqrFunctional2D<T>::getTypeOfModification(std::ve
 
 template<typename T>
 BlockDomain::DomainT ComputeSymmetricTensorNormSqrFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T>
@@ -2486,9 +2613,33 @@ void ComputeSymmetricTensorTraceFunctional2D<T>::getTypeOfModification(std::vect
 
 template<typename T>
 BlockDomain::DomainT ComputeSymmetricTensorTraceFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
+template<typename T, int nDim>
+void BoxLocalMaximumPerComponentFunctional2D<T,nDim>::process (
+        Box2D domain, ScalarField2D<T>& scalarField,
+                      TensorField2D<T,nDim>& tensorField )
+{
+    Dot2D offset = computeRelativeDisplacement(scalarField, tensorField);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            scalarField.get(iX,iY) = maxElement(tensorField.get(iX+offset.x,iY+offset.y));
+        }
+    }
+}
+
+template<typename T, int nDim>
+BoxLocalMaximumPerComponentFunctional2D<T,nDim>* BoxLocalMaximumPerComponentFunctional2D<T,nDim>::clone() const
+{
+    return new BoxLocalMaximumPerComponentFunctional2D<T,nDim>(*this);
+}
+
+template<typename T, int nDim>
+void BoxLocalMaximumPerComponentFunctional2D<T,nDim>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
+    modified[1] = modif::nothing;
+}
 
 template<typename T>
 void BoxGradientFunctional2D<T>::processBulk (
@@ -2594,7 +2745,7 @@ void BoxBulkVorticityFunctional2D<T,nDim>::getTypeOfModification(std::vector<mod
 
 template<typename T, int nDim>
 BlockDomain::DomainT BoxBulkVorticityFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2701,7 +2852,7 @@ void BoxBulkStrainRateFunctional2D<T,nDim>::getTypeOfModification(std::vector<mo
 
 template<typename T, int nDim>
 BlockDomain::DomainT BoxBulkStrainRateFunctional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2819,7 +2970,7 @@ void Tensor_A_plus_B_functional2D<T,nDim>::getTypeOfModification(std::vector<mod
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_plus_B_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2857,7 +3008,7 @@ void Tensor_A_minus_B_functional2D<T,nDim>::getTypeOfModification(std::vector<mo
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_minus_B_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2895,7 +3046,7 @@ void Tensor_A_times_B_functional2D<T,nDim>::getTypeOfModification(std::vector<mo
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_times_B_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2933,7 +3084,7 @@ void Tensor_A_dividedBy_B_functional2D<T,nDim>::getTypeOfModification(std::vecto
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_dividedBy_B_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2964,7 +3115,7 @@ void Tensor_A_plus_B_inplace_functional2D<T,nDim>::getTypeOfModification(std::ve
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_plus_B_inplace_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2995,7 +3146,7 @@ void Tensor_A_minus_B_inplace_functional2D<T,nDim>::getTypeOfModification(std::v
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_minus_B_inplace_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3026,7 +3177,7 @@ void Tensor_A_times_B_inplace_functional2D<T,nDim>::getTypeOfModification(std::v
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_times_B_inplace_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3096,7 +3247,7 @@ void Tensor_A_dividedBy_B_inplace_functional2D<T,nDim>::getTypeOfModification(st
 
 template<typename T, int nDim>
 BlockDomain::DomainT Tensor_A_dividedBy_B_inplace_functional2D<T,nDim>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 }  // namespace plb

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 /** \file
@@ -56,8 +56,8 @@ void executeDataProcessor( DataProcessorGenerator3D const& generator,
         plint dxScale = referenceLevel - iLevel;
         plint dtScale = dxScale;  // TODO: here, we assume convective scaling; general case should be considered.
         
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
-        if (dxScale < 0) // if we go to a coarser grid
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
+        if (dxScale > 0) // if we go to a coarser grid          // I (Helen, 2014) changed the sign here... this seems to work for my particular case, but I'm not entirely sure about this!!
             localGenerator->divide(boxRescaleFactor);  
         else  // otherwise we go to a finer grid
             localGenerator->multiply(boxRescaleFactor);
@@ -105,28 +105,33 @@ void executeDataProcessor( ReductiveDataProcessorGenerator3D& generator,
     generator.getDimensionsT(dimensionsT);
     std::vector<ReductiveDataProcessorGenerator3D*> localGenerators(numLevels);
     std::vector<BlockStatistics*> localStatistics(numLevels);
+
     for (plint iLevel=0; iLevel<numLevels; ++iLevel) {
         int dxScale = referenceLevel - iLevel;
         int dtScale = dxScale;  // TODO: here, we assume convective scaling; general case could be considered.
         localGenerators[iLevel] = generator.clone();
         
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
-        if (dxScale < 0)
-            generator.divide(boxRescaleFactor);  
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
+        if (dxScale > 0)
+            generator.divide(boxRescaleFactor);
         else
             generator.multiply(boxRescaleFactor);
+
+        localGenerators[iLevel]->setscale(dxScale,dtScale);
+
         std::vector<MultiBlock3D*> localBlocks(multiGrids.size());
         for (plint iBlock=0; iBlock<(plint)localBlocks.size(); ++iBlock) {
             localBlocks[iBlock] = &multiGrids[iBlock]->getComponent(iLevel);
         }
         executeDataProcessor(*localGenerators[iLevel], localBlocks);
-        std::vector<double> scales(dimensionsX.size());
-        for (pluint iScale=0; iScale<scales.size(); ++iScale) {
-            scales[iScale] = scaleToReference(dxScale, dimensionsX[iScale], dtScale, dimensionsT[iScale]);
-        }
-        localGenerators[iLevel]->getStatistics().rescale(scales);
+//        std::vector<double> scales(dimensionsX.size());
+//        for (pluint iScale=0; iScale<scales.size(); ++iScale) {
+//            scales[iScale] = scaleToReference(dxScale, dimensionsX[iScale], dtScale, dimensionsT[iScale]);
+//        }
+//        localGenerators[iLevel]->getStatistics().rescale(scales);
         localStatistics[iLevel] = &(localGenerators[iLevel]->getStatistics());
     }
+
     combine(localStatistics, generator.getStatistics());
 }
 
@@ -162,7 +167,7 @@ void addInternalProcessor( DataProcessorGenerator3D const& generator,
         plint dtScale = dxScale;  // TODO: here, we assume convective scaling; general case should be considered.
         
         localGenerator -> setscale(dxScale,dtScale);
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
         // if dxScale < 0 this means we go to a coarser grid
         if (dxScale < 0)
             localGenerator->divide(boxRescaleFactor);  

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Palabos" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="bin/Release/Palabos" prefix_auto="1" extension_auto="1" />
+                                <Option working_dir="" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O3" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+			<Target title="Debug">
+				<Option output="bin/Debug/Palabos" prefix_auto="1" extension_auto="1" />
+                                <Option working_dir="" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-DPLB_DEBUG" />
+				</Compiler>
+				<Linker>
+					<Add option="-g" />
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall -Wno-deprecated-declarations" />
+			<Add directory="../src" />
+			<Add directory="../externalLibraries" />
+		</Compiler>
+
+		<Unit filename="../examples/showCases/cavity2d/cavity2d.cpp" />
+		<Unit filename="../src/algorithm/empiricalData.cpp" />
+		<Unit filename="../src/offLattice/marchingCube.cpp" />
+		<Unit filename="../src/offLattice/voxelizer.cpp" />
+		<Unit filename="../src/offLattice/domainClustering3D.cpp" />
+		<Unit filename="../src/io/parallelIO.cpp" />
+		<Unit filename="../src/io/serializerIO_3D.cpp" />
+		<Unit filename="../src/io/multiBlockReader2D.cpp" />
+		<Unit filename="../src/io/multiBlockWriter3D.cpp" />
+		<Unit filename="../src/io/vtkStructuredDataOutput.cpp" />
+		<Unit filename="../src/io/sparseVtkDataOutput.cpp" />
+		<Unit filename="../src/io/utilIO_3D.cpp" />
+		<Unit filename="../src/io/vtkDataOutput.cpp" />
+		<Unit filename="../src/io/multiBlockWriter2D.cpp" />
+		<Unit filename="../src/io/serializerIO_2D.cpp" />
+		<Unit filename="../src/io/plbFiles.cpp" />
+		<Unit filename="../src/io/utilIO_2D.cpp" />
+		<Unit filename="../src/io/mpiParallelIO.cpp" />
+		<Unit filename="../src/io/serializerIO.cpp" />
+		<Unit filename="../src/io/colormaps.cpp" />
+		<Unit filename="../src/io/multiBlockReader3D.cpp" />
+		<Unit filename="../src/libraryInterfaces/TINYXML_xmlIO.cpp" />
+		<Unit filename="../src/gridRefinement/octreeGridGenerator.cpp" />
+		<Unit filename="../src/gridRefinement/octreeGridStructure.cpp" />
+		<Unit filename="../src/gridRefinement/boxLogic3D.cpp" />
+		<Unit filename="../src/gridRefinement/couplingInterfaceGenerator3D.cpp" />
+		<Unit filename="../src/gridRefinement/octree.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessingFunctional2D.cpp" />
+		<Unit filename="../src/atomicBlock/reductiveDataProcessorWrapper3D.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessorWrapper3D.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessorWrapper2D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlockSerializer3D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlock3D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlockSerializer2D.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessor2D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlockOperations3D.cpp" />
+		<Unit filename="../src/atomicBlock/reductiveDataProcessingFunctional2D.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessor3D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlock2D.cpp" />
+		<Unit filename="../src/atomicBlock/reductiveDataProcessorWrapper2D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicContainerBlock3D.cpp" />
+		<Unit filename="../src/atomicBlock/reductiveDataProcessingFunctional3D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicContainerBlock2D.cpp" />
+		<Unit filename="../src/atomicBlock/atomicBlockOperations2D.cpp" />
+		<Unit filename="../src/atomicBlock/dataProcessingFunctional3D.cpp" />
+		<Unit filename="../src/multiGrid/multiScale.cpp" />
+		<Unit filename="../src/multiGrid/multiGridOperations2D.cpp" />
+		<Unit filename="../src/multiGrid/parallelizer2D.cpp" />
+		<Unit filename="../src/multiGrid/multiGridOperations3D.cpp" />
+		<Unit filename="../src/multiGrid/multiGridManagement2D.cpp" />
+		<Unit filename="../src/multiGrid/multiGridDataProcessorWrapper2D.cpp" />
+		<Unit filename="../src/multiGrid/multiGridManagement3D.cpp" />
+		<Unit filename="../src/multiGrid/domainDivision3D.cpp" />
+		<Unit filename="../src/multiGrid/multiGridDataProcessorWrapper3D.cpp" />
+		<Unit filename="../src/multiGrid/multiGrid3D.cpp" />
+		<Unit filename="../src/multiGrid/parallelizer3D.cpp" />
+		<Unit filename="../src/multiGrid/multiGrid2D.cpp" />
+		<Unit filename="../src/dataProcessors/metaStuffFunctional2D.cpp" />
+		<Unit filename="../src/dataProcessors/metaStuffWrapper2D.cpp" />
+		<Unit filename="../src/dataProcessors/metaStuffFunctional3D.cpp" />
+		<Unit filename="../src/dataProcessors/metaStuffWrapper3D.cpp" />
+		<Unit filename="../src/parallelism/sendRecvPool.cpp" />
+		<Unit filename="../src/parallelism/parallelStatistics.cpp" />
+		<Unit filename="../src/parallelism/parallelBlockCommunicator2D.cpp" />
+		<Unit filename="../src/parallelism/parallelBlockCommunicator3D.cpp" />
+		<Unit filename="../src/parallelism/mpiManager.cpp" />
+		<Unit filename="../src/complexDynamics/carreauGlobalDefs.cpp" />
+		<Unit filename="../src/multiPhysics/freeSurfaceAnalysis3D.cpp" />
+		<Unit filename="../src/multiPhysics/bubbleMatch3D.cpp" />
+		<Unit filename="../src/multiBlock/localMultiBlockInfo3D.cpp" />
+		<Unit filename="../src/multiBlock/multiDataProcessorWrapper3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockManagement2D.cpp" />
+		<Unit filename="../src/multiBlock/redistribution3D.cpp" />
+		<Unit filename="../src/multiBlock/coupling3D.cpp" />
+		<Unit filename="../src/multiBlock/domainManipulation2D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockInfo3D.cpp" />
+		<Unit filename="../src/multiBlock/reductiveMultiDataProcessorWrapper3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockManagement3D.cpp" />
+		<Unit filename="../src/multiBlock/sparseBlockStructure2D.cpp" />
+		<Unit filename="../src/multiBlock/serialBlockCommunicator3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockOperations2D.cpp" />
+		<Unit filename="../src/multiBlock/staticRepartitions2D.cpp" />
+		<Unit filename="../src/multiBlock/multiContainerBlock2D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockSerializer3D.cpp" />
+		<Unit filename="../src/multiBlock/group3D.cpp" />
+		<Unit filename="../src/multiBlock/reductiveMultiDataProcessorWrapper2D.cpp" />
+		<Unit filename="../src/multiBlock/threadAttribution.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockGenerator2D.cpp" />
+		<Unit filename="../src/multiBlock/group2D.cpp" />
+		<Unit filename="../src/multiBlock/coupling2D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlock3D.cpp" />
+		<Unit filename="../src/multiBlock/multiDataProcessorWrapper2D.cpp" />
+		<Unit filename="../src/multiBlock/localMultiBlockInfo2D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockGenerator3D.cpp" />
+		<Unit filename="../src/multiBlock/nonLocalTransfer2D.cpp" />
+		<Unit filename="../src/multiBlock/combinedStatistics.cpp" />
+		<Unit filename="../src/multiBlock/nonLocalTransfer3D.cpp" />
+		<Unit filename="../src/multiBlock/staticRepartitions3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockOperations3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockInfo2D.cpp" />
+		<Unit filename="../src/multiBlock/domainManipulation3D.cpp" />
+		<Unit filename="../src/multiBlock/multiContainerBlock3D.cpp" />
+		<Unit filename="../src/multiBlock/sparseBlockStructure3D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlockSerializer2D.cpp" />
+		<Unit filename="../src/multiBlock/serialBlockCommunicator2D.cpp" />
+		<Unit filename="../src/multiBlock/multiBlock2D.cpp" />
+		<Unit filename="../src/multiBlock/nonLocalTransfer2D_3D.cpp" />
+		<Unit filename="../src/core/blockSurface2D.cpp" />
+		<Unit filename="../src/core/blockStatistics.cpp" />
+		<Unit filename="../src/core/plbProfiler.cpp" />
+		<Unit filename="../src/core/multiBlockIdentifiers3D.cpp" />
+		<Unit filename="../src/core/plbLogFiles.cpp" />
+		<Unit filename="../src/core/serializer.cpp" />
+		<Unit filename="../src/core/plbDebug.cpp" />
+		<Unit filename="../src/core/processorIdentifiers2D.cpp" />
+		<Unit filename="../src/core/blockIdentifiers.cpp" />
+		<Unit filename="../src/core/plbInit.cpp" />
+		<Unit filename="../src/core/units.cpp" />
+		<Unit filename="../src/core/multiBlockIdentifiers2D.cpp" />
+		<Unit filename="../src/core/plbTypenames.cpp" />
+		<Unit filename="../src/core/runTimeDiagnostics.cpp" />
+		<Unit filename="../src/core/plbTimer.cpp" />
+		<Unit filename="../src/core/block2D.cpp" />
+		<Unit filename="../src/core/blockSurface3D.cpp" />
+		<Unit filename="../src/core/indexUtil.cpp" />
+		<Unit filename="../src/core/block3D.cpp" />
+		<Unit filename="../src/core/processorIdentifiers3D.cpp" />
+		<Unit filename="../src/core/globalDefs.cpp" />
+		<Unit filename="../src/algorithm/statistics.cpp" />
+		<Unit filename="../src/algorithm/basicAlgorithms.cpp" />
+		<Unit filename="../src/algorithm/empiricalData.cpp" />
+		<Unit filename="../externalLibraries/tinyxml/tinyxmlparser.cpp" />
+		<Unit filename="../externalLibraries/tinyxml/tinyxmlerror.cpp" />
+		<Unit filename="../externalLibraries/tinyxml/tinyxml.cpp" />
+		<Unit filename="../externalLibraries/Eigen/src/Core/CoreInstantiations.cpp" />
+		<Unit filename="../externalLibraries/Eigen/src/Cholesky/CholeskyInstantiations.cpp" />
+		<Unit filename="../externalLibraries/Eigen/src/QR/QrInstantiations.cpp" />
+
+
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
+

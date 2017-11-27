@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -335,7 +335,7 @@ void setupCouplings()
     // Calls the function advance() on each particle which, for Verlet particles,
     // updates the position according to v(t+0.5)
     integrateProcessingFunctional (
-            new AdvanceParticlesFunctional3D<T,DESCRIPTOR>(-1.0),
+            new AdvanceParticlesEveryWhereFunctional3D<T,DESCRIPTOR>(-1.0),
             fluidLattice->getBoundingBox(), particleArg, 0);
     // Compute fluid->particle force (which includes friction).
     integrateProcessingFunctional (
@@ -397,6 +397,7 @@ int main(int argc, char* argv[])
     particleTemplate->setFluidCompliance(fluidCompliance);
 
     pcout << std::endl << "Starting simulation." << std::endl;
+    bool checkForErrors = true;
     for (plint i=0; i<maxIter; ++i) {
         // Start injecting particles, and iterating them, once the fluid is stationary (it
         // would also be OK to start injecting particles earlier, if you prefer).
@@ -425,6 +426,11 @@ int main(int argc, char* argv[])
         if (i>=startParticleIter) {
             // Iterate the particles..
             particles->executeInternalProcessors();
+        }
+
+        if (checkForErrors) {
+            abortIfErrorsOccurred();
+            checkForErrors = false;
         }
 
         if (i%outIter==0) {

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,11 +39,12 @@ public:
     GuoAdvDiffOffLatticeModel3D<T,Descriptor>& operator=(GuoAdvDiffOffLatticeModel3D<T,Descriptor> const& rhs);
     virtual GuoAdvDiffOffLatticeModel3D<T,Descriptor>* clone() const;
     virtual plint getNumNeighbors() const;
+    virtual bool isExtrapolated() const { return true; }
     virtual void prepareCell (
             Dot3D const& cellLocation, AtomicContainerBlock3D& container );
     virtual void boundaryCompletion (
             AtomicBlock3D& lattice, AtomicContainerBlock3D& container,
-            std::vector<AtomicBlock3D const*> const& args );
+            std::vector<AtomicBlock3D *> const& args );
     virtual ContainerBlockData* generateOffLatticeInfo() const;
     virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const { return Array<T,3>(T(),T(),T()); }
     void selectSecondOrder(bool flag) { secondOrderFlag = flag; }

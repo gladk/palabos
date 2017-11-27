@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -142,12 +142,13 @@ void IniCustomEquilibriumFunctional2D<T,Descriptor,RhoUFunction>::execute (
     Array<T,Descriptor<T>::d> j;
     T rho;
     f(iX, iY, rho, j);
-    for (int iD=0; iD<Descriptor<T>::d; ++iD) {
-        j[iD] *= rho;
-        j[iD] *= velocityScale;
-    }
-    T rhoBar = Descriptor<T>::rhoBar(rho);
+    Array<T,Descriptor<T>::d> force;
+    force[0] = getExternalForceComponent(cell, 0);
+    force[1] = getExternalForceComponent(cell, 1);
+    j[0] = velocityScale * rho * (j[0] - (T) 0.5 * force[0]);
+    j[1] = velocityScale * rho * (j[1] - (T) 0.5 * force[1]);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    T rhoBar = Descriptor<T>::rhoBar(rho);
     for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
         cell[iPop] = cell.computeEquilibrium(iPop, rhoBar, j, jSqr);
     }
@@ -185,13 +186,14 @@ void IniCustomThermalEquilibriumFunctional2D<T,Descriptor,RhoVelTempFunction>::e
     Array<T,Descriptor<T>::d> j;
     T rho, temperature;
     f(iX, iY, rho, j, temperature);
-    T thetaBar = temperature - (T)1;
-    for (int iD=0; iD<Descriptor<T>::d; ++iD) {
-        j[iD] *= rho;
-        j[iD] *= velocityScale;
-    }
-    T rhoBar = Descriptor<T>::rhoBar(rho);
+    Array<T,Descriptor<T>::d> force;
+    force[0] = getExternalForceComponent(cell, 0);
+    force[1] = getExternalForceComponent(cell, 1);
+    j[0] = velocityScale * rho * (j[0] - (T) 0.5 * force[0]);
+    j[1] = velocityScale * rho * (j[1] - (T) 0.5 * force[1]);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    T thetaBar = temperature - (T)1;
+    T rhoBar = Descriptor<T>::rhoBar(rho);
     for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
         cell[iPop] = cell.computeEquilibrium(iPop, rhoBar, j, jSqr, thetaBar);
     }
@@ -212,6 +214,29 @@ void IniCustomThermalEquilibriumFunctional2D<T,Descriptor,RhoUFunction>::setscal
     int dimDt = -1;
     velocityScale = scaleFromReference(dxScale, dimDx,
                                        dtScale, dimDt);
+}
+
+/* ************ Class SetCustomOmegaFunctional2D ********** */
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>::
+    SetCustomOmegaFunctional2D(OmegaFunction f_)
+        : f(f_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+void SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>::execute (
+        plint iX, plint iY, Cell<T,Descriptor>& cell ) const
+{
+    T omega = f(iX, iY);
+    cell.getDynamics().setOmega(omega);
+}
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>*
+    SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>::clone() const
+{
+    return new SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>(*this);
 }
 
 

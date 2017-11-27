@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,6 +27,7 @@
 
 #include "parallelism/mpiManager.h"
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "core/plbProfiler.h"
 #include "io/imageWriter.h"
 #include "io/colormaps.h"
@@ -317,26 +318,13 @@ void ImageWriter<T>::writeScaledPpm(std::string const& fName,
 }
 
 template<typename T>
-bool equals(T a, T b) {
-    return a==b;
-}
-
-template<> inline bool equals(float a, float b) {
-    return std::fabs(a-b)<1.e-12;
-}
-
-template<> inline bool equals(double a, double b) {
-    return std::fabs(a-b)<1.e-12;
-}
-
-template<typename T>
 void ImageWriter<T>::writePpmImplementation (
         std::string const& fName,
         ScalarField2D<T>& localField,
         T minVal, T maxVal) const
 {
     if (global::mpi().isMainProcessor()) {
-        if (equals(minVal,maxVal)) {
+        if (util::fpequal(minVal,maxVal)) {
             minVal = computeMin(localField);
             maxVal = computeMax(localField);
         }

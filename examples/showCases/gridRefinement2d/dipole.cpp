@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -246,7 +246,18 @@ int main(int argc, char* argv[]) {
     plint NRef = 250/util::roundToInt((util::twoToThePower(numLevel-1)));
     T uMaxRef = 0.005*(util::twoToThePower(numLevel-1));
     
-    plint N = atoi(argv[1]);
+    plint N;
+    try {
+        global::argv(1).read(N);
+    }
+    catch(...)
+    {
+        pcout << "Wrong parameters. The syntax is " << std::endl;
+        pcout << argv[0] << " N" << std::endl;
+        pcout << "where N is the resolution." << std::endl;
+        exit(1);
+    }
+
     // variable to put to false if you have at least once computed the pressure field
     // from the Poisson equation
     bool computePoisson = true;

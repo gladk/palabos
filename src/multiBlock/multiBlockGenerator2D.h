@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,6 +38,8 @@
 #include "core/globalDefs.h"
 #include "multiBlock/multiDataField2D.h"
 #include "multiBlock/multiBlockLattice2D.h"
+#include "particles/multiParticleField2D.h"
+#include "multiBlock/multiContainerBlock2D.h"
 #include "multiBlock/sparseBlockStructure2D.h"
 #include <memory>
 
@@ -58,6 +60,10 @@ std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
         Box2D boundingBox, T iniVal, plint envelopeWidth=1 );
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > generateMultiScalarField (
+        MultiBlock2D& multiBlock, plint envelopeWidth );
 
 /// Generate a multi-scalar-field from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
@@ -186,13 +192,20 @@ std::auto_ptr<MultiScalarField2D<T> > reparallelize (
 /// Generate a multi-scalar-field from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization value can be provided.
+///   envelope-width, etc.
 template<typename T>
 std::auto_ptr<MultiNTensorField2D<T> > defaultGenerateMultiNTensorField2D (
         MultiBlockManagement2D const& management, plint nDim=1 );
 
 template<typename T>
+MultiNTensorField2D<T>* generateMultiNTensorField2D (
+        MultiBlock2D& multiBlock, plint envelopeWidth, plint ndim );
+
+template<typename T>
 MultiNTensorField2D<T>* generateMultiNTensorField2D(Box2D const& domain, plint ndim);
+
+template<typename T>
+MultiNTensorField2D<T>* generateMultiNTensorField2D(Box2D const& domain, plint ndim, T* iniVal, plint envelopeWidth);
 
 /// Create a clone of a MultiNTensorField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -316,10 +329,10 @@ std::auto_ptr<MultiTensorField2D<T,nDim> > generateMultiTensorField (
 /// Generate a multi-tensor-field from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization value can be provided.
+///   envelope-width, etc. A default dummy argument is used for technical reasons.
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField2D<T,nDim> > defaultGenerateMultiTensorField2D (
-        MultiBlockManagement2D const& management, plint nDimParam=1 );
+        MultiBlockManagement2D const& management, plint unnamedDummyArg=1 );
 
 /// Create a clone of a MultiTensorField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -446,10 +459,10 @@ std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > generateMultiBlockLattice (
 /// Generate a multi-block-lattice from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization dynamics can be provided.
+///   envelope-width, etc. A default dummy argument is used for technical reasons.
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T,Descriptor> > defaultGenerateMultiBlockLattice2D (
-        MultiBlockManagement2D const& management, plint nDim=1 );
+        MultiBlockManagement2D const& management, plint unnamedDummyArg=1 );
 
 /// Create a clone of a MultiBlockLattice (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -563,6 +576,36 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice2D<T, Descriptor> > reparallelize (
         MultiBlockLattice2D<T, Descriptor> const& originalBlock,
         plint blockLx, plint blockLy);
+
+/* *************** 4. MultiParticleField ************************************ */
+
+/// Generate a multi-particle-field from scratch. As opposed to the standard
+///   constructor, this factory function takes a full bounding-box, as well
+///   as the envelope-width, as arguments.
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField2D<DenseParticleField2D<T,Descriptor> > > generateMultiDenseParticleField (
+        Box2D boundingBox, plint envelopeWidth=1 );
+
+template<class ParticleFieldT>
+std::auto_ptr<MultiParticleField2D<ParticleFieldT> > generateMultiParticleField2D (
+        Box2D boundingBox, plint envelopeWidth=1 );
+
+template<class ParticleFieldT>
+std::auto_ptr<MultiParticleField2D<ParticleFieldT> > generateMultiParticleField2D (
+        MultiBlock2D& multiBlock, plint envelopeWidth );
+
+
+/* *************** 5. MultiContainerBlock ************************************ */
+
+std::auto_ptr<MultiContainerBlock2D> generateMultiContainerBlock (
+        MultiBlock2D& multiBlock, plint envelopeWidth );
+
+MultiContainerBlock2D* createMultiContainerBlock2D (
+        MultiBlockManagement2D const& management,
+        PeriodicitySwitch2D& periodicity,
+        plint envelopeWidth, plint gridLevel );
+
+/* *************** General Functions **************************************** */
 
 /// Copy all data processors from the old to the new block, and replace
 ///   the "self" block in the list of the data processor to point to the new block.

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -228,6 +228,16 @@ std::auto_ptr<MultiScalarField3D<T> > generateJoinMultiScalarField (
 }
 
 template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > extendEnvelopeWidth(
+    MultiScalarField3D<T>& originalBlock, plint envelopeWidth)
+{
+    std::auto_ptr<MultiScalarField3D<T> > extendedBlock  =
+            generateMultiScalarField<T>(originalBlock, envelopeWidth);
+    plb::copy(originalBlock, *extendedBlock, originalBlock.getBoundingBox());
+    return extendedBlock;
+}
+
+template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > extend (
         MultiScalarField3D<T>& originalBlock, Box3D const& addedBlock )
 {
@@ -411,6 +421,18 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint n
     return field;
 }
 
+template<typename T>
+MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint ndim, T* iniVal, plint envelopeWidth)
+{
+    MultiNTensorField3D<T>* field = new MultiNTensorField3D<T> (
+        ndim, iniVal,
+        defaultMultiBlockPolicy3D().getMultiBlockManagement(domain, envelopeWidth),
+        defaultMultiBlockPolicy3D().getBlockCommunicator(),
+        defaultMultiBlockPolicy3D().getCombinedStatistics(),
+        defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
+    return field;
+}
+
 
 template<typename T>
 void transferNTensorFieldLocal (
@@ -534,6 +556,16 @@ MultiNTensorField3D<T>* generateJoinMultiNTensorField (
 }
 
 template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > extendEnvelopeWidth(
+    MultiNTensorField3D<T>& originalBlock, plint envelopeWidth)
+{
+    std::auto_ptr<MultiNTensorField3D<T> > extendedBlock (
+            generateMultiNTensorField3D<T>(originalBlock, envelopeWidth, originalBlock.getNdim()) );
+    plb::copy(originalBlock, *extendedBlock, originalBlock.getBoundingBox());
+    return extendedBlock;
+}
+
+template<typename T>
 MultiNTensorField3D<T>* extend (
         MultiNTensorField3D<T>& originalBlock, Box3D const& addedBlock )
 {
@@ -593,15 +625,23 @@ MultiNTensorField3D<T>* align (
 
     return newBlock;
 }
-
 template<typename T>
 MultiNTensorField3D<T>* reparallelize (
         MultiNTensorField3D<T> const& originalBlock )
 {
+    return reparallelize(originalBlock, 16, 16, 16);
+}
+
+template<typename T>
+MultiNTensorField3D<T>* reparallelize (
+        MultiNTensorField3D<T> const& originalBlock,
+        plint blockLx, plint blockLy, plint blockLz )
+{
     MultiNTensorField3D<T>* newBlock =
         new MultiNTensorField3D<T> (
             originalBlock.getNdim(),
-            reparallelize(originalBlock.getMultiBlockManagement(), 16,16,16),
+            reparallelize(originalBlock.getMultiBlockManagement(),
+                          blockLx, blockLy, blockLz),
             originalBlock.getBlockCommunicator().clone(),
             originalBlock.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>() );
@@ -690,7 +730,7 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > generateMultiTensorField (
 
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > defaultGenerateMultiTensorField3D (
-        MultiBlockManagement3D const& management, plint nDimParam )
+        MultiBlockManagement3D const& management, plint unnamedDummyArg )
 {
     Array<T,nDim> iniVal;
     iniVal.resetToZero();
@@ -780,6 +820,16 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > generateJoinMultiTensorField (
             originalField1.getCombinedStatistics().clone(),
             defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>() )
     );
+}
+
+template<typename T, int nDim>
+std::auto_ptr<MultiTensorField3D<T, nDim> > extendEnvelopeWidth(
+    MultiTensorField3D<T,nDim>& originalBlock, plint envelopeWidth)
+{
+    std::auto_ptr<MultiTensorField3D<T,nDim> > extendedBlock  =
+            generateMultiTensorField<T,nDim>(originalBlock, envelopeWidth);
+    plb::copy(originalBlock, *extendedBlock, originalBlock.getBoundingBox());
+    return extendedBlock;
 }
 
 template<typename T, int nDim>
@@ -958,7 +1008,7 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > defaultGenerateMultiBlockLattice3D (
-        MultiBlockManagement3D const& management, plint nDim )
+        MultiBlockManagement3D const& management, plint unnamedDummyArg )
 {
     return std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > (
         new MultiBlockLattice3D<T,Descriptor> (
@@ -967,6 +1017,21 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > defaultGenerateMultiBlockLatti
             defaultMultiBlockPolicy3D().getCombinedStatistics(),
             defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(),
             new NoDynamics<T,Descriptor> )
+    );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
+        MultiBlockManagement3D const& management,
+        Dynamics<T,Descriptor>* backgroundDynamics )
+{
+    return std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > (
+        new MultiBlockLattice3D<T,Descriptor> (
+            management,
+            defaultMultiBlockPolicy3D().getBlockCommunicator(),
+            defaultMultiBlockPolicy3D().getCombinedStatistics(),
+            defaultMultiBlockPolicy3D().getMultiCellAccess<T,Descriptor>(),
+            backgroundDynamics )
     );
 }
 
@@ -1256,6 +1321,41 @@ std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3
     field->periodicity().toggle(0, multiBlock.periodicity().get(0));
     field->periodicity().toggle(1, multiBlock.periodicity().get(1));
     field->periodicity().toggle(2, multiBlock.periodicity().get(2));
+
+    return std::auto_ptr<MultiParticleField3D<ParticleFieldT> >(field);
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlockManagement3D const& management, PeriodicitySwitch3D const& periodicity,
+        plint envelopeWidth )
+{
+    MultiBlockManagement3D sparseBlockManagement(management);
+    MultiParticleField3D<ParticleFieldT>* field = new MultiParticleField3D<ParticleFieldT> (
+            MultiBlockManagement3D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy3D().getCombinedStatistics() );
+
+    field->periodicity().toggle(0, periodicity.get(0));
+    field->periodicity().toggle(1, periodicity.get(1));
+    field->periodicity().toggle(2, periodicity.get(2));
+
+    return std::auto_ptr<MultiParticleField3D<ParticleFieldT> >(field);
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlockManagement3D const& management, plint envelopeWidth )
+{
+    MultiBlockManagement3D sparseBlockManagement(management);
+    MultiParticleField3D<ParticleFieldT>* field = new MultiParticleField3D<ParticleFieldT> (
+            MultiBlockManagement3D (
+                sparseBlockManagement.getSparseBlockStructure(),
+                sparseBlockManagement.getThreadAttribution().clone(),
+                envelopeWidth, sparseBlockManagement.getRefinementLevel() ),
+            defaultMultiBlockPolicy3D().getCombinedStatistics() );
 
     return std::auto_ptr<MultiParticleField3D<ParticleFieldT> >(field);
 }

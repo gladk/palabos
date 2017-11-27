@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -309,7 +309,6 @@ void MultiBlock2D::swap(MultiBlock2D& rhs) {
     std::swap(statisticsOn, rhs.statisticsOn);
     std::swap(periodicitySwitch, rhs.periodicitySwitch);
     std::swap(internalModifT, rhs.internalModifT);
-    std::swap(id, rhs.id);
 }
 
 MultiBlock2D::~MultiBlock2D() {

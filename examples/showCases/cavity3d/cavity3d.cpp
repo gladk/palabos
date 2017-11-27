@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,7 +59,8 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
     initializeAtEquilibrium(lattice, everythingButTopLid, (T) 1., Array<T,3>((T)0.,(T)0.,(T)0.) );
     initializeAtEquilibrium(lattice, topLid, (T) 1., Array<T,3>(u,(T)0.,u) );
-    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
+    //setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
+    setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u/2.0) );
 
     lattice.initialize();
 }
@@ -96,13 +97,13 @@ void writeVTK(BlockLatticeT& lattice,
 {
     T dx = parameters.getDeltaX();
     T dt = parameters.getDeltaT();
-    VtkImageOutput3D<T> vtkOut(createFileName("vtk", iter, 6), dx);
-    vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
-    vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);
-    vtkOut.writeData<3,float>(*computeVorticity(*computeVelocity(lattice)), "vorticity", 1./dt);
 
-    plb_ofstream ofile("velocity.txt");
-    ofile << *computeVelocity(lattice);
+    //VtkImageOutput3D<T> vtkOut(createFileName("vtk", iter, 6), dx);
+    ParallelVtkImageOutput3D<T> vtkOut(createFileName("vtk", iter, 6), 3, dx);
+
+    vtkOut.writeData<3,float>(*computeVelocity(lattice), "velocity", dx/dt);
+    vtkOut.writeData<float>(*computeVelocityNorm(lattice), "velocityNorm", dx/dt);
+    vtkOut.writeData<3,float>(*computeVorticity(*computeVelocity(lattice)), "vorticity", 1./dt);
 }
 
 
@@ -115,7 +116,7 @@ int main(int argc, char* argv[]) {
     IncomprFlowParam<T> parameters(
             (T) 1e-2,  // uMax
             (T) 10.,   // Re
-            100,        // N
+            50,        // N
             1.,        // lx
             1.,        // ly
             1.         // lz

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,6 +40,7 @@ class WaveDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     WaveDynamics(T vs2_);
+    WaveDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual WaveDynamics<T,Descriptor>* clone() const;
@@ -103,13 +104,17 @@ public:
     virtual void collide(Cell<T,Descriptor>& cell, BlockStatistics& statistics_);
     virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
                          Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     virtual WaveAbsorptionDynamics<T,Descriptor>* clone() const {
         return new WaveAbsorptionDynamics<T,Descriptor>(*this);
     }
     virtual void prepareCollision(Cell<T,Descriptor>& cell);
         /// Return a unique ID for this class.
+
+    /// Recompose from moment representation to population representation.
+    virtual void recompose(Cell<T,Descriptor>& cell, std::vector<T> const& rawData, plint order) const;
+    virtual void recomposeOrder0(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+    virtual void recomposeOrder1(Cell<T,Descriptor>& cell, std::vector<T> const& rawData) const;
+
     virtual int getId() const;
 private:
     static int id;

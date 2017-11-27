@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,8 +33,8 @@
 #include "generalizedIncompressibleBoundaryTemplates.h"
 #include "core/cell.h"
 #include "latticeBoltzmann/indexTemplates.h"
-#include <Eigen/LU>
-#include <Eigen/Cholesky>
+#include <Eigen3/LU>
+#include <Eigen3/Cholesky>
 
 namespace plb {
 
@@ -75,12 +75,12 @@ void GeneralizedLinearBoundarySolver<T, Descriptor>::
 //     pcout << "Error in the solution = " << (A*x-b).norm()/x.norm() << std::endl;
 //     PLB_ASSERT(solutionExists);
     
-    x = A.fullPivLu().solve(b);
+    x = A.ldlt().solve(b);
     T relError = (A*x - b).norm() / b.norm();
     PLB_ASSERT(relError < 1.0e-12);
     
     #else
-    x = A.fullPivLu().solve(b);
+    x = A.ldlt().solve(b);
 //     A.lu().solve(b,&x);
     #endif
 }
@@ -115,11 +115,11 @@ void GeneralizedNonLinearBoundarySolver<T, Descriptor>::
     #ifdef PLB_DEBUG
 //     bool solutionExists = JacSqr.lu().solve(JacTf,&dx);   // using a LU factorization
 //     PLB_ASSERT(solutionExists);
-    x = JacSqr.fullPivLu().solve(JacT);
+    x = JacSqr.ldlt().solve(JacT);
     T relError = (JacSqr*x - JacT).norm() / JacT.norm();
     PLB_ASSERT(relError < 1.0e-12);
     #else
-    x = JacSqr.fullPivLu().solve(JacT);
+    x = JacSqr.ldlt().solve(JacT);
 //     JacSqr.lu().solve(JacTf,&dx);
     #endif
     

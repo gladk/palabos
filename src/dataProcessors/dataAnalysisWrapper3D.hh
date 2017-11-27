@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -354,6 +354,19 @@ T computeSum(ScalarField3D<T>& scalarField, Box3D domain) {
 template<typename T>
 T computeSum(ScalarField3D<T>& scalarField) {
     return computeSum(scalarField, scalarField.getBoundingBox());
+}
+
+template<typename T>
+T computeSum(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag, Box3D domain)
+{
+    MaskedBoxScalarSumFunctional3D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getSumScalar();
+}
+
+template<typename T>
+T computeSum(ScalarField3D<T>& scalarField, ScalarField3D<int>& mask, int flag) {
+    return computeSum(scalarField, mask, flag, scalarField.getBoundingBox());
 }
 
 template<typename T>
@@ -904,6 +917,31 @@ std::auto_ptr<ScalarField3D<T> > computeNormSqr(TensorField3D<T,nDim>& tensorFie
 }
 
 
+/* *************** Max element of each array of each cell *************** */
+
+template<typename T, int nDim>
+void computeMaximumElement(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& result, Box3D domain)
+{
+    applyProcessingFunctional (
+        new BoxLocalMaximumPerComponentFunctional3D<T, nDim>(), domain, result, A );
+}
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField3D<T> > computeMaximumElement(MultiTensorField3D<T,nDim>& A, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > result = generateMultiScalarField<T>(A, domain);
+
+    computeMaximumElement(A, *result, domain);
+    return result;
+}
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField3D<T> > computeMaximumElement(MultiTensorField3D<T,nDim>& A)
+{
+    return computeMaximumElement(A, A.getBoundingBox());
+}
+
+
 /* *************** Tensor-norm of each symmetric tensor of a field ********************** */
 
 template<typename T>
@@ -958,8 +996,6 @@ std::auto_ptr<ScalarField3D<T> > computeSymmetricTensorTrace(TensorField3D<T,6>&
 }
 
 
-
-
 /* *************** Vorticity from Velocity field *********************** */
 
 template<typename T>
@@ -994,6 +1030,43 @@ std::auto_ptr<TensorField3D<T,3> > computeBulkVorticity(TensorField3D<T,3>& velo
     TensorField3D<T,3>* vorticity = new TensorField3D<T,3>(velocity.getNx(), velocity.getNy(), velocity.getNz());
     computeBulkVorticity(velocity, *vorticity);
     return std::auto_ptr<TensorField3D<T,3> >(vorticity);
+}
+
+
+/* *************** Helicity from Velocity field *********************** */
+
+template<typename T>
+void computeHelicity(TensorField3D<T,3>& velocity, ScalarField3D<T>& helicity)
+{
+    plint envelopeWidth=1;
+    applyProcessingFunctional (
+            new BoxHelicityFunctional3D<T,3>, velocity.getBoundingBox(), helicity, velocity, envelopeWidth );
+}
+
+template<typename T>
+std::auto_ptr<ScalarField3D<T> > computeHelicity(TensorField3D<T,3>& velocity)
+{
+    ScalarField3D<T>* helicity = new ScalarField3D<T>(velocity.getNx(), velocity.getNy(), velocity.getNz());
+    computeHelicity(velocity, *helicity);
+    return std::auto_ptr<ScalarField3D<T> >(helicity);
+}
+
+
+/* *************** Helicity, witout boundary treatment, from Velocity field **************** */
+
+template<typename T>
+void computeBulkHelicity(TensorField3D<T,3>& velocity, ScalarField3D<T>& helicity)
+{
+    applyProcessingFunctional (
+            new BoxBulkHelicityFunctional3D<T,3>, velocity.getBoundingBox(), helicity, velocity );
+}
+
+template<typename T>
+std::auto_ptr<ScalarField3D<T> > computeBulkHelicity(TensorField3D<T,3>& velocity)
+{
+    ScalarField3D<T>* helicity = new ScalarField3D<T>(velocity.getNx(), velocity.getNy(), velocity.getNz());
+    computeBulkHelicity(velocity, *helicity);
+    return std::auto_ptr<ScalarField3D<T> >(helicity);
 }
 
 
@@ -1253,13 +1326,57 @@ T computeAverageEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain)
 {
     BoxSumEnergyFunctional3D<T,Descriptor> functional;
     applyProcessingFunctional(functional, domain, lattice);
-    return functional.getSumEnergy() / (T) domain.nCells();;
+    return functional.getSumEnergy() / (T) domain.nCells();
 }
 
 template<typename T, template<typename U> class Descriptor> 
 T computeAverageEnergy(MultiBlockLattice3D<T,Descriptor>& lattice) {
     return computeAverageEnergy(lattice, lattice.getBoundingBox());
 }
+
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        Box3D domain) 
+{
+    BoxSumForcedEnergyFunctional3D<T,Descriptor> functional;
+    applyProcessingFunctional(functional, domain, lattice, force);
+    return functional.getSumEnergy() / (T) domain.nCells();
+}
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force) {
+    return computeAverageForcedEnergy(lattice, force, lattice.getBoundingBox());
+}
+
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force, Box3D domain) 
+{
+    BoxSumConstForcedEnergyFunctional3D<T,Descriptor> functional(force);
+    applyProcessingFunctional(functional, domain, lattice);
+    return functional.getSumEnergy() / (T) domain.nCells();
+}
+
+template<typename T, template<typename U> class Descriptor> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force) {
+    return computeAverageForcedEnergy(lattice, force, lattice.getBoundingBox());
+}
+
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f, Box3D domain) 
+{
+    BoxSumCustomForcedEnergyFunctional3D<T,Descriptor,ForceFunction> functional(f);
+    applyProcessingFunctional(functional, domain, lattice);
+    return functional.getSumEnergy() / (T) domain.nCells();
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction> 
+T computeAverageForcedEnergy(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f) {
+    return computeAverageForcedEnergy(lattice, f, lattice.getBoundingBox());
+}
+
 
 template<typename T, template<typename U> class Descriptor, class BoolMask> 
 plint count(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain, BoolMask boolMask)
@@ -1273,6 +1390,24 @@ template<typename T, template<typename U> class Descriptor, class BoolMask>
 plint count(MultiBlockLattice3D<T,Descriptor>& lattice, BoolMask boolMask)
 {
     return count(lattice, lattice.getBoundingBox(), boolMask);
+}
+
+template<typename T>
+std::vector<T> scalarSingleProbes (
+        MultiScalarField3D<T>& scalarField, Box3D domain,
+        std::vector<Array<T,3> > const& positions )
+{
+    ScalarFieldSingleProbe3D<T> functional(positions);
+    applyProcessingFunctional(functional, domain, scalarField);
+    return functional.getScalars();
+}
+
+template<typename T>
+std::vector<T> scalarSingleProbes (
+        MultiScalarField3D<T>& scalarField, 
+        std::vector<Array<T,3> > const& positions )
+{
+    return scalarSingleProbes(scalarField, scalarField.getBoundingBox(), positions);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1428,6 +1563,20 @@ void computeRhoBarJ( MultiBlockLattice3D<T,Descriptor>& lattice,
             new BoxRhoBarJfunctional3D<T,Descriptor>, domain, fields );
 }
 
+template<typename T, template<typename U> class Descriptor>
+void computeRhoBarJPiNeq( MultiBlockLattice3D<T,Descriptor>& lattice,
+                          MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j,
+                          TensorField3D<T,SymmetricTensor<T,Descriptor>::n>& PiNeq, Box3D domain )
+{
+    std::vector<MultiBlock3D*> fields;
+    fields.push_back(&lattice);
+    fields.push_back(&rhoBar);
+    fields.push_back(&j);
+    fields.push_back(&PiNeq);
+    applyProcessingFunctional (
+            new BoxRhoBarJPiNeqfunctional3D<T,Descriptor>, domain, fields );
+}
+
 /* *************** Kinetic Energy ************************************ */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1565,6 +1714,47 @@ std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarJ(MultiNTensorF
     return computeVelocityFromRhoBarJ(rhoBarJ, rhoBarJ.getBoundingBox(), velIsJ);
 }
 
+
+template<typename T>
+void computeVelocityFromRhoBarAndJ (
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j,
+        MultiTensorField3D<T,3>& velocity, Box3D domain, bool velIsJ )
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&velocity);
+    args.push_back(&rhoBar);
+    args.push_back(&j);
+    applyProcessingFunctional (
+            new VelocityFromRhoBarAndJfunctional3D<T>(velIsJ), domain, args );
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarAndJ (
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j, Box3D domain, bool velIsJ )
+{
+    std::auto_ptr<MultiTensorField3D<T,3> > velocity = generateMultiTensorField<T,3>(j, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. If the VelocityFromRhoBarAndJFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocity multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeVelocityFromRhoBarAndJ(rhoBar, j, *velocity,
+            domain.enlarge(j.getMultiBlockManagement().getEnvelopeWidth()), velIsJ);
+    return velocity;
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeVelocityFromRhoBarAndJ(
+        MultiScalarField3D<T>& rhoBar, MultiTensorField3D<T,3>& j, bool velIsJ)
+{
+    return computeVelocityFromRhoBarAndJ(rhoBar, j, rhoBar.getBoundingBox(), velIsJ);
+}
+
+
 /* *************** Velocity Norm ************************************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1595,6 +1785,109 @@ std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm(MultiBlockLattice3D<T,
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > computeVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice) {
     return computeVelocityNorm(lattice, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&lattice);
+    args.push_back(&force);
+    args.push_back(&velocityNorm);
+    applyProcessingFunctional (
+            new BoxForcedVelocityNormFunctional3D<T,Descriptor>, domain, args );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityNorm =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxForcedVelocityNormFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityNorm multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityNorm(lattice, force, *velocityNorm, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocityNorm;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force) {
+    return computeForcedVelocityNorm(lattice, force, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxConstForcedVelocityNormFunctional3D<T,Descriptor>(force), domain, lattice, velocityNorm );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityNorm =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxConstForcedVelocityNormFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityNorm multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityNorm(lattice, force, *velocityNorm, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocityNorm;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force) {
+    return computeForcedVelocityNorm(lattice, force, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiScalarField3D<T>& velocityNorm, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxCustomForcedVelocityNormFunctional3D<T,Descriptor,ForceFunction>(f), domain, lattice, velocityNorm );
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityNorm =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxCustomForcedVelocityNormFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityNorm multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityNorm(lattice, f, *velocityNorm, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocityNorm;
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityNorm(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f) {
+    return computeForcedVelocityNorm(lattice, f, lattice.getBoundingBox());
 }
 
 
@@ -1634,6 +1927,116 @@ std::auto_ptr<MultiScalarField3D<T> > computeVelocityComponent(MultiBlockLattice
     return computeVelocityComponent(lattice, lattice.getBoundingBox(), iComponent);
 }
 
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&lattice);
+    args.push_back(&force);
+    args.push_back(&velocityComponent);
+    applyProcessingFunctional (
+            new BoxForcedVelocityComponentFunctional3D<T,Descriptor>(iComponent), domain, args );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain, plint iComponent)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityComponent =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxForcedVelocityComponentFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityComponent multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityComponent(lattice, force, *velocityComponent,
+            domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()), iComponent);
+    return velocityComponent;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, plint iComponent)
+{
+    return computeForcedVelocityComponent(lattice, force, lattice.getBoundingBox(), iComponent);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent)
+{
+    applyProcessingFunctional (
+            new BoxConstForcedVelocityComponentFunctional3D<T,Descriptor>(force, iComponent), domain, lattice, velocityComponent );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain, plint iComponent)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityComponent =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxConstForcedVelocityComponentFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityComponent multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityComponent(lattice, force, *velocityComponent,
+            domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()), iComponent);
+    return velocityComponent;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, plint iComponent)
+{
+    return computeForcedVelocityComponent(lattice, force, lattice.getBoundingBox(), iComponent);
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiScalarField3D<T>& velocityComponent, Box3D domain, plint iComponent)
+{
+    applyProcessingFunctional (
+            new BoxCustomForcedVelocityComponentFunctional3D<T,Descriptor,ForceFunction>(f, iComponent),
+            domain, lattice, velocityComponent );
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain, plint iComponent)
+{
+    std::auto_ptr<MultiScalarField3D<T> > velocityComponent =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxCustomForcedVelocityComponentFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocityComponent multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocityComponent(lattice, f, *velocityComponent,
+            domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()), iComponent);
+    return velocityComponent;
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiScalarField3D<T> > computeForcedVelocityComponent(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, plint iComponent)
+{
+    return computeForcedVelocityComponent(lattice, f, lattice.getBoundingBox(), iComponent);
+}
+
 
 /* *************** Velocity ****************************************** */
 
@@ -1669,6 +2072,113 @@ std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
 {
     return computeVelocity(lattice, lattice.getBoundingBox());
 }
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&lattice);
+    args.push_back(&force);
+    args.push_back(&velocity);
+    applyProcessingFunctional (
+            new BoxForcedVelocityFunctional3D<T,Descriptor>, domain, args );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiTensorField3D<T,Descriptor<T>::d>& force, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > velocity
+        = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxForcedVelocityFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocity multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocity(lattice, force, *velocity, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocity;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
+    computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, MultiTensorField3D<T,Descriptor<T>::d>& force)
+{
+    return computeForcedVelocity(lattice, force, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxConstForcedVelocityFunctional3D<T,Descriptor>(force), domain, lattice, velocity );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        Array<T,Descriptor<T>::d> force, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > velocity
+        = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxConstForcedVelocityFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocity multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocity(lattice, force, *velocity, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocity;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
+    computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, Array<T,Descriptor<T>::d> force)
+{
+    return computeForcedVelocity(lattice, force, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+void computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f,
+        MultiTensorField3D<T,Descriptor<T>::d>& velocity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxCustomForcedVelocityFunctional3D<T,Descriptor,ForceFunction>(f), domain, lattice, velocity );
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice,
+        ForceFunction f, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > velocity
+        = generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxCustomForcedVelocityFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the velocity multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeForcedVelocity(lattice, f, *velocity, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return velocity;
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceFunction>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> >
+    computeForcedVelocity(MultiBlockLattice3D<T,Descriptor>& lattice, ForceFunction f)
+{
+    return computeForcedVelocity(lattice, f, lattice.getBoundingBox());
+}
+
 
 /* *************** Temperature ******************************************* */
 
@@ -1779,6 +2289,46 @@ std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
 }
 
 
+
+/* *************** Stress ********************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void computeStress( MultiBlockLattice3D<T,Descriptor>& lattice,
+                    MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n>& stress,
+                    T rho0, bool isCompressible, Box3D domain )
+{
+    applyProcessingFunctional (
+            new BoxStressFunctional3D<T,Descriptor>(rho0, isCompressible), domain, lattice, stress );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
+    computeStress(MultiBlockLattice3D<T,Descriptor>& lattice, T rho0, bool isCompressible, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> > stress
+        = generateMultiTensorField<T,SymmetricTensor<T,Descriptor>::n>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxShearStressFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the PiNeq multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeStress(lattice, *stress, rho0, isCompressible,
+                  domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return stress;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
+    computeStress(MultiBlockLattice3D<T,Descriptor>& lattice, T rho0, bool isCompressible)
+{
+    return computeStress(lattice, rho0, isCompressible, lattice.getBoundingBox());
+}
+
+
 /* *************** Strain Rate from Stress *************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1814,6 +2364,63 @@ std::auto_ptr<MultiTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
     computeStrainRateFromStress(MultiBlockLattice3D<T,Descriptor>& lattice)
 {
     return computeStrainRateFromStress(lattice, lattice.getBoundingBox());
+}
+
+
+/* *************** Shear Rate ******************************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice, MultiScalarField3D<T>& shearRate, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxShearRateFunctional3D<T,Descriptor>, domain, lattice, shearRate );
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > shearRate =
+        generateMultiScalarField<T>(lattice, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxShearRateFunctional3D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the shearRate multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computeShearRate(lattice, *shearRate, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return shearRate;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeShearRate(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeShearRate(lattice, lattice.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void computeShearRate_N(MultiBlockLattice3D<T,Descriptor>& lattice, MultiNTensorField3D<T>& shearRate, Box3D domain)
+{
+    applyProcessingFunctional (
+        new BoxNTensorShearRateFunctional3D<T,Descriptor>, domain, lattice, shearRate );
+}
+
+template<typename T, template<typename U> class Descriptor>
+MultiNTensorField3D<T>* computeShearRate_N(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain)
+{
+    MultiNTensorField3D<T>* shearRate = generateMultiNTensorField<T>(lattice, domain, 1);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxNTensorShearRateFunctional3D() acts on both
+    // bulk and envelope, you would expect the envelope layer around the domain, on the shearRate multi-block,
+    // to be assigned some proper values too. By default, this is however not what happens, because the
+    // physical space occupied by these envelopes does not intersect with the domain "domain".
+    // We work around this issue by extending the domain. There's no problem if the enlarged domain gets
+    // beyond the actual extent of the lattice, because Palabos handles these situations properly.
+
+    computeShearRate_N(lattice, *shearRate, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return shearRate;
 }
 
 
@@ -2127,6 +2734,30 @@ std::auto_ptr<MultiScalarField3D<T> > computeKinematicViscosity(MultiBlockLattic
     return computeKinematicViscosity(lattice, lattice.getBoundingBox());
 }
 
+template<typename T, template<typename U> class Descriptor>
+void computeKinematicViscosity_N(MultiBlockLattice3D<T,Descriptor>& lattice, MultiNTensorField3D<T>& nu, Box3D domain)
+{
+    applyProcessingFunctional (
+        new BoxNTensorKinematicViscosityFunctional3D<T,Descriptor>, domain, lattice, nu );
+}
+
+template<typename T, template<typename U> class Descriptor>
+MultiNTensorField3D<T>* computeKinematicViscosity_N(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain)
+{
+    MultiNTensorField3D<T>* nu = generateMultiNTensorField<T>(lattice, domain, 1);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the BoxNTensorKinematicViscosityFunctional3D() acts on both
+    // bulk and envelope, you would expect the envelope layer around the domain, on the omega multi-block,
+    // to be assigned some proper values too. By default, this is however not what happens, because the
+    // physical space occupied by these envelopes does not intersect with the domain "domain".
+    // We work around this issue by extending the domain. There's no problem if the enlarged domain gets
+    // beyond the actual extent of the lattice, because Palabos handles these situations properly.
+
+    computeKinematicViscosity_N(lattice, *nu, domain.enlarge(lattice.getMultiBlockManagement().getEnvelopeWidth()));
+    return nu;
+}
+
 /* *************** ExternalForce ****************************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -2328,6 +2959,26 @@ T computeSum(MultiScalarField3D<T>& scalarField) {
 }
 
 template<typename T>
+T computeSum(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain)
+{
+    MaskedBoxScalarSumFunctional3D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getSumScalar();
+}
+
+template<typename T>
+T computeSum(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag) {
+    return computeSum(scalarField, mask, flag, scalarField.getBoundingBox());
+}
+
+template<typename T>
+plint computeIntSum(MultiScalarField3D<T>& scalarField, Box3D domain) {
+    BoxScalarIntSumFunctional3D<T> functional;
+    applyProcessingFunctional(functional, domain, scalarField);
+    return functional.getSumScalar();
+}
+
+template<typename T>
 T computeBoundedSum(MultiScalarField3D<T>& scalarField, Box3D domain) {
     BoundedBoxScalarSumFunctional3D<T> functional;
     plint envelopeWidth=1;
@@ -2379,6 +3030,18 @@ T computeMin(MultiScalarField3D<T>& scalarField) {
     return computeMin(scalarField, scalarField.getBoundingBox());
 }
 
+template<typename T>
+T computeMin(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain) {
+    MaskedBoxScalarMinFunctional3D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getMinScalar();
+}
+
+template<typename T>
+T computeMin(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag) {
+    return computeMin(scalarField, mask, flag, scalarField.getBoundingBox());
+}
+
 
 template<typename T>
 T computeMax(MultiScalarField3D<T>& scalarField, Box3D domain) {
@@ -2390,6 +3053,18 @@ T computeMax(MultiScalarField3D<T>& scalarField, Box3D domain) {
 template<typename T>
 T computeMax(MultiScalarField3D<T>& scalarField) {
     return computeMax(scalarField, scalarField.getBoundingBox());
+}
+
+template<typename T>
+T computeMax(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag, Box3D domain) {
+    MaskedBoxScalarMaxFunctional3D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getMaxScalar();
+}
+
+template<typename T>
+T computeMax(MultiScalarField3D<T>& scalarField, MultiScalarField3D<int>& mask, int flag) {
+    return computeMax(scalarField, mask, flag, scalarField.getBoundingBox());
 }
 
 
@@ -2913,7 +3588,7 @@ std::auto_ptr<MultiScalarField3D<T> > divide(MultiScalarField3D<T>& A, MultiScal
 }
 
 
-/* *************** ScalarField - ScalarField inplace operations *************** */
+/* *************** MultiScalarField - Scalar inplace operations *************** */
 
 template<typename T>
 void addInPlace(MultiScalarField3D<T>& A, MultiScalarField3D<T>& B, Box3D domain) {
@@ -2960,6 +3635,29 @@ void divideInPlace(MultiScalarField3D<T>& A, MultiScalarField3D<T>& B, Box3D dom
 template<typename T>
 void divideInPlace(MultiScalarField3D<T>& A, MultiScalarField3D<T>& B) {
     divideInPlace(A, B, A.getBoundingBox());
+}
+
+template<typename T>
+void uniformlyBoundScalarField(MultiScalarField3D<T>& data, Box3D domain, T bound) {
+    applyProcessingFunctional (
+            new UniformlyBoundScalarField3D<T>(bound), domain, data );
+}
+
+template<typename T>
+void uniformlyBoundScalarField(MultiScalarField3D<T>& data, T bound) {
+    uniformlyBoundScalarField(data, data.getBoundingBox(), bound);
+}
+
+
+template<typename T>
+void boundScalarField(MultiScalarField3D<T>& data, Box3D domain, T lowerBound, T upperBound) {
+    applyProcessingFunctional (
+            new BoundScalarField3D<T>(lowerBound, upperBound), domain, data );
+}
+
+template<typename T>
+void boundScalarField(MultiScalarField3D<T>& data, T lowerBound, T upperBound) {
+    boundScalarField(data, data.getBoundingBox(), lowerBound, upperBound);
 }
 
 /* *************** MultiScalarField operations *************** */
@@ -3028,18 +3726,6 @@ std::auto_ptr<MultiScalarField3D<T> > computeAbsoluteValue(MultiScalarField3D<T>
 }
 
 
-template<typename T>
-void uniformlyBoundScalarField(MultiScalarField3D<T>& data, Box3D domain, T bound) {
-    applyProcessingFunctional (
-            new UniformlyBoundScalarField3D<T>(bound), domain, data );
-}
-
-template<typename T>
-void uniformlyBoundScalarField(MultiScalarField3D<T>& data, T bound) {
-    uniformlyBoundScalarField(data, data.getBoundingBox(), bound);
-}
-
-
 /* *************** LBMsmoothen3D ******************************************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -3061,6 +3747,21 @@ template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > lbmSmoothen(MultiScalarField3D<T>& data)
 {
     return lbmSmoothen<T,Descriptor>(data, data.getBoundingBox());
+}
+
+
+/* *************** LBMsmoothenInPlace3D ******************************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void lbmSmoothenInPlace(MultiScalarField3D<T>& data, Box3D domain)
+{
+    applyProcessingFunctional(new LBMsmoothenInPlace3D<T,Descriptor>, domain, data);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void lbmSmoothenInPlace(MultiScalarField3D<T>& data)
+{
+    lbmSmoothenInPlace<T,Descriptor>(data, data.getBoundingBox());
 }
 
 
@@ -3504,7 +4205,6 @@ std::auto_ptr<MultiTensorField3D<T,3> > computeBulkGradient(MultiScalarField3D<T
 }
 
 
-
 /* *************** Vorticity from Velocity field *********************** */
 
 template<typename T>
@@ -3555,6 +4255,225 @@ std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticity(MultiTensorField3D<
     return computeBulkVorticity(velocity, velocity.getBoundingBox());
 }
 
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain) {
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vel =
+        generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+    vel->periodicity().toggle(0, lattice.periodicity().get(0));
+    vel->periodicity().toggle(1, lattice.periodicity().get(1));
+    vel->periodicity().toggle(2, lattice.periodicity().get(2));
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vorticity =
+        generateMultiTensorField<T,Descriptor<T>::d>(*vel,1);
+
+    computeVelocity(lattice, *vel, domain.enlarge(1));
+    computeBulkVorticity(*vel, *vorticity, domain);
+    return vorticity;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticity(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeBulkVorticity<T,Descriptor>(lattice, lattice.getBoundingBox());
+}
+
+/* *************** Order 4 Vorticity, without boundary treatment, from Velocity field ***************** */
+
+template<typename T>
+void computeBulkVorticityOrderFour(MultiTensorField3D<T,3>& velocity, MultiTensorField3D<T,3>& vorticity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxBulkVorticityOrderFourFunctional3D<T,3>, domain, velocity, vorticity );
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderFour(MultiTensorField3D<T,3>& velocity, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,3> > vorticity =
+        generateMultiTensorField<T,3>(velocity, domain);
+    computeBulkVorticityOrderFour(velocity, *vorticity, domain);
+    return vorticity;
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderFour(MultiTensorField3D<T,3>& velocity)
+{
+    return computeBulkVorticityOrderFour(velocity, velocity.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderFour(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain) {
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vel =
+        generateMultiTensorField<T,Descriptor<T>::d>(domain, 3);
+
+    vel->periodicity().toggle(0, lattice.periodicity().get(0));
+    vel->periodicity().toggle(1, lattice.periodicity().get(1));
+    vel->periodicity().toggle(2, lattice.periodicity().get(2));
+
+    computeVelocity(lattice, *vel, domain);
+    return computeBulkVorticityOrderFour(*vel, domain);
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderFour(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeBulkVorticityOrderFour<T,Descriptor>(lattice, lattice.getBoundingBox());
+}
+
+
+
+/* *************** Order 6 Vorticity, without boundary treatment, from Velocity field ***************** */
+
+template<typename T>
+void computeBulkVorticityOrderSix(MultiTensorField3D<T,3>& velocity, MultiTensorField3D<T,3>& vorticity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxBulkVorticityOrderSixFunctional3D<T,3>, domain, velocity, vorticity );
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderSix(MultiTensorField3D<T,3>& velocity, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,3> > vorticity =
+        generateMultiTensorField<T,3>(velocity, domain);
+    computeBulkVorticityOrderSix(velocity, *vorticity, domain);
+    return vorticity;
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderSix(MultiTensorField3D<T,3>& velocity)
+{
+    return computeBulkVorticityOrderSix(velocity, velocity.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderSix(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain) {
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vel =
+        generateMultiTensorField<T,Descriptor<T>::d>(domain, 3);
+
+    vel->periodicity().toggle(0, lattice.periodicity().get(0));
+    vel->periodicity().toggle(1, lattice.periodicity().get(1));
+    vel->periodicity().toggle(2, lattice.periodicity().get(2));
+
+    computeVelocity(lattice, *vel, domain);
+    return computeBulkVorticityOrderSix(*vel, domain);
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderSix(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeBulkVorticityOrderSix<T,Descriptor>(lattice, lattice.getBoundingBox());
+}
+
+
+/* *************** Order 8 Vorticity, without boundary treatment, from Velocity field ***************** */
+
+template<typename T>
+void computeBulkVorticityOrderEight(MultiTensorField3D<T,3>& velocity, MultiTensorField3D<T,3>& vorticity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxBulkVorticityOrderEightFunctional3D<T,3>, domain, velocity, vorticity );
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderEight(MultiTensorField3D<T,3>& velocity, Box3D domain)
+{
+    std::auto_ptr<MultiTensorField3D<T,3> > vorticity =
+        generateMultiTensorField<T,3>(velocity, domain);
+    computeBulkVorticityOrderEight(velocity, *vorticity, domain);
+    return vorticity;
+}
+
+template<typename T>
+std::auto_ptr<MultiTensorField3D<T,3> > computeBulkVorticityOrderEight(MultiTensorField3D<T,3>& velocity)
+{
+    return computeBulkVorticityOrderEight(velocity, velocity.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderEight(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain) {
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vel =
+        generateMultiTensorField<T,Descriptor<T>::d>(domain, 4);
+
+    vel->periodicity().toggle(0, lattice.periodicity().get(0));
+    vel->periodicity().toggle(1, lattice.periodicity().get(1));
+    vel->periodicity().toggle(2, lattice.periodicity().get(2));
+
+    computeVelocity(lattice, *vel, domain);
+    return computeBulkVorticityOrderEight(*vel, domain);
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > computeBulkVorticityOrderEight(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeBulkVorticityOrderEight<T,Descriptor>(lattice, lattice.getBoundingBox());
+}
+
+
+/* *************** Helicity from Velocity field *********************** */
+
+template<typename T>
+void computeHelicity(MultiTensorField3D<T,3>& velocity, MultiScalarField3D<T>& helicity, Box3D domain)
+{
+    plint envelopeWidth=1;
+    applyProcessingFunctional (
+            new BoxHelicityFunctional3D<T,3>, domain, helicity, velocity, envelopeWidth );
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeHelicity(MultiTensorField3D<T,3>& velocity, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > helicity =
+        generateMultiScalarField<T>(velocity, domain);
+    computeHelicity(velocity, *helicity, domain);
+    return helicity;
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeHelicity(MultiTensorField3D<T,3>& velocity)
+{
+    return computeHelicity(velocity, velocity.getBoundingBox());
+}
+
+
+/* *************** Helicity, without boundary treatment, from Velocity field ***************** */
+
+template<typename T>
+void computeBulkHelicity(MultiTensorField3D<T,3>& velocity, MultiScalarField3D<T>& helicity, Box3D domain)
+{
+    applyProcessingFunctional (
+            new BoxBulkHelicityFunctional3D<T,3>, domain, helicity, velocity );
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiTensorField3D<T,3>& velocity, Box3D domain)
+{
+    std::auto_ptr<MultiScalarField3D<T> > helicity =
+        generateMultiScalarField<T>(velocity, domain);
+    computeBulkHelicity(velocity, *helicity, domain);
+    return helicity;
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiTensorField3D<T,3>& velocity)
+{
+    return computeBulkHelicity(velocity, velocity.getBoundingBox());
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D domain) {
+    std::auto_ptr<MultiTensorField3D<T,Descriptor<T>::d> > vel =
+        generateMultiTensorField<T,Descriptor<T>::d>(lattice, domain);
+    vel->periodicity().toggle(0, lattice.periodicity().get(0));
+    vel->periodicity().toggle(1, lattice.periodicity().get(1));
+    vel->periodicity().toggle(2, lattice.periodicity().get(2));
+    std::auto_ptr<MultiScalarField3D<T> > helicity =
+        generateMultiScalarField<T>(*vel,1);
+
+    computeVelocity(lattice, *vel, domain.enlarge(1));
+    computeBulkHelicity(*vel, *helicity, domain);
+    return helicity;
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiScalarField3D<T> > computeBulkHelicity(MultiBlockLattice3D<T,Descriptor>& lattice) {
+    return computeBulkHelicity<T,Descriptor>(lattice, lattice.getBoundingBox());
+}
 
 
 /* *************** Divergence, without boundary treatment, from Velocity field **************** */
@@ -3690,7 +4609,8 @@ std::auto_ptr<MultiScalarField3D<T> > computeQcriterion(MultiTensorField3D<T,3>&
 }
 
 /* *************** lambda2-criterion from vorticity and strain rate fields ******************** */
-
+#ifndef PLB_BGP
+#ifdef PLB_USE_EIGEN
 template<typename T>
 void computeLambda2(MultiTensorField3D<T,3>& vorticity, MultiTensorField3D<T,6>& S, MultiScalarField3D<T>& lambda2, Box3D domain)
 {
@@ -3715,7 +4635,8 @@ std::auto_ptr<MultiScalarField3D<T> > computeLambda2(MultiTensorField3D<T,3>& vo
 {
     return computeLambda2(vorticity, S, vorticity.getBoundingBox());
 }
-
+#endif
+#endif
 
 /* *************** MultiTensorField - MultiTensorField operations *************** */
 
@@ -3896,25 +4817,25 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > divide(MultiTensorField3D<T,nDim>& A,
 
 
 template<typename T, int nDim>
-void normalize(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain, Precision precision)
+void normalize(MultiTensorField3D<T,nDim>& data, MultiTensorField3D<T,nDim>& result, Box3D domain)
 {
     applyProcessingFunctional (
-            new Normalize_Tensor_functional3D<T,nDim>(precision), domain, data, result );
+            new Normalize_Tensor_functional3D<T,nDim>(), domain, data, result );
 }
 
 template<typename T, int nDim>
-std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Box3D domain, Precision precision)
+std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Box3D domain)
 {
     std::auto_ptr<MultiTensorField3D<T,nDim> > result =
         generateMultiTensorField<T,nDim>(data, domain);
-    normalize(data, *result, domain, precision);
+    normalize(data, *result, domain);
     return result;
 }
 
 template<typename T, int nDim>
-std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data, Precision precision)
+std::auto_ptr<MultiTensorField3D<T,nDim> > normalize(MultiTensorField3D<T,nDim>& data)
 {
-    return normalize(data, data.getBoundingBox(), precision);
+    return normalize(data, data.getBoundingBox());
 }
 
 
@@ -4070,16 +4991,43 @@ void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiTensorField3D<T,nDim>& B)
     divideInPlace(A, B, A.getBoundingBox());
 }
 
-
 template<typename T, int nDim>
-void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Box3D domain, Precision precision) {
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, Box3D domain) {
     applyProcessingFunctional (
-            new Normalize_Tensor_inplace_functional3D<T,nDim>(precision), domain, data );
+            new Tensor_A_dividedBy_Scalar_B_inplace_functional3D<T,nDim>, domain, B, A );
 }
 
 template<typename T, int nDim>
-void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Precision precision) {
-    normalizeInPlace(data, data.getBoundingBox(), precision);
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B) {
+    divideInPlace(A, B, A.getBoundingBox());
+}
+
+template<typename T, int nDim>
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, MultiScalarField3D<int>& mask, int flag, Box3D domain)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&A);
+    args.push_back(&B);
+    args.push_back(&mask);
+    applyProcessingFunctional(new Masked_Tensor_A_dividedBy_Scalar_B_inplace_functional3D<T,nDim>(flag), domain, args);
+}
+
+template<typename T, int nDim>
+void divideInPlace(MultiTensorField3D<T,nDim>& A, MultiScalarField3D<T>& B, MultiScalarField3D<int>& mask, int flag)
+{
+    divideInPlace(A, B, mask, flag, A.getBoundingBox());
+}
+
+
+template<typename T, int nDim>
+void normalizeInPlace(MultiTensorField3D<T,nDim>& data, Box3D domain) {
+    applyProcessingFunctional (
+            new Normalize_Tensor_inplace_functional3D<T,nDim>(), domain, data );
+}
+
+template<typename T, int nDim>
+void normalizeInPlace(MultiTensorField3D<T,nDim>& data) {
+    normalizeInPlace(data, data.getBoundingBox());
 }
 
 /* *************** LBMsmoothenTensor3D ******************************************* */
@@ -4194,6 +5142,30 @@ std::auto_ptr<MultiScalarField3D<T> > lbmComputeDivergence(MultiTensorField3D<T,
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiScalarField3D<T> > lbmComputeDivergence(MultiTensorField3D<T,3>& vectorField) {
     return lbmComputeDivergence<T,Descriptor>(vectorField, vectorField.getBoundingBox());
+}
+
+
+/* ********************************************************************* */
+/* *************** PART VII. Multi-block wrappers: NTensor-field ******* */
+/* ********************************************************************* */
+
+/* *************** Extract Sub-NTensorField **************************** */
+
+template<typename T>
+void extractSubDomain( MultiNTensorField3D<T>& field,
+                       MultiNTensorField3D<T>& extractedField,
+                       Box3D domain)
+{
+    applyProcessingFunctional (
+            new ExtractNTensorSubDomainFunctional3D<T>, domain, field, extractedField );
+}
+
+template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > extractSubDomain(MultiNTensorField3D<T>& field, Box3D domain)
+{
+    MultiNTensorField3D<T>* extractedField = generateMultiNTensorField<T>(field, domain, field.getNdim());
+    extractSubDomain(field, *extractedField, domain);
+    return std::auto_ptr<MultiNTensorField3D<T> >(extractedField);
 }
 
 }  // namespace plb

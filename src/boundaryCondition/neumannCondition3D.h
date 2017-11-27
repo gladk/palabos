@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -126,17 +126,22 @@ public:
 
 
 /// Outflow boundary condition that works with external rhoBar and J from the previous time step.
-///     Caution is necessary with the usage of this data processor. The rhoBar and J provided,
-///     must contain the values of the fields at the previous time step. This means that if
-///     the "external-rhoBar-J-collide-and-stream" is used at a processor level 0, then
+///     WARNING 1: The provided rhoBar and J must contain the values of the
+///     fields at the previous time step. This means that if  the
+///      "external-rhoBar-J-collide-and-stream" is used at a processor level 0, then
 ///     this data processor must be integrated at processor level 1, and the data processor
 ///     to recompute the new rhoBar and J should be integrated at processor level 2.
+///     WARNING 2: The lattice must be non-periodic in the direction of the outflow
+///     normal. The reason for this is that the data processor uses data in the
+///     envelope to access post-collision populations from the previous time step. if
+///     the direction is periodic, these values get overwritten.
 template<typename T, template<typename U> class Descriptor>
 class VirtualOutlet : public BoxProcessingFunctional3D
 {
 public:
     /* Type 0: Close to FluidPressureOutlet3D (imposes a strict pressure).
-     * Type 1: Laplacian filter / extrapolation on the pressure.
+     * Type 1: Laplacian filter / extrapolation on the pressure / Free-surface like completion of populations.
+     * Type 2: Laplacian filter / extrapolation on the pressure / Extrapolation of non-equilibrium populations.
      **/
     VirtualOutlet(T outsideDensity_, Box3D globalDomain_, int type_=1);
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
@@ -157,6 +162,7 @@ private:
                         // domain plus the envelope (per periodic direction) for periodic problems.
     int type;           // If type = 0 then this is very close to FluidPressureOutlet3D.
                         // If type = 1 some times gives the best results.
+                        // If type = 2 is new and being tested.
 };
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,86 +35,160 @@
 namespace plb {
 
 template<typename T, template<typename U> class Descriptor>
-void punchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
-                  T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics, Box3D domain )
+void punchSphere(FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius,
+                 T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics)
 {
     applyProcessingFunctional (
             new PunchSphere3D<T,Descriptor>(center, radius, rho0),
-            domain, twoPhaseArgs );
+            fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
-    /*
     applyProcessingFunctional (
         new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoEmpty),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
-        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>(0.,0.,0.)),
-                                domain, twoPhaseArgs );
+        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>((T)0.,(T)0.,(T)0.)),
+                                fields.lattice.getBoundingBox(),
+                                fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoEmpty),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
-        new TwoPhaseComputeStatistics3D<T,Descriptor>,
-        domain, twoPhaseArgs );
-        */
+        new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 }
 
 template<typename T, template<typename U> class Descriptor>
-void analyticalPunchSphere( std::vector<MultiBlock3D*> const& twoPhaseArgs, Array<T,3> const& center, T radius,
-                            T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics, Box3D domain )
+void analyticalPunchSphere(FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius,
+                           T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics)
 {
     applyProcessingFunctional (
             new AnalyticalPunchSphere3D<T,Descriptor>(center, radius, rho0, subDivision),
-            domain, twoPhaseArgs );
+            fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
-    /*
     applyProcessingFunctional (
         new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoEmpty),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
-        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>(0.,0.,0.)),
-                                domain, twoPhaseArgs );
+        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>((T)0.,(T)0.,(T)0.)),
+                                fields.lattice.getBoundingBox(),
+                                fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoEmpty),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
         new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
-        domain, twoPhaseArgs );
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 
     applyProcessingFunctional (
-        new TwoPhaseComputeStatistics3D<T,Descriptor>,
-        domain, twoPhaseArgs );
-        */
+        new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+        fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
 }
 
 template<typename T, template<typename U> class Descriptor>
-T computeAverageSphereDensity( std::vector<MultiBlock3D*> const& twoPhaseArgs,
-                               Array<T,3> const& center, T radius, Box3D domain )
+T computeAverageSphereDensity(FreeSurfaceFields3D<T,Descriptor>& fields, Array<T,3> const& center, T radius)
 {
     CalculateAverageSphereDensity3D<T,Descriptor> functional(center, radius);
     applyProcessingFunctional (
-            functional, domain, twoPhaseArgs );
+            functional, fields.lattice.getBoundingBox(), fields.freeSurfaceArgs );
+    return functional.getAverageDensity();
+}
+
+template<typename T, template<typename U> class Descriptor>
+void punchSphere(FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius,
+                 T rhoEmpty, T rho0, Dynamics<T,Descriptor>& dynamics)
+{
+    applyProcessingFunctional (
+            new PunchSphere3D<T,Descriptor>(center, radius, rho0),
+            setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoEmpty),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>((T)0.,(T)0.,(T)0.)),
+                                setup.getGroup().getBoundingBox(),
+                                setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoEmpty),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void analyticalPunchSphere(FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius,
+                           T rhoEmpty, T rho0, plint subDivision, Dynamics<T,Descriptor>& dynamics)
+{
+    applyProcessingFunctional (
+            new AnalyticalPunchSphere3D<T,Descriptor>(center, radius, rho0, subDivision),
+            setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoEmpty),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics.clone(), Array<T,3>((T)0.,(T)0.,(T)0.)),
+                                setup.getGroup().getBoundingBox(),
+                                setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoEmpty),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+
+    applyProcessingFunctional (
+        new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+        setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
+}
+
+template<typename T, template<typename U> class Descriptor>
+T computeAverageSphereDensity(FreeSurfaceSetup<T,Descriptor>& setup, Array<T,3> const& center, T radius)
+{
+    CalculateAverageSphereDensity3D<T,Descriptor> functional(center, radius);
+    applyProcessingFunctional (
+            functional, setup.getGroup().getBoundingBox(), setup.freeSurfaceArgs );
     return functional.getAverageDensity();
 }
 
 }  // namespace plb
 
-#endif  // CREATE_BUBBLES_3D_H
+#endif  // CREATE_BUBBLES_3D_HH
 

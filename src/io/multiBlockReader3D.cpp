@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,7 +69,7 @@ void createDynamicsForeignIds3D(FileName fName, std::map<int,std::string>& forei
     foreignIds.clear();
     std::vector<MultiBlock3D::ProcessorStorage3D> processors;
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     XMLreaderProxy dynReader(0);
     try {
@@ -91,7 +91,7 @@ void createDynamicsForeignIds3D(FileName fName, std::map<int,std::string>& forei
 void readXmlProcessors(FileName fName, MultiBlock3D& block) {
     std::vector<MultiBlock3D::ProcessorStorage3D> processors;
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     XMLreaderProxy procReader(0);
     try {
@@ -134,16 +134,16 @@ void readXmlProcessors(FileName fName, MultiBlock3D& block) {
 
 void readXmlSpec (
     FileName fName, Box3D& boundingBox, std::vector<plint>& offsets,
-    plint& envelopeWidth, plint& gridLevel,
+    plint& envelopeWidth, plint& gridLevel, plint& cellDim,
     std::string& dataType, std::string& descriptor, std::string& family,
     std::vector<Box3D>& components, bool& dynamicContent, FileName& data_fName )
 {
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     std::string ordering;
     bool forwardOrdering;
-    plint cellDim, numComponents;
+    plint numComponents;
     Array<plint,6> boundingBox_array;
     std::string data_fName_str;
 
@@ -220,7 +220,8 @@ MultiBlock3D* load3D(FileName fName)
     FileName data_fName;
     std::vector<Box3D> components;
     bool dynamicContent;
-    readXmlSpec( fName, boundingBox, offsets, envelopeWidth, gridLevel, dataType,
+    plint cellDim;
+    readXmlSpec( fName, boundingBox, offsets, envelopeWidth, gridLevel, cellDim, dataType,
                  descriptor, family, components, dynamicContent, data_fName );
 
     SparseBlockStructure3D blockStructure(boundingBox);
@@ -247,7 +248,7 @@ MultiBlock3D* load3D(FileName fName)
 
     MultiBlock3D* newBlock =
                 meta::multiBlockRegistration3D().generate (
-                    dataType, descriptor, family, management );
+                    dataType, descriptor, family, management, cellDim );
     PLB_ASSERT( newBlock );
     std::vector<std::vector<char> > data(myBlockIds.size());
     loadRawData( data_fName, myBlockIds, offsets, data);
@@ -271,7 +272,7 @@ void load(FileName fName, MultiBlock3D& intoBlock, bool dynamicContent )
 SavedFullMultiBlockSerializer3D::SavedFullMultiBlockSerializer3D(FileName fName)
 {
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     std::string family, ordering;
     plint numComponents, numberOfBytes;

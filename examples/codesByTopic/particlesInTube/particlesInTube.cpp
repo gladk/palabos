@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     // Functional that advances the particles to their new position at each
     //   predefined time step.
     integrateProcessingFunctional (
-            new AdvanceParticlesFunctional3D<T,DESCRIPTOR>(cutOffSpeedSqr),
+            new AdvanceParticlesEveryWhereFunctional3D<T,DESCRIPTOR>(cutOffSpeedSqr),
             lattice->getBoundingBox(), particleArg, 0);
     // Functional that assigns the particle velocity according to the particle's
     //   position in the fluid.
@@ -229,6 +229,7 @@ int main(int argc, char* argv[])
 
     particles->executeInternalProcessors();
 
+    bool checkForErrors = true;
     pcout << std::endl << "Starting simulation." << std::endl;
     for (plint i=0; i<maxIter; ++i) {
         if (i%outIter==0) {
@@ -255,9 +256,13 @@ int main(int argc, char* argv[])
         if (i%particleTimeFactor==0) {
             particles->executeInternalProcessors();
         }
+
+        if (checkForErrors) {
+            abortIfErrorsOccurred();
+            checkForErrors = false;
+        }
     }
 
     delete particles;
-    delete particleTemplate;
     return 0;
 }

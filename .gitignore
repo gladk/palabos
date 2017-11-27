@@ -1,1 +1,8 @@
+# Ignore temporary files created through editing, compilation, and linking.
+*~
+*.o
+*.a
+*.dblite
+*.pyc
+*.os
 *.user

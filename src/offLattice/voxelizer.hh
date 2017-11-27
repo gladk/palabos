@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,12 @@
 #include "offLattice/voxelizer.h"
 #include "atomicBlock/dataField3D.h"
 #include "multiBlock/multiBlockGenerator3D.h"
+#include "multiBlock/defaultMultiBlockPolicy3D.h"
+#include "dataProcessors/dataInitializerWrapper3D.h"
+#include "dataProcessors/dataAnalysisWrapper3D.h"
+#include "dataProcessors/metaStuffWrapper3D.h"
+#include "dataProcessors/metaStuffWrapper3D.h"
+#include "core/plbTimer.h"
 
 namespace plb {
 
@@ -119,10 +125,16 @@ std::auto_ptr<MultiScalarField3D<int> > voxelize (
     flag_hash_arg.push_back(&hashContainer);
 
     voxelMatrix->resetFlags(); // Flags are used internally by VoxelizeMeshFunctional3D.
-    while (!allFlagsTrue(voxelMatrix.get())) {
+    plint maxIteration=5000;
+    plint i=0;
+    while (!allFlagsTrue(voxelMatrix.get()) && i<maxIteration) {
         applyProcessingFunctional (
                 new VoxelizeMeshFunctional3D<T>(mesh),
                 voxelMatrix->getBoundingBox(), flag_hash_arg );
+        ++i;
+    }
+    if (i==maxIteration) {
+        pcout << "Warning: Voxelization failed." << std::endl;
     }
 
     detectBorderLine(*voxelMatrix, voxelMatrix->getBoundingBox(), borderWidth);
@@ -155,11 +167,12 @@ std::auto_ptr<MultiScalarField3D<int> > voxelize (
     flag_hash_arg.push_back(&hashContainer);
 
     voxelMatrix->resetFlags(); // Flags are used internally by VoxelizeMeshFunctional3D.
-    plint maxIteration=100;
+    plint maxIteration=5000;
     plint i=0;
     while (!allFlagsTrue(voxelMatrix.get()) && i<maxIteration) {
+        bool useFullVoxelizationRange = (i == 0 ? true : false);
         applyProcessingFunctional (
-                new VoxelizeMeshFunctional3D<T>(mesh),
+                new VoxelizeMeshFunctional3D<T>(mesh, useFullVoxelizationRange),
                 voxelMatrix->getBoundingBox(), flag_hash_arg );
         ++i;
     }
@@ -172,6 +185,47 @@ std::auto_ptr<MultiScalarField3D<int> > voxelize (
     return std::auto_ptr<MultiScalarField3D<int> >(voxelMatrix);
 }
 
+template<typename T>
+std::auto_ptr<MultiScalarField3D<int> > voxelize (
+        TriangularSurfaceMesh<T> const& mesh,
+        MultiBlockManagement3D const& management,
+        plint borderWidth, Box3D seed )
+{
+    // As initial seed, a one-cell layer around the outer boundary is tagged
+    //   as ouside cells.
+    std::auto_ptr<MultiScalarField3D<int> > voxelMatrix
+        = defaultGenerateMultiScalarField3D<int>(management, voxelFlag::undetermined);
+    setToConstant(*voxelMatrix, seed, voxelFlag::outside);
+
+    MultiContainerBlock3D hashContainer(*voxelMatrix);
+    std::vector<MultiBlock3D*> container_arg;
+    container_arg.push_back(&hashContainer);
+    applyProcessingFunctional (
+            new CreateTriangleHash<T>(mesh),
+            hashContainer.getBoundingBox(), container_arg );
+
+    std::vector<MultiBlock3D*> flag_hash_arg;
+    flag_hash_arg.push_back(voxelMatrix.get());
+    flag_hash_arg.push_back(&hashContainer);
+
+    voxelMatrix->resetFlags(); // Flags are used internally by VoxelizeMeshFunctional3D.
+    plint maxIteration=5000;
+    plint i=0;
+    while (!allFlagsTrue(voxelMatrix.get()) && i<maxIteration) {
+        bool useFullVoxelizationRange = (i == 0 ? true : false);
+        applyProcessingFunctional (
+                new VoxelizeMeshFunctional3D<T>(mesh, useFullVoxelizationRange),
+                voxelMatrix->getBoundingBox(), flag_hash_arg );
+        ++i;
+    }
+    if (i==maxIteration) {
+        pcout << "Warning: Voxelization failed." << std::endl;
+    }
+
+    detectBorderLine(*voxelMatrix, voxelMatrix->getBoundingBox(), borderWidth);
+
+    return std::auto_ptr<MultiScalarField3D<int> >(voxelMatrix);
+}
 
 template<typename T>
 std::auto_ptr<MultiScalarField3D<int> > revoxelize (
@@ -193,10 +247,16 @@ std::auto_ptr<MultiScalarField3D<int> > revoxelize (
     flag_hash_arg.push_back(&hashContainer);
 
     voxelMatrix->resetFlags(); // Flags are used internally by VoxelizeMeshFunctional3D.
-    while (!allFlagsTrue(voxelMatrix.get())) {
+    plint maxIteration=5000;
+    plint i=0;
+    while (!allFlagsTrue(voxelMatrix.get()) && i<maxIteration) {
         applyProcessingFunctional (
                 new VoxelizeMeshFunctional3D<T>(mesh),
                 voxelMatrix->getBoundingBox(), flag_hash_arg );
+        ++i;
+    }
+    if (i==maxIteration) {
+        pcout << "Warning: Voxelization failed." << std::endl;
     }
 
     detectBorderLine(*voxelMatrix, voxelMatrix->getBoundingBox(), borderWidth);
@@ -209,8 +269,9 @@ std::auto_ptr<MultiScalarField3D<int> > revoxelize (
 
 template<typename T>
 VoxelizeMeshFunctional3D<T>::VoxelizeMeshFunctional3D (
-        TriangularSurfaceMesh<T> const& mesh_)
-    : mesh(mesh_)
+        TriangularSurfaceMesh<T> const& mesh_, bool useFullVoxelizationRange_ )
+    : mesh(mesh_),
+      useFullVoxelizationRange(useFullVoxelizationRange_)
 { }
 
 template<typename T>
@@ -277,7 +338,9 @@ bool VoxelizeMeshFunctional3D<T>::checkIfFacetsCrossed (
             if (global::counter("voxelizer-debug").getCount()==1) {
                 std::cout << "(" << iTriangle << ";" << tmpDistance << ")";
             }
-            crossings.push_back(tmpDistance);
+            if(!util::fpequal_abs(tmpDistance, T(), mesh.eps1) ) {
+                crossings.push_back(tmpDistance);
+            }
             if (crossings.size()==1 || tmpDistance<distance) {
                 distance = tmpDistance;
                 whichTriangle = iTriangle;
@@ -502,11 +565,22 @@ void VoxelizeMeshFunctional3D<T>::processGenericBlocks (
     }
 
     Array<plint,2> xRange, yRange, zRange;
-    if (!createVoxelizationRange(domain, *voxels, xRange, yRange, zRange)) {
-        // If no seed has been found in the envelope, just return and wait
-        //   for the next round.
-        return;
+    if (useFullVoxelizationRange) {
+        xRange[0] = domain.x0;
+        xRange[1] = domain.x1;
+        yRange[0] = domain.y0;
+        yRange[1] = domain.y1;
+        zRange[0] = domain.z0;
+        zRange[1] = domain.z1;
+    } else {
+        if (!createVoxelizationRange(domain, *voxels, xRange, yRange, zRange)) {
+            // If no seed has been found in the envelope, just return and wait
+            //   for the next round.
+            return;
+        }
     }
+
+    bool voxelizedEverything = true;
 
     // Specify if the loops go in positive or negative direction.
     plint xIncr = xRange[1]>xRange[0] ? 1 : -1;
@@ -540,12 +614,17 @@ void VoxelizeMeshFunctional3D<T>::processGenericBlocks (
                         }
                     }
                     voxels->get(iX,iY,iZ) = voxelType;
+                    if (voxelType == voxelFlag::undetermined) {
+                        voxelizedEverything = false;
+                    }
                 }
             }
         }
     }
     // Indicate that this atomic-block has been voxelized.
-    voxels->setFlag(true);
+    if (voxelizedEverything) {
+        voxels->setFlag(true);
+    }
 }
 
 template<typename T>
@@ -563,7 +642,6 @@ template<typename T>
 BlockDomain::DomainT VoxelizeMeshFunctional3D<T>::appliesTo() const {
     return BlockDomain::bulk;
 }
-
 
 
 /* ******** DetectBorderLineFunctional3D ************************************* */
@@ -625,6 +703,55 @@ void DetectBorderLineFunctional3D<T>::getTypeOfModification(std::vector<modif::M
 
 template<typename T>
 BlockDomain::DomainT DetectBorderLineFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+///* ******** ResetBorderLineFunctional3D ************************************* */
+
+template<typename T>
+void resetBorderFlags( MultiScalarField3D<T>& voxelMatrix,
+                       Box3D const& domain )
+{
+    applyProcessingFunctional( new ResetBorderLineFunctional3D<T>(),
+                               domain, voxelMatrix );
+}
+
+template<typename T>
+ResetBorderLineFunctional3D<T>::ResetBorderLineFunctional3D()
+{ }
+
+template<typename T>
+void ResetBorderLineFunctional3D<T>::process (
+        Box3D domain, ScalarField3D<T>& voxels )
+{
+    for (plint iX = domain.x0; iX <= domain.x1; ++iX) {
+        for (plint iY = domain.y0; iY <= domain.y1; ++iY) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; ++iZ) {
+                if ( voxels.get(iX,iY,iZ) == voxelFlag::innerBorder )
+                {
+                    voxels.get(iX,iY,iZ) = voxelFlag::inside;
+                }
+                if ( voxels.get(iX,iY,iZ) == voxelFlag::outerBorder )
+                {
+                    voxels.get(iX,iY,iZ) = voxelFlag::outside;
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+ResetBorderLineFunctional3D<T>* ResetBorderLineFunctional3D<T>::clone() const {
+    return new ResetBorderLineFunctional3D<T>(*this);
+}
+
+template<typename T>
+void ResetBorderLineFunctional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T>
+BlockDomain::DomainT ResetBorderLineFunctional3D<T>::appliesTo() const {
     return BlockDomain::bulk;
 }
 

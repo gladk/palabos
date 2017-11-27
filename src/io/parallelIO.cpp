@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,8 +23,25 @@
 */
 
 #include "core/globalDefs.h"
+#include "core/util.h"
+#include "core/runTimeDiagnostics.h"
 #include "parallelism/mpiManager.h"
 #include "io/parallelIO.h"
+
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
+#ifdef PLB_USE_POSIX
+#include <sys/stat.h>
+#include <sys/types.h>
+#else
+#ifdef PLB_WINDOWS
+#include <direct.h>
+#endif
+#endif
 
 namespace plb {
 
@@ -84,6 +101,19 @@ bool plb_ofstream::is_open() {
     return open;
 #else
     return original->is_open();
+#endif
+}
+
+plint plb_ofstream::tellp() {
+#ifdef PLB_MPI_PARALLEL
+    plint pos = -1;
+    if (global::mpi().isMainProcessor()) {
+        pos = original->tellp();
+    }
+    global::mpi().bCast(&pos, 1);
+    return pos;
+#else
+    return original->tellp();
 #endif
 }
 
@@ -178,5 +208,263 @@ void plb_ifstream::close() {
     }
 }
 
+
+/* *************** General utility functions ******************************** */
+
+void plbIOErrorIfCannotOpenFileForReading(std::string fileName)
+{
+    bool issueError = false;
+    std::string message = fileName + ": No error occurred in this process";
+    FILE* fp = fopen(fileName.c_str(), "rb");
+    if (fp == 0) {
+        issueError = true;
+        message = fileName + ": Cannot open file for reading; " + strerror(errno);
+        global::plbErrors().registerIOError(message);
+    } else {
+        fclose(fp);
+    }
+    plbIOError(issueError, message);
+}
+
+void plbIOErrorIfCanOpenFileForReading(std::string fileName)
+{
+    bool issueError = false;
+    std::string message = fileName + ": No error occurred in this process";
+    FILE* fp = fopen(fileName.c_str(), "rb");
+    if (fp != 0) {
+        issueError = true;
+        message = fileName + ": Can open file for reading";
+        global::plbErrors().registerIOError(message);
+        fclose(fp);
+    }
+    plbIOError(issueError, message);
+}
+
+void plbIOErrorIfCannotCreateFileInDir(std::string dirName, std::string dummyFileName)
+{
+    bool issueError = false;
+    std::string message = dirName + ": No error occurred in this process";
+    // Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+    //          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+    std::string fileName = dirName + dummyFileName + "_" + util::val2str(global::mpi().getRank());
+    FILE* fp = fopen(fileName.c_str(), "w");
+    if (fp == 0) {
+        issueError = true;
+        message = dirName + ": Cannot create a file for writing in this directory; " + strerror(errno);
+        global::plbErrors().registerIOError(message);
+    } else {
+        fclose(fp);
+        remove(fileName.c_str());
+    }
+    plbIOError(issueError, message);
+}
+
+void plbIOErrorIfFileErrorOccurred(FILE* fp)
+{
+    bool issueError = false;
+    std::string message = "No error occurred in this process";
+    global::mpi().barrier();    // Normally we should lock the file, but there is no portable way of doing so...
+    if (ferror(fp)) {
+        issueError = true;
+        message = "File stream error; " + std::string(strerror(errno));
+        global::plbErrors().registerIOError(message);
+    }
+    plbIOError(issueError, message);
+}
+
+void plbMainProcIOErrorIfCannotOpenFileForReading(std::string fileName)
+{
+    bool issueError = false;
+    std::string message = fileName + ": No error occurred in this process";
+    if (global::mpi().isMainProcessor()) {
+        FILE* fp = fopen(fileName.c_str(), "rb");
+        if (fp == 0) {
+            issueError = true;
+            message = fileName + ": Cannot open file for reading; " + strerror(errno);
+            global::plbErrors().registerIOError(message);
+        } else {
+            fclose(fp);
+        }
+    }
+    plbMainProcIOError(issueError, message);
+}
+
+void plbMainProcIOErrorIfCanOpenFileForReading(std::string fileName)
+{
+    bool issueError = false;
+    std::string message = fileName + ": No error occurred in this process";
+    if (global::mpi().isMainProcessor()) {
+        FILE* fp = fopen(fileName.c_str(), "rb");
+        if (fp != 0) {
+            issueError = true;
+            message = fileName + ": Can open file for reading";
+            global::plbErrors().registerIOError(message);
+            fclose(fp);
+        }
+    }
+    plbMainProcIOError(issueError, message);
+}
+
+void plbMainProcIOErrorIfCannotCreateFileInDir(std::string dirName, std::string dummyFileName)
+{
+    bool issueError = false;
+    std::string message = dirName + ": No error occurred in this process";
+    if (global::mpi().isMainProcessor()) {
+        // Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+        //          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+        std::string fileName = dirName + dummyFileName;
+        FILE* fp = fopen(fileName.c_str(), "w");
+        if (fp == 0) {
+            issueError = true;
+            message = dirName + ": Cannot create a file for writing in this directory; " + strerror(errno);
+            global::plbErrors().registerIOError(message);
+        } else {
+            fclose(fp);
+            remove(fileName.c_str());
+        }
+    }
+    plbMainProcIOError(issueError, message);
+}
+
+void plbMainProcIOErrorIfFileErrorOccurred(FILE* fp)
+{
+    bool issueError = false;
+    std::string message = "No error occurred in this process";
+    global::mpi().barrier();    // Normally we should lock the file, but there is no portable way of doing so...
+    if (global::mpi().isMainProcessor()) {
+        if (ferror(fp)) {
+            issueError = true;
+            message = "File stream error; " + std::string(strerror(errno));
+            global::plbErrors().registerIOError(message);
+        }
+    }
+    plbMainProcIOError(issueError, message);
+}
+
+void abortIfCannotOpenFileForReading(std::string fileName)
+{
+    try {
+        plbIOErrorIfCannotOpenFileForReading(fileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfCanOpenFileForReading(std::string fileName)
+{
+    try {
+        plbIOErrorIfCanOpenFileForReading(fileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfCannotCreateFileInDir(std::string dirName, std::string dummyFileName)
+{
+    try {
+        plbIOErrorIfCannotCreateFileInDir(dirName, dummyFileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfFileErrorOccurred(FILE* fp)
+{
+    try {
+        plbIOErrorIfFileErrorOccurred(fp);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfCannotOpenFileForReadingAtMainProc(std::string fileName)
+{
+    try {
+        plbMainProcIOErrorIfCannotOpenFileForReading(fileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfCanOpenFileForReadingAtMainProc(std::string fileName)
+{
+    try {
+        plbMainProcIOErrorIfCanOpenFileForReading(fileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfCannotCreateFileInDirAtMainProc(std::string dirName, std::string dummyFileName)
+{
+    try {
+        plbMainProcIOErrorIfCannotCreateFileInDir(dirName, dummyFileName);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void abortIfFileErrorOccurredAtMainProc(FILE* fp)
+{
+    try {
+        plbMainProcIOErrorIfFileErrorOccurred(fp);
+    } catch (PlbException& exception) {
+        std::string message = "Caught exception in process " + util::val2str(global::mpi().getRank()) + ". " + exception.what() + "\n";
+        printSerially(stderr, message);
+        exit(-1);
+    }
+}
+
+void makeDirectory(std::string dirName, bool abortIfExists)
+{
+    bool issueError = false;
+    std::string message = dirName + ": No error occurred in this process";
+    if (global::mpi().isMainProcessor()) {
+        bool useErrno = true;
+        int err = 0;
+#ifdef PLB_USE_POSIX
+        err = mkdir(dirName.c_str(), 0777);
+#else
+#ifdef PLB_WINDOWS
+        err = _mkdir(dirName.c_str());
+#else
+        issueError = true;
+        useErrno = false;
+        err = 0;
+#endif
+#endif
+        if (err != 0) {
+            issueError = true;
+            if (errno == EEXIST && !abortIfExists) {
+                issueError = false;
+            }
+        }
+        if (issueError) {
+            std::string explanation;
+            if (useErrno) {
+                explanation = strerror(errno);
+            } else {
+                explanation = " Operating system not supported";
+            }
+            message = dirName + ": Cannot make directory; " + explanation;
+            global::plbErrors().registerIOError(message);
+        }
+    }
+    plbMainProcIOError(issueError, message);
+}
 
 }  // namespace plb

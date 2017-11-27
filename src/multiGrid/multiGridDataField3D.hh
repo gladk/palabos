@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,8 @@
 #include "core/globalDefs.h"
 #include "multiGrid/multiGridDataField3D.h"
 #include "multiGrid/multiGridGenerator3D.h"
+#include "multiBlock/multiBlockGenerator3D.h"
+#include "multiGrid/gridConversion3D.h"
 
 
 namespace plb {
@@ -106,8 +108,42 @@ MultiScalarField3D<T> const& MultiGridScalarField3D<T>::getComponent(plint level
     return *fields[level];
 }
 
+// CAUTION: So far dimDx and dimDt should be 0!
 template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToCoarsest(plint dimDx, plint dimDt){
+std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToCoarsest(
+        plint dimDx, plint dimDt){
+
+    /**** ADDED BY HELEN MORRISON (2014) ****/
+    plint lastLevel = this->getNumLevels()-1;
+    std::auto_ptr<MultiScalarField3D<T> > fieldToCoarsen =
+            std::auto_ptr<MultiScalarField3D<T> > (
+                new MultiScalarField3D<T>(this->getComponent(lastLevel)));
+
+     copyNonLocal<T>(this->getComponent(lastLevel),            //from
+             *fieldToCoarsen,                                  //to
+             fieldToCoarsen->getBoundingBox());                //toDomain
+
+     std::auto_ptr<MultiScalarField3D<T> > tmp;
+
+     for (plint iLevel=lastLevel; iLevel>=1; --iLevel){
+
+         tmp = coarsen(*fieldToCoarsen, dimDx, dimDt, 1, 1);
+
+         fieldToCoarsen = generateJoinMultiScalarField<T>(
+                     *tmp, this->getComponent(iLevel-1));
+
+         // copy from reshaped iLevel to result
+         copyNonLocal<T>(*tmp, *fieldToCoarsen,
+                         fieldToCoarsen->getBoundingBox());
+         // copy from iLevel-1 to result
+         copyNonLocal<T>(this->getComponent(iLevel-1),
+                         *fieldToCoarsen, fieldToCoarsen->getBoundingBox());
+
+         tmp.reset();
+     }
+
+     return fieldToCoarsen;
+
 
 //TODO modify this to use the methods implemented by Jonas   
 //     plint levels = this->getNumLevels();
@@ -129,7 +165,38 @@ std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToCoarse
 }
 
 template<typename T>
-std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToFinest(plint dimDx, plint dimDt){
+std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToFinest(
+        plint dimDx, plint dimDt){
+
+    /**** ADDED BY HELEN MORRISON (2014) ****/
+    plint lastLevel = this->getNumLevels()-1;
+    std::auto_ptr<MultiScalarField3D<T> > fieldToRefine =
+            generateMultiScalarField<T>((this->getComponent(0)).getBoundingBox());
+
+     copyNonLocal<T>(this->getComponent(0),                 //from
+             *fieldToRefine,                                //to
+             fieldToRefine->getBoundingBox());              //toDomain
+
+     std::auto_ptr<MultiScalarField3D<T> > tmp;
+
+     for (plint iLevel=0; iLevel<=lastLevel-1; ++iLevel){
+
+         tmp = refine(*fieldToRefine, dimDx, dimDt, -1, -1);
+
+         fieldToRefine = generateMultiScalarField<T>(
+                     (this->getComponent(iLevel+1)).getBoundingBox());
+
+         // copy from reshaped iLevel to result
+         copyNonLocal<T>(*tmp, *fieldToRefine,
+                         fieldToRefine->getBoundingBox());
+         // copy from iLevel+1 to result
+         copyNonLocal<T>(this->getComponent(iLevel+1),
+                         *fieldToRefine, fieldToRefine->getBoundingBox());
+
+         tmp.reset();
+     }
+
+     return fieldToRefine;
     
 //TODO modify this to use the methods implemented by Jonas   
 //     MultiScalarField3D<T> *copy, *tmp;
@@ -148,6 +215,84 @@ std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToFinest
 //     return std::auto_ptr<MultiScalarField3D<T> >(copy);
 }
 
+/**** ADDED BY HELEN MORRISON (2014) ****/
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > MultiGridScalarField3D<T>::convertToLevel(
+        plint level, plint dimDx, plint dimDt)
+{
+
+    plint lastLevel = this->getNumLevels()-1;
+
+    if(level==0) return this->convertToCoarsest();
+    if(level==lastLevel) return this->convertToFinest();
+
+    else{
+
+        std::auto_ptr<MultiScalarField3D<T> > tmp;
+
+        std::auto_ptr<MultiScalarField3D<T> > fieldToRefine =
+                generateMultiScalarField<T>((this->getComponent(0)).getBoundingBox());
+
+         copyNonLocal<T>(this->getComponent(0),                 //from
+                 *fieldToRefine,                                //to
+                 fieldToRefine->getBoundingBox());              //toDomain
+
+         for (plint iLevel=0; iLevel<=level-1; ++iLevel){
+             tmp = refine(*fieldToRefine, dimDx, dimDt, -1, -1);
+
+             fieldToRefine = generateJoinMultiScalarField<T>(
+                             *tmp, this->getComponent(iLevel+1));
+
+             // copy from reshaped iLevel to result
+             copyNonLocal<T>(*tmp, *fieldToRefine,
+                             fieldToRefine->getBoundingBox());
+
+             // copy from iLevel+1 to result
+             copyNonLocal<T>(this->getComponent(iLevel+1),
+                             *fieldToRefine, fieldToRefine->getBoundingBox());
+
+             tmp.reset();
+         }
+        std::auto_ptr<MultiScalarField3D<T> > fieldToCoarsen =
+                std::auto_ptr<MultiScalarField3D<T> > (
+                    new MultiScalarField3D<T>(this->getComponent(lastLevel)));
+
+         copyNonLocal<T>(this->getComponent(lastLevel),            //from
+                 *fieldToCoarsen,                                  //to
+                 fieldToCoarsen->getBoundingBox());                //toDomain
+
+         for (plint iLevel=lastLevel; iLevel>=level+1; --iLevel){
+             tmp = coarsen(*fieldToCoarsen, dimDx, dimDt, 1, 1);
+
+             fieldToCoarsen = generateJoinMultiScalarField<T>(
+                         *tmp, this->getComponent(iLevel-1));
+
+             // copy from reshaped iLevel to result
+             copyNonLocal<T>(*tmp, *fieldToCoarsen,
+                             fieldToCoarsen->getBoundingBox());
+             // copy from iLevel-1 to result
+             copyNonLocal<T>(this->getComponent(iLevel-1),
+                             *fieldToCoarsen, fieldToCoarsen->getBoundingBox());
+         }
+
+         tmp.reset();
+
+         std::auto_ptr<MultiScalarField3D<T> > result =
+                 generateJoinMultiScalarField<T>(*fieldToCoarsen, *fieldToRefine);
+
+         copyNonLocal<T>(*fieldToRefine,
+                         *result, result->getBoundingBox());
+         copyNonLocal<T>(this->getComponent(level),
+                         *result, result->getBoundingBox());
+         copyNonLocal<T>(*fieldToCoarsen,
+                         *result, result->getBoundingBox());
+
+         fieldToCoarsen.reset();
+         fieldToRefine.reset();
+
+         return result;
+    }
+}
 
 /// Using the management object, create the corresponding fields for each level
 template<typename T>
@@ -179,6 +324,7 @@ MultiGridTensorField3D<T,nDim>::MultiGridTensorField3D ( MultiGridManagement3D m
                                                     std::vector<BlockCommunicator3D* > communicators_,
                                                     std::vector<CombinedStatistics*> combinedStatistics_, 
                                                     plint behaviorLevel_ )
+    : MultiGrid3D(management_, behaviorLevel_)
 {
     allocateFields(communicators_,combinedStatistics_);
 }
@@ -187,6 +333,7 @@ template<typename T, int nDim>
 MultiGridTensorField3D<T,nDim>::MultiGridTensorField3D (
                 MultiGridManagement3D management_,
                 plint behaviorLevel_ )
+    : MultiGrid3D(management_, behaviorLevel_)
 {
     allocateFields( defaultMultiGridPolicy3D().getBlockCommunicator(this->getNumLevels()),
                     defaultMultiGridPolicy3D().getCombinedStatistics(this->getNumLevels()) );
@@ -259,7 +406,40 @@ int MultiGridTensorField3D<T,nDim>::getBlockId() const{
 
 
 template<typename T, int nDim>
-std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::convertToCoarsest(plint dimDx, plint dimDt){
+std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::convertToCoarsest(
+        plint dimDx, plint dimDt){
+
+    /**** ADDED BY HELEN MORRISON (2014) ****/
+
+    plint lastLevel = this->getNumLevels()-1;
+    std::auto_ptr<MultiTensorField3D<T,nDim> > fieldToCoarsen =
+            std::auto_ptr<MultiTensorField3D<T,nDim> > (
+             new MultiTensorField3D<T,nDim>(this->getComponent(lastLevel)));
+
+     copyNonLocal<T,nDim>(this->getComponent(lastLevel),       //from
+                       *fieldToCoarsen,                        //to
+                       fieldToCoarsen->getBoundingBox());      //toDomain
+
+     std::auto_ptr<MultiTensorField3D<T,nDim> > tmp;
+
+     for (plint iLevel=lastLevel; iLevel>=1; --iLevel){
+
+         tmp = coarsen(*fieldToCoarsen, dimDx,dimDt,1,1);
+
+         fieldToCoarsen = generateJoinMultiTensorField<T,nDim>(
+                     *tmp, this->getComponent(iLevel-1));
+
+         // copy from reshaped iLevel to result
+         copyNonLocal<T,nDim>(*tmp,
+                 *fieldToCoarsen, fieldToCoarsen->getBoundingBox());
+         // copy from iLevel-1 to result
+         copyNonLocal<T,nDim>(this->getComponent(iLevel-1),
+                 *fieldToCoarsen, fieldToCoarsen->getBoundingBox());
+
+         tmp.reset();
+     }
+
+     return fieldToCoarsen;
 
 //TODO Complete with the functions that Jonas implemented
 //     plint levels = this->getNumLevels();
@@ -283,6 +463,37 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::conve
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::convertToFinest(plint dimDx, plint dimDt){
     
+    /**** ADDED BY HELEN MORRISON (2014) ****/
+    plint lastLevel = this->getNumLevels()-1;
+    std::auto_ptr<MultiTensorField3D<T,nDim> > fieldToRefine =
+            generateMultiTensorField<T,nDim>((this->getComponent(0)).getBoundingBox());
+
+     copyNonLocal<T,nDim>(this->getComponent(0),                 //from
+             *fieldToRefine,                                //to
+             fieldToRefine->getBoundingBox());              //toDomain
+
+     std::auto_ptr<MultiTensorField3D<T,nDim> > tmp;
+
+     for (plint iLevel=0; iLevel<=lastLevel-1; ++iLevel){
+
+         tmp = refine(*fieldToRefine, dimDx, dimDt, -1, -1);
+
+         fieldToRefine = generateMultiTensorField<T,nDim>(
+                     (this->getComponent(iLevel+1)).getBoundingBox());
+
+         // copy from reshaped iLevel to result
+         copyNonLocal<T,nDim>(*tmp, *fieldToRefine,
+                         fieldToRefine->getBoundingBox());
+         // copy from iLevel-1 to result
+         copyNonLocal<T,nDim>(this->getComponent(iLevel+1),
+                         *fieldToRefine, fieldToRefine->getBoundingBox());
+
+         tmp.reset();
+     }
+
+     return fieldToRefine;
+
+
 //TODO Complete with the functions that Jonas implemented
 //     MultiTensorField3D<T,nDim> *copy, *tmp;
 //     copy = joinMultiTensorInFinest(
@@ -300,6 +511,83 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::conve
 //     return std::auto_ptr<MultiTensorField3D<T,nDim> >(copy);
 }
 
+/**** ADDED BY HELEN MORRISON (2014) ****/
+template<typename T, int nDim>
+std::auto_ptr<MultiTensorField3D<T,nDim> > MultiGridTensorField3D<T,nDim>::convertToLevel(
+        plint level, plint dimDx, plint dimDt)
+{
+    plint lastLevel = this->getNumLevels()-1;
+
+    if(level==0) return this->convertToCoarsest();
+    if(level==lastLevel) return this->convertToFinest();
+
+    else{
+
+        std::auto_ptr<MultiTensorField3D<T,nDim> > tmp;
+
+        std::auto_ptr<MultiTensorField3D<T,nDim> > fieldToRefine =
+                generateMultiTensorField<T,nDim>((this->getComponent(0)).getBoundingBox());
+
+         copyNonLocal<T,nDim>(this->getComponent(0),                 //from
+                 *fieldToRefine,                                //to
+                 fieldToRefine->getBoundingBox());              //toDomain
+
+         for (plint iLevel=0; iLevel<=level-1; ++iLevel){
+             tmp = refine(*fieldToRefine, dimDx, dimDt, -1, -1);
+
+             fieldToRefine = generateJoinMultiTensorField<T,nDim>(
+                             *tmp, this->getComponent(iLevel+1));
+
+             // copy from reshaped iLevel to result
+             copyNonLocal<T,nDim>(*tmp, *fieldToRefine,
+                             fieldToRefine->getBoundingBox());
+
+             // copy from iLevel+1 to result
+             copyNonLocal<T,nDim>(this->getComponent(iLevel+1),
+                             *fieldToRefine, fieldToRefine->getBoundingBox());
+
+             tmp.reset();
+         }
+        std::auto_ptr<MultiTensorField3D<T,nDim> > fieldToCoarsen =
+                std::auto_ptr<MultiTensorField3D<T,nDim> > (
+                    new MultiTensorField3D<T,nDim>(this->getComponent(lastLevel)));
+
+         copyNonLocal<T>(this->getComponent(lastLevel),            //from
+                 *fieldToCoarsen,                                  //to
+                 fieldToCoarsen->getBoundingBox());                //toDomain
+
+         for (plint iLevel=lastLevel; iLevel>=level+1; --iLevel){
+             tmp = coarsen(*fieldToCoarsen, dimDx, dimDt, 1, 1);
+
+             fieldToCoarsen = generateJoinMultiTensorField<T,nDim>(
+                         *tmp, this->getComponent(iLevel-1));
+
+             // copy from reshaped iLevel to result
+             copyNonLocal<T,nDim>(*tmp, *fieldToCoarsen,
+                             fieldToCoarsen->getBoundingBox());
+             // copy from iLevel-1 to result
+             copyNonLocal<T,nDim>(this->getComponent(iLevel-1),
+                             *fieldToCoarsen, fieldToCoarsen->getBoundingBox());
+         }
+
+         tmp.reset();
+
+         std::auto_ptr<MultiTensorField3D<T,nDim> > result =
+                 generateJoinMultiTensorField<T,nDim>(*fieldToCoarsen, *fieldToRefine);
+
+         copyNonLocal<T,nDim>(*fieldToRefine,
+                         *result, result->getBoundingBox());
+         copyNonLocal<T,nDim>(this->getComponent(level),
+                         *result, result->getBoundingBox());
+         copyNonLocal<T,nDim>(*fieldToCoarsen,
+                         *result, result->getBoundingBox());
+
+         fieldToCoarsen.reset();
+         fieldToRefine.reset();
+
+         return result;
+    }
+}
 
 
 /// Using the management object, create the corresponding fields for each level

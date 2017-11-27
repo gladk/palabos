@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,15 +26,17 @@
 #define MULTI_PARTICLE_FIELD_3D_HH
 
 #include "core/globalDefs.h"
+#include "core/multiBlockIdentifiers3D.h"
 #include "particles/multiParticleField3D.h"
 #include "particles/particleNonLocalTransfer3D.h"
+#include "multiBlock/defaultMultiBlockPolicy3D.h"
 #include <memory>
 
 namespace plb {
 
 template<class ParticleFieldT>
 std::auto_ptr<MultiParticleField3D<ParticleFieldT> >
-    defaultGenerateParticleField3D(MultiBlockManagement3D const& management, plint nDim)
+    defaultGenerateParticleField3D(MultiBlockManagement3D const& management, plint unnamedDummyArg)
 {
     return std::auto_ptr<MultiParticleField3D<ParticleFieldT> > (
                new MultiParticleField3D<ParticleFieldT> (
@@ -99,6 +101,12 @@ MultiParticleField3D<ParticleFieldT>::MultiParticleField3D(MultiParticleField3D<
     : MultiBlock3D(rhs)
 {
     allocateBlocks();
+    typename BlockMap::iterator it = blocks.begin();
+    typename BlockMap::const_iterator rhsIt = rhs.blocks.begin();
+
+    for (; it != blocks.end(); ++it, ++rhsIt) {
+        *(it->second) = *(rhsIt->second);
+    }
 }
 
 template<class ParticleFieldT>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -132,7 +132,9 @@ MultiScalarField2D<T>* MultiScalarField2D<T>::clone(MultiBlockManagement2D const
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiScalarAccess->clone(), T() );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 
@@ -375,7 +377,9 @@ MultiTensorField2D<T,nDim>* MultiTensorField2D<T,nDim>::clone(MultiBlockManageme
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiTensorAccess->clone(), iniVal );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 
@@ -498,7 +502,9 @@ std::vector<std::string> MultiTensorField2D<T,nDim>::getTypeInfo() const {
 
 template<typename T, int nDim>
 std::string MultiTensorField2D<T,nDim>::blockName() {
-    return std::string("TensorField2D");
+    std::stringstream ss;
+    ss << nDim;
+    return std::string("TensorField2D_" + ss.str());
 }
 
 template<typename T, int nDim>
@@ -634,7 +640,9 @@ MultiNTensorField2D<T>* MultiNTensorField2D<T>::clone(MultiBlockManagement2D con
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiNTensorAccess->clone() );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 

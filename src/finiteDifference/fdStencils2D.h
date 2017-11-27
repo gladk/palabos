@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -80,9 +80,9 @@ namespace fd {
     
     /// Third order central 2d-interpolation (a_p1p1=a(x+1/2,y+1/2), a_m2p1=a(x-3/2,y+1/2)), returns a(x)
     template<typename T>
-    inline T asymNincePointsInterp(T a_m1m1, T a_m1p1, T a_m1p2, 
-                                   T a_p1m1, T a_p1p1, T a_p1p2, 
-                                   T a_p2m1, T a_p2p1, T a_p2p2) 
+    inline T asymNinePointsInterp(T a_m1m1, T a_m1p1, T a_m1p2,
+                                  T a_p1m1, T a_p1p1, T a_p1p2, 
+                                  T a_p2m1, T a_p2p1, T a_p2p2) 
     {
         //   o --- o --- o // a_m1p2    a_p1p2  a_p2p2
         

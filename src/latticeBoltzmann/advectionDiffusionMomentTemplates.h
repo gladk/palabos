@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -65,11 +65,19 @@ static void get_jEq(Cell<T,Descriptor> const& cell, const T& rhoBar,
 }
 
 static void get_rhoBar_jEq_jNeq(Cell<T,Descriptor> const& cell, T& rhoBar, 
-                            Array<T,Descriptor<T>::d>& jEq, Array<T,Descriptor<T>::d>& jNeq ) 
+                                Array<T,Descriptor<T>::d>& jEq, Array<T,Descriptor<T>::d>& jNeq ) 
 {
     advectionDiffusionMomentTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
         ::get_rhoBar_jEq_jNeq(cell.getRawPopulations(), rhoBar, jEq, jNeq,
                               cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+}
+
+static void get_rhoBar_jEq_jNeq_linear(Cell<T,Descriptor> const& cell, T& rhoBar, 
+                                       Array<T,Descriptor<T>::d>& jEq, Array<T,Descriptor<T>::d>& jNeq ) 
+{
+    advectionDiffusionMomentTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::get_rhoBar_jEq_jNeq_linear(cell.getRawPopulations(), rhoBar, jEq, jNeq,
+                                     cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
 }
 
 };  // struct advectionDiffusionMomentTemplates
@@ -116,6 +124,26 @@ static void get_rhoBar_jEq_jNeq(Array<T,Descriptor::q> const& f, T& rhoBar,
             jReal[iD] += (T)Descriptor::c[iPop][iD] * f[iPop];
         }
         jEq[iD] = rho * u[iD];
+        jNeq[iD] = jReal[iD] - jEq[iD];
+    }
+}
+    
+static void get_rhoBar_jEq_jNeq_linear (
+                Array<T,Descriptor::q> const& f, T& rhoBar, 
+                Array<T,Descriptor::d>& jEq, Array<T,Descriptor::d>& jNeq,
+                const T u[Descriptor::d] )
+{
+    rhoBar = momentTemplatesImpl<T,Descriptor>::get_rhoBar(f);
+    T rho = Descriptor::fullRho(rhoBar);
+    Array<T,Descriptor::d> jReal; //sum f_i*c_i
+    for (plint iD = 0; iD < Descriptor::d; ++iD)
+    {
+        jReal[iD] = (T)Descriptor::c[0][iD] * f[0];
+        for (plint iPop = 1; iPop < Descriptor::q; ++iPop)
+        {
+            jReal[iD] += (T)Descriptor::c[iPop][iD] * f[iPop];
+        }
+        jEq[iD] = u[iD];
         jNeq[iD] = jReal[iD] - jEq[iD];
     }
 }

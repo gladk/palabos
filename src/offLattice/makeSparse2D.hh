@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -165,13 +165,9 @@ MultiBlockManagement2D computeSparseManagement (
     plint numRanges = std::min(newId, (plint)global::mpi().getSize());
     util::linearRepartition(0, newId-1, numRanges, ranges);
     
-    std::vector<plint> localBlocks;
     for (pluint iProc=0; iProc<ranges.size(); ++iProc) {
         for (plint blockId=ranges[iProc].first; blockId<=ranges[iProc].second; ++blockId) {
             newAttribution -> addBlock(blockId, iProc);
-            if (iProc==(pluint)global::mpi().getRank()) {
-                localBlocks.push_back(blockId);
-            }
         }
     }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,7 +25,6 @@
 #ifndef PLB_DEBUG_H
 #define PLB_DEBUG_H
 
-#include "core/globalDefs.h"
 #include <cassert>
 
 #ifdef PLB_DEBUG
@@ -43,5 +42,16 @@
     #define PLB_STATECHECK( A,B )
 
 #endif  // PLB_DEBUG
+
+namespace plb {
+
+// Programmatically enable core dumps for POSIX systems.
+// In a parallel program, this function must be called after plbInit.
+void enableCoreDumps();
+
+// Make stdout and stderr unbuffered for better debugging.
+void unbufferOutputStdStreams();
+
+}  // namespace plb
 
 #endif  // PLB_DEBUG_H

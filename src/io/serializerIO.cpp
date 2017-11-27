@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -109,6 +109,46 @@ void Base64Writer::writeData(char const* dataBuffer, pluint bufferSize)
 }
 
 
+/* *************** Class RawBinaryWriter ******************************** */
+
+class RawBinaryWriter : public SerializedWriter {
+public:
+    RawBinaryWriter(std::ostream* ostr_);
+    RawBinaryWriter(RawBinaryWriter const& rhs);
+    virtual RawBinaryWriter* clone() const;
+    ~RawBinaryWriter();
+    virtual void writeHeader(pluint dataSize);
+    virtual void writeData(char const* dataBuffer, pluint bufferSize);
+private:
+    std::ostream* ostr;
+};
+
+RawBinaryWriter::RawBinaryWriter(std::ostream* ostr_)
+    : ostr(ostr_)
+{ }
+
+RawBinaryWriter::RawBinaryWriter(RawBinaryWriter const& rhs)
+    : ostr(rhs.ostr)
+{ }
+
+RawBinaryWriter* RawBinaryWriter::clone() const {
+    return new RawBinaryWriter(*this);
+}
+
+RawBinaryWriter::~RawBinaryWriter() { }
+
+void RawBinaryWriter::writeHeader(pluint dataSize) {
+    ostr->write((char const*)&dataSize, sizeof(dataSize));
+}
+
+void RawBinaryWriter::writeData(char const* dataBuffer, pluint bufferSize)
+{
+    global::profiler().start("io");
+    ostr->write(dataBuffer, (int)bufferSize);
+    global::profiler().stop("io");
+}
+
+
 /* *************** Class Base64Reader ******************************** */
 
 class Base64Reader : public SerializedReader {
@@ -185,19 +225,31 @@ void Base64Reader::readData(char* dataBuffer, pluint bufferSize) const
 
 /* *************** Free functions ************************************ */
 
-void serializerToBase64Stream(DataSerializer const* serializer, std::ostream* ostr, bool enforceUint)
+void serializerToBase64Stream(DataSerializer const* serializer, std::ostream* ostr, bool enforceUint, bool mainProcOnly)
 {
     serializerToSink (
             serializer,
             new Base64Writer(ostr, enforceUint,
-                                global::IOpolicy().getEndianSwitchOnBase64out()) );
+                                global::IOpolicy().getEndianSwitchOnBase64out()),
+            mainProcOnly );
 }
 
-void base64StreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer, bool enforceUint) {
+void serializerToRawBinaryStream(DataSerializer const* serializer, std::ostream* ostr, bool mainProcOnly)
+{
+    serializerToSink (
+            serializer,
+            new RawBinaryWriter(ostr),
+            mainProcOnly );
+}
+
+void base64StreamToUnSerializer( std::istream* istr, DataUnSerializer* unSerializer,
+                                 bool enforceUint, bool mainProcOnly )
+{
     sourceToUnSerializer (
             new Base64Reader(istr, enforceUint,
                              global::IOpolicy().getEndianSwitchOnBase64in()),
-            unSerializer);
+            unSerializer,
+            mainProcOnly );
 }
 
 } // namespace plb

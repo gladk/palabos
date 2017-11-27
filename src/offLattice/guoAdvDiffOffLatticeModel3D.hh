@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -75,7 +75,7 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::prepareCell (
     GuoAdvDiffOffLatticeInfo3D* info =
         dynamic_cast<GuoAdvDiffOffLatticeInfo3D*>(container.getData());
     PLB_ASSERT( info );
-    if (!this->isFluid(cellLocation+offset)) {
+    if (this->isSolid(cellLocation+offset)) {
         std::vector<std::pair<int,int> > liquidNeighbors;
         std::vector<plint> ids;
         for (int iNeighbor=0; iNeighbor<NextNeighbor<T>::numNeighbors; ++iNeighbor) {
@@ -105,14 +105,14 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::prepareCell (
                 Array<T,3> wallNormal;
                 Array<T,2> surfaceData;
                 OffBoundary::Type bdType;
-#ifdef PLB_DEBUG
                 bool ok =
-#endif
                     this->pointOnSurface (
                             cellLocation+offset, Dot3D(c[0],c[1],c[2]), locatedPoint, distance,
                             wallNormal, surfaceData, bdType, iTriangle );
                 global::timer("intersect").stop();
-                PLB_ASSERT( ok );
+                if (!ok) {
+                    global::plbErrors().registerError("Guo AD off-lattice model could not find an intersection with a triangle.");
+                }
                 ids.push_back(iTriangle);
                 //normals.push_back(wallNormal);
             }
@@ -136,7 +136,7 @@ template<typename T, template<typename U> class Descriptor>
 void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::boundaryCompletion (
         AtomicBlock3D& nonTypeLattice,
         AtomicContainerBlock3D& container,
-            std::vector<AtomicBlock3D const*> const& args )
+            std::vector<AtomicBlock3D *> const& args )
 {
     BlockLattice3D<T,Descriptor>& lattice =
         dynamic_cast<BlockLattice3D<T,Descriptor>&> (nonTypeLattice);
@@ -149,9 +149,11 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::boundaryCompletion (
         dryNodeFluidDirections = info->getDryNodeFluidDirections();
     std::vector<std::vector<plint> > const&
         dryNodeIds = info->getDryNodeIds();
-    PLB_ASSERT( dryNodes.size() == dryNodeFluidDirections.size() );
+    if (dryNodes.size() != dryNodeFluidDirections.size()) {
+        global::plbErrors().registerError("Error in the Guo AD off-lattice model boundary completion.");
+    }
 
-    Dot3D absoluteOffset = lattice.getLocation();
+    Dot3D absoluteOffset = container.getLocation();
 
     for (pluint iDry=0; iDry<dryNodes.size(); ++iDry) {
         cellCompletion (
@@ -187,15 +189,17 @@ void GuoAdvDiffOffLatticeModel3D<T,Descriptor>::cellCompletion (
         Array<T,2> wallData;
         T wallDistance;
         OffBoundary::Type bdType;
-#ifdef PLB_DEBUG
         bool ok =
-#endif
             this->pointOnSurface( guoNode+absoluteOffset, fluidDirection,
                                   wallNode, wallDistance, wallNormal,
                                   wallData, bdType, dryNodeId );
-        PLB_ASSERT( ok );
+        if (!ok) {
+            global::plbErrors().registerError("Guo AD off-lattice model could not find an intersection with a triangle.");
+        }
         T invDistanceToNeighbor = NextNeighbor<T>::invD[iNeighbor];
-        PLB_ASSERT( wallDistance <= NextNeighbor<T>::d[iNeighbor] );
+        if (!(wallDistance <= NextNeighbor<T>::d[iNeighbor])) {
+            global::plbErrors().registerError("Error treating the geometry in the Guo AD off-lattice model.");
+        }
         T delta = (T)1. - wallDistance * invDistanceToNeighbor;
         Array<T,3> normalFluidDirection((T)fluidDirection.x, (T)fluidDirection.y, (T)fluidDirection.z);
         normalFluidDirection *= invDistanceToNeighbor;

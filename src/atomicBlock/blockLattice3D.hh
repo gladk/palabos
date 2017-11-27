@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #include "atomicBlock/blockLattice3D.h"
 #include "core/dynamics.h"
 #include "core/cell.h"
+#include "core/plbTimer.h"
 #include "latticeBoltzmann/latticeTemplates.h"
 #include "latticeBoltzmann/indexTemplates.h"
 #include "core/util.h"
@@ -53,9 +54,8 @@ template<typename T, template<typename U> class Descriptor>
 BlockLattice3D<T,Descriptor>::BlockLattice3D (
         plint nx_, plint ny_, plint nz_,
         Dynamics<T,Descriptor>* backgroundDynamics_ )
-    : AtomicBlock3D(nx_, ny_, nz_),
-      backgroundDynamics(backgroundDynamics_),
-      dataTransfer(*this)
+   :  AtomicBlock3D(nx_, ny_, nz_, new BlockLatticeDataTransfer3D<T,Descriptor>()),
+      backgroundDynamics(backgroundDynamics_)
 {
     plint nx = this->getNx();
     plint ny = this->getNy();
@@ -81,6 +81,7 @@ BlockLattice3D<T,Descriptor>::BlockLattice3D (
     max.push_back(0.);      // default max uSqr to 0
     plint numCells = 1;     // pretend fictitious cell to evaluate statistics
     this->getInternalStatistics().evaluate (average, sum, max, intSum, numCells);
+    global::plbCounter("MEMORY_LATTICE").increment(allocatedMemory());
 }
 
 /** During destruction, the memory for the lattice and the contained
@@ -90,6 +91,7 @@ BlockLattice3D<T,Descriptor>::BlockLattice3D (
 template<typename T, template<typename U> class Descriptor>
 BlockLattice3D<T,Descriptor>::~BlockLattice3D()
 {
+    global::plbCounter("MEMORY_LATTICE").increment(-allocatedMemory());
     releaseMemory();
 }
 
@@ -102,8 +104,7 @@ template<typename T, template<typename U> class Descriptor>
 BlockLattice3D<T,Descriptor>::BlockLattice3D(BlockLattice3D<T,Descriptor> const& rhs)
     : BlockLatticeBase3D<T,Descriptor>(rhs),
       AtomicBlock3D(rhs),
-      backgroundDynamics(rhs.backgroundDynamics->clone()),
-      dataTransfer(*this)
+      backgroundDynamics(rhs.backgroundDynamics->clone())
 {
     plint nx = this->getNx();
     plint ny = this->getNy();
@@ -126,6 +127,7 @@ BlockLattice3D<T,Descriptor>::BlockLattice3D(BlockLattice3D<T,Descriptor> const&
             }
         }
     }
+    global::plbCounter("MEMORY_LATTICE").increment(allocatedMemory());
 }
 
 /** The current lattice is deallocated, then the lattice from the rhs
@@ -148,11 +150,13 @@ BlockLattice3D<T,Descriptor>& BlockLattice3D<T,Descriptor>::operator= (
  */
 template<typename T, template<typename U> class Descriptor>
 void BlockLattice3D<T,Descriptor>::swap(BlockLattice3D& rhs) {
+    global::plbCounter("MEMORY_LATTICE").increment(-allocatedMemory());
     BlockLatticeBase3D<T,Descriptor>::swap(rhs);
     AtomicBlock3D::swap(rhs);
     std::swap(backgroundDynamics, rhs.backgroundDynamics);
     std::swap(rawData, rhs.rawData);
     std::swap(grid, rhs.grid);
+    global::plbCounter("MEMORY_LATTICE").increment(allocatedMemory());
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -393,6 +397,20 @@ Dynamics<T,Descriptor> const& BlockLattice3D<T,Descriptor>::getBackgroundDynamic
     return *backgroundDynamics;
 }
 
+template<typename T, template<typename U> class Descriptor>
+void BlockLattice3D<T,Descriptor>::resetDynamics(Dynamics<T,Descriptor> const& dynamics) {
+    plint nx = this->getNx();
+    plint ny = this->getNy();
+    plint nz = this->getNz();
+    for (plint iX=0; iX<nx; ++iX) {
+        for (plint iY=0; iY<ny; ++iY) {
+            for (plint iZ=0; iZ<nz; ++iZ) {
+                attributeDynamics(iX,iY,iZ, dynamics.clone());
+            }
+        }
+    }
+}
+
 /** This method is slower than bulkStream(int,int,int,int), because it must
  * be verified which distribution functions are to be kept from leaving
  * the domain.
@@ -594,6 +612,12 @@ void BlockLattice3D<T,Descriptor>::implementPeriodicity() {
 }
 
 template<typename T, template<typename U> class Descriptor>
+plint BlockLattice3D<T,Descriptor>::allocatedMemory() const {
+    return this->getNx()*this->getNy()*this->getNz()*
+           sizeof(T)* (Descriptor<T>::numPop + Descriptor<T>::ExternalField::numScalars);
+}
+
+template<typename T, template<typename U> class Descriptor>
 void BlockLattice3D<T,Descriptor>::periodicDomain(Box3D domain) {
     plint nx = this->getNx();
     plint ny = this->getNy();
@@ -623,23 +647,32 @@ void BlockLattice3D<T,Descriptor>::periodicDomain(Box3D domain) {
     }
 }
 
-template<typename T, template<typename U> class Descriptor>
-BlockLatticeDataTransfer3D<T,Descriptor>& BlockLattice3D<T,Descriptor>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T, template<typename U> class Descriptor>
-BlockLatticeDataTransfer3D<T,Descriptor> const& BlockLattice3D<T,Descriptor>::getDataTransfer() const {
-    return dataTransfer;
-}
-
-
 ////////////////////// Class BlockLatticeDataTransfer3D /////////////////////////
 
 template<typename T, template<typename U> class Descriptor>
-BlockLatticeDataTransfer3D<T,Descriptor>::BlockLatticeDataTransfer3D(BlockLattice3D<T,Descriptor>& lattice_)
-    : lattice(lattice_)
+BlockLatticeDataTransfer3D<T,Descriptor>::BlockLatticeDataTransfer3D()
+    : lattice(0),
+      constLattice(0)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+void BlockLatticeDataTransfer3D<T,Descriptor>::setBlock(AtomicBlock3D& block) {
+    lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(&block);
+    PLB_ASSERT(lattice);
+    constLattice = lattice;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void BlockLatticeDataTransfer3D<T,Descriptor>::setConstBlock(AtomicBlock3D const& block) {
+    constLattice = dynamic_cast<BlockLattice3D<T,Descriptor> const*>(&block);
+    PLB_ASSERT(constLattice);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockLatticeDataTransfer3D<T,Descriptor>* BlockLatticeDataTransfer3D<T,Descriptor>::clone() const
+{
+    return new BlockLatticeDataTransfer3D<T,Descriptor>(*this);
+}
 
 template<typename T, template<typename U> class Descriptor>
 plint BlockLatticeDataTransfer3D<T,Descriptor>::staticCellSize() const {
@@ -650,7 +683,8 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::send (
         Box3D domain, std::vector<char>& buffer, modif::ModifT kind ) const
 {
-    PLB_PRECONDITION(contained(domain, lattice.getBoundingBox()));
+    PLB_PRECONDITION( constLattice );
+    PLB_PRECONDITION(contained(domain, constLattice->getBoundingBox()));
     // It's the responsibility of the functions called below to allocate
     //   the right amount of memory for the buffer.
     buffer.clear();
@@ -672,6 +706,7 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::send_static (
         Box3D domain, std::vector<char>& buffer ) const
 {
+    PLB_PRECONDITION( constLattice );
     plint cellSize = staticCellSize();
     pluint numBytes = domain.nCells()*cellSize;
     // Avoid dereferencing uninitialized pointer.
@@ -682,7 +717,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::send_static (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                lattice.get(iX,iY,iZ).serialize(&buffer[iData]);
+                constLattice->get(iX,iY,iZ).serialize(&buffer[iData]);
                 iData += cellSize;
             }
         }
@@ -693,11 +728,12 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::send_dynamic (
         Box3D domain, std::vector<char>& buffer ) const
 {
+    PLB_PRECONDITION( constLattice );
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 // The serialize function automatically reallocates memory for buffer.
-                serialize(lattice.get(iX,iY,iZ).getDynamics(), buffer);
+                serialize(constLattice->get(iX,iY,iZ).getDynamics(), buffer);
             }
         }
     }
@@ -707,16 +743,17 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::send_all (
         Box3D domain, std::vector<char>& buffer ) const
 {
+    PLB_PRECONDITION( constLattice );
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 // 1. Send dynamic info (automaic allocation of buffer memory).
-                serialize(lattice.get(iX,iY,iZ).getDynamics(), buffer);
+                serialize(constLattice->get(iX,iY,iZ).getDynamics(), buffer);
                 pluint pos = buffer.size();
                 // 2. Send static info (needs manual allocation of buffer memory).
                 if (staticCellSize()>0) {
                     buffer.resize(pos+staticCellSize());
-                    lattice.get(iX,iY,iZ).serialize(&buffer[pos]);
+                    constLattice->get(iX,iY,iZ).serialize(&buffer[pos]);
                 }
             }
         }
@@ -742,7 +779,8 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION(contained(domain, lattice.getBoundingBox()));
+    PLB_PRECONDITION( lattice );
+    PLB_PRECONDITION(contained(domain, lattice->getBoundingBox()));
     switch(kind) {
         case modif::staticVariables:
             receive_static(domain, buffer); break;
@@ -761,6 +799,7 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::receive_static (
         Box3D domain, std::vector<char> const& buffer )
 {
+    PLB_PRECONDITION( lattice );
     PLB_PRECONDITION( (plint) buffer.size() == domain.nCells()*staticCellSize() );
     // Avoid dereferencing uninitialized pointer.
     if (buffer.empty()) return;
@@ -770,7 +809,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::receive_static (
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                lattice.get(iX,iY,iZ).unSerialize(&buffer[iData]);
+                lattice->get(iX,iY,iZ).unSerialize(&buffer[iData]);
                 iData += cellSize;
             }
         }
@@ -781,6 +820,7 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::receive_dynamic (
         Box3D domain, std::vector<char> const& buffer )
 {
+    PLB_PRECONDITION( lattice );
     pluint serializerPos = 0;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -789,7 +829,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::receive_dynamic (
                 //   dynamics are detected by asserts inside HierarchicUnserializer.
                 serializerPos = 
                     unserialize (
-                        lattice.get(iX,iY,iZ).getDynamics(), buffer, serializerPos );
+                        lattice->get(iX,iY,iZ).getDynamics(), buffer, serializerPos );
             }
         }
     }
@@ -799,6 +839,7 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::receive_all (
         Box3D domain, std::vector<char> const& buffer )
 {
+    PLB_PRECONDITION( lattice );
     pluint posInBuffer = 0;
     plint cellSize = staticCellSize();
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -807,10 +848,10 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::receive_all (
                 // 1. Unserialize dynamic data.
                 posInBuffer = 
                     unserialize (
-                        lattice.get(iX,iY,iZ).getDynamics(), buffer, posInBuffer );
+                        lattice->get(iX,iY,iZ).getDynamics(), buffer, posInBuffer );
                 // 2. Unserialize static data.
                 if (staticCellSize()>0) {
-                    lattice.get(iX,iY,iZ).unSerialize(&buffer[posInBuffer]);
+                    lattice->get(iX,iY,iZ).unSerialize(&buffer[posInBuffer]);
                     posInBuffer += cellSize;
                 }
             }
@@ -822,6 +863,7 @@ template<typename T, template<typename U> class Descriptor>
 void BlockLatticeDataTransfer3D<T,Descriptor>::receive_regenerate (
         Box3D domain, std::vector<char> const& buffer, std::map<int,int> const& idIndirect )
 {
+    PLB_PRECONDITION( lattice );
     pluint posInBuffer = 0;
     plint cellSize = staticCellSize();
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -833,13 +875,13 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::receive_regenerate (
                 Dynamics<T,Descriptor>* newDynamics =
                     meta::dynamicsRegistration<T,Descriptor>().generate(unserializer);
                 posInBuffer = unserializer.getCurrentPos();
-                lattice.attributeDynamics(iX,iY,iZ, newDynamics);
+                lattice->attributeDynamics(iX,iY,iZ, newDynamics);
 
                 // 2. Unserialize static data.
                 if (staticCellSize()>0) {
                     PLB_ASSERT( !buffer.empty() );
                     PLB_ASSERT( posInBuffer+cellSize<=buffer.size() );
-                    lattice.get(iX,iY,iZ).unSerialize(&buffer[posInBuffer]);
+                    lattice->get(iX,iY,iZ).unSerialize(&buffer[posInBuffer]);
                     posInBuffer += cellSize;
                 }
             }
@@ -852,8 +894,9 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute (
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         AtomicBlock3D const& from, modif::ModifT kind )
 {
+    PLB_PRECONDITION( lattice );
     PLB_PRECONDITION (typeid(from) == typeid(BlockLattice3D<T,Descriptor> const&));
-    PLB_PRECONDITION(contained(toDomain, lattice.getBoundingBox()));
+    PLB_PRECONDITION(contained(toDomain, lattice->getBoundingBox()));
     BlockLattice3D<T,Descriptor> const& fromLattice = (BlockLattice3D<T,Descriptor> const&) from;
     switch(kind) {
         case modif::staticVariables:
@@ -874,10 +917,11 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_static (
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         BlockLattice3D<T,Descriptor> const& from )
 {
+    PLB_PRECONDITION( lattice );
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
             for (plint iZ=toDomain.z0; iZ<=toDomain.z1; ++iZ) {
-                lattice.get(iX,iY,iZ).attributeValues (
+                lattice->get(iX,iY,iZ).attributeValues (
                         from.get(iX+deltaX,iY+deltaY,iZ+deltaZ) );
             }
         }
@@ -889,6 +933,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_dynamic (
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         BlockLattice3D<T,Descriptor> const& from )
 {
+    PLB_PRECONDITION( lattice );
     std::vector<char> serializedData;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
@@ -898,7 +943,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_dynamic (
                     from.get(iX+deltaX,iY+deltaY,iZ+deltaZ).getDynamics(),
                     serializedData );
                 unserialize (
-                    lattice.get(iX,iY,iZ).getDynamics(),
+                    lattice->get(iX,iY,iZ).getDynamics(),
                     serializedData );
             }
         }
@@ -910,6 +955,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_all (
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         BlockLattice3D<T,Descriptor> const& from )
 {
+    PLB_PRECONDITION( lattice );
     std::vector<char> serializedData;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
@@ -920,11 +966,11 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_all (
                     from.get(iX+deltaX,iY+deltaY,iZ+deltaZ).getDynamics(),
                     serializedData );
                 unserialize (
-                    lattice.get(iX,iY,iZ).getDynamics(),
+                    lattice->get(iX,iY,iZ).getDynamics(),
                     serializedData );
 
                 // 2. Attribute static content.
-                lattice.get(iX,iY,iZ).attributeValues (
+                lattice->get(iX,iY,iZ).attributeValues (
                         from.get(iX+deltaX,iY+deltaY,iZ+deltaZ) );
             }
         }
@@ -936,6 +982,7 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_regenerate (
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         BlockLattice3D<T,Descriptor> const& from )
 {
+    PLB_PRECONDITION( lattice );
     std::vector<char> serializedData;
     for (plint iX=toDomain.x0; iX<=toDomain.x1; ++iX) {
         for (plint iY=toDomain.y0; iY<=toDomain.y1; ++iY) {
@@ -948,10 +995,10 @@ void BlockLatticeDataTransfer3D<T,Descriptor>::attribute_regenerate (
                 HierarchicUnserializer unserializer(serializedData, 0);
                 Dynamics<T,Descriptor>* newDynamics =
                     meta::dynamicsRegistration<T,Descriptor>().generate(unserializer);
-                lattice.attributeDynamics(iX,iY,iZ, newDynamics);
+                lattice->attributeDynamics(iX,iY,iZ, newDynamics);
 
                 // 2. Attribute static content.
-                lattice.get(iX,iY,iZ).attributeValues (
+                lattice->get(iX,iY,iZ).attributeValues (
                         from.get(iX+deltaX,iY+deltaY,iZ+deltaZ) );
             }
         }

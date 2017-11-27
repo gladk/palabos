@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,7 +44,7 @@ public:
     std::vector<T>& getOrdinates() { return y; }
     virtual T getFunctionValue(T t) const =0;
     virtual T getIntegralValue() const =0;
-    virtual T getIntegralValue(T tmin, T tmax) const =0;
+    virtual T getIntegralValue(T t1, T t2) const =0;
 private:
     std::vector<T> x, y;
 };
@@ -68,7 +68,7 @@ public:
     virtual T getSecondDerivativeValue(T t) const =0;
     virtual T getThirdDerivativeValue(T t) const =0;
     virtual T getIntegralValue() const =0;
-    virtual T getIntegralValue(T tmin, T tmax) const =0;
+    virtual T getIntegralValue(T t1, T t2) const =0;
 };
 
 template<typename T>
@@ -87,10 +87,11 @@ public:
     virtual T getSecondDerivativeValue(T t) const;
     virtual T getThirdDerivativeValue(T t) const;
     virtual T getIntegralValue() const;
-    virtual T getIntegralValue(T tmin, T tmax) const;
+    virtual T getIntegralValue(T t1, T t2) const;
 private:
     void constructSpline();
     plint bsrch(T t, plint il, plint ih) const;
+    void locate(T& t) const;
 private:
     mutable plint icache;
     std::vector<T> y1, y2, y3;

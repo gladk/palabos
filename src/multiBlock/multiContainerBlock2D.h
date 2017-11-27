@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -65,6 +65,7 @@ public:
                 Box2D const& toDomain, modif::ModifT whichData=modif::dataStructure );
 private:
     void allocateBlocks();
+    void allocateBlocks(MultiContainerBlock2D const& rhs);
     void deAllocateBlocks();
 private:
     BlockMap blocks;

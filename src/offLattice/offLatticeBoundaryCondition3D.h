@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #include "offLattice/triangleBoundary3D.h"
 #include "offLattice/triangleToDef.h"
 #include "offLattice/guoOffLatticeModel3D.h"
+#include "multiBlock/multiBlockLattice3D.h"
 
 namespace plb {
 
@@ -55,9 +56,9 @@ public:
     VoxelizedDomain3D<T> const& getVoxelizedDomain() const { return voxelizedDomain; }
     VoxelizedDomain3D<T>& getVoxelizedDomain() { return voxelizedDomain; }
     void apply();
-    void insert();
+    void insert(plint processorLevel = 1);
     void apply(std::vector<MultiBlock3D*> const& completionArg);
-    void insert(std::vector<MultiBlock3D*> const& completionArg);
+    void insert(std::vector<MultiBlock3D*> const& completionArg, plint processorLevel = 1);
     Array<T,3> getForceOnObject();
     std::auto_ptr<MultiTensorField3D<T,3> > computeVelocity(Box3D domain);
     std::auto_ptr<MultiTensorField3D<T,3> > computeVelocity();

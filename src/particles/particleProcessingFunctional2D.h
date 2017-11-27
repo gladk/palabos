@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -183,6 +183,20 @@ public:
     /// Arguments: [0] Particle-field; [1] Velocity.
     virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
     virtual VelocityToParticleCoupling2D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T scaling;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class N_VelocityToParticleCoupling2D : public BoxProcessingFunctional2D
+{
+public:
+    /// Particle speed = scaling*fluid speed.
+    N_VelocityToParticleCoupling2D(T scaling_);
+    /// Arguments: [0] Particle-field; [1] Velocity.
+    virtual void processGenericBlocks(Box2D domain, std::vector<AtomicBlock2D*> fields);
+    virtual N_VelocityToParticleCoupling2D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     T scaling;

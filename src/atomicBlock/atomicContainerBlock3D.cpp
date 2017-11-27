@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,7 +27,7 @@
 namespace plb {
 
 AtomicContainerBlock3D::AtomicContainerBlock3D(plint nx_, plint ny_, plint nz_)
-    : AtomicBlock3D(nx_,ny_,nz_),
+    : AtomicBlock3D(nx_,ny_,nz_, new AtomicContainerDataTransfer3D() ),
       data(0)
 { }
 

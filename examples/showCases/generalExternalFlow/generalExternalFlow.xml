@@ -8,7 +8,7 @@
 <geometry>
     <!-- Coordinates of the physical simulation domain. -->
     <simulationDomain>
-        <x> -0.450 2.500 </x>
+        <x> -0.650 2.500 </x>
         <y> -0.455 0.445 </y>
         <z> -0.455 0.445 </z>
     </simulationDomain>
@@ -39,17 +39,17 @@
     <!-- Precision for geometric operations (FLT, DBL, LDBL, INF). -->
     <precision> DBL </precision>
     <!-- Characteristic length to define the resolution and the Reynolds number. -->
-    <characteristicLength> 0.1 </characteristicLength>
+    <characteristicLength> 0.08 </characteristicLength>
     <!-- Total number of lattice nodes in the characteristic length. -->
-    <resolution> 7 </resolution>
+    <resolution> 16 </resolution>
     <!-- Discrete time step. -->
-    <dt> 0.0025 </dt>
+    <dt> 0.001067 </dt>
     <!-- Maximum number of iterations. -->
-    <maxIter> 1000000 </maxIter>
+    <maxIter> 200000 </maxIter>
     <!-- Iterations for the immersed boundary method. -->
     <ibIter> 4 </ibIter>
     <!-- Number of initial iterations for smoothly increasing the inlet velocity. -->
-    <startIter> 15000 </startIter>
+    <startIter> 20000 </startIter>
     <!-- Smagorinsky LES model parameter. -->
     <cSmago> 0.14 </cSmago>
     <!-- Inlet velocity. -->
@@ -58,9 +58,9 @@
     <lateralPeriodic> true </lateralPeriodic>
     <!-- Angular velocities for the moving surfaces (represented as column vectors). -->
     <angularVelocities>
-        <x> 0.00 </x>
-        <y> 1.25 </y>
-        <z> 0.00 </z>
+        <x> 0.000 </x>
+        <y> 0.125 </y>
+        <z> 0.000 </z>
     </angularVelocities>
     <!-- Point on the axis of rotation for each moving surface (represented as column vectors). -->
     <rotationAxisPoints>
@@ -76,7 +76,7 @@
          to that axis, which holds the minimum axis coordinate. If no sponge
          zone is necessary at a lattice boundary, the corresponding width
          should be 0.0. -->
-        <xWidths> 0.0 0.0 </xWidths>
+        <xWidths> 0.0 0.5 </xWidths>
         <yWidths> 0.0 0.0 </yWidths>
         <zWidths> 0.0 0.0 </zWidths>
         <!-- Use sponges of "viscosity" or "Smagorinsky" type? -->
@@ -104,7 +104,7 @@
     <!-- Fluid density. -->
     <rho> 1.0 </rho>
     <!-- Fluid kinematic viscosity. -->
-    <nu> 1.0e-3 </nu>
+    <nu> 2.5e-5 </nu>
     <!-- Absolute pressure at infinity. -->
     <ambientPressure> 0.0 </ambientPressure>
 </fluid>
@@ -118,11 +118,27 @@
     <cpIter> -1 </cpIter>
     <!-- Number of iterations for checking for user-driven program abortion. -->
     <abIter> 16 </abIter>
+    <!-- The torque will be calculated independently for each moving surface with respect to
+         an appropriate axis. This axis for each surface, is defined by a point it passes from,
+         and by a direction. The axis points and directions are represented as column vectors,
+         and their number must be the same as the number of moving surfaces. -->
+    <torques>
+        <axisPoints>
+            <x> -0.15 </x>
+            <y>  0.00 </y>
+            <z>  0.00 </z>
+        </axisPoints>
+        <axisDirections>
+            <x> 0.0 </x>
+            <y> 1.0 </y>
+            <z> 0.0 </z>
+        </axisDirections>
+    </torques>
     <!-- Save data on disk in a volume subdomain of the whole simulation domain or not? -->
-    <outputInDomain> true </outputInDomain>
+    <outputInDomain> false </outputInDomain>
     <!-- Domain for disk output (must be a subset of the simulation domain). -->
     <outputDomain>
-        <x> -0.450 2.500 </x>
+        <x> -0.650 2.500 </x>
         <y> -0.455 0.445 </y>
         <z> -0.455 0.445 </z>
     </outputDomain>
@@ -140,12 +156,12 @@
         <ySlices>
             <yPositions> -0.4 -0.2 -0.1 0.0 0.1 0.2 0.4 </yPositions>
             <zRange> -0.455 0.445 </zRange>
-            <xRange> -0.450 2.500 </xRange>
+            <xRange> -0.650 2.500 </xRange>
         </ySlices>
         <!-- Slices normal to the z-axis for disk output. -->
         <zSlices>
             <zPositions> -0.4 -0.2 -0.1 0.0 0.1 0.2 0.4 </zPositions>
-            <xRange> -0.450 2.500 </xRange>
+            <xRange> -0.650 2.500 </xRange>
             <yRange> -0.455 0.445 </yRange>
         </zSlices>
     </outputSlices>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -104,11 +104,21 @@ static T complete_mrt_ma2_ext_rhoBar_j_collision(Cell<T,Descriptor>& cell, T rho
 
 static void complete_bgk_ma2_regularize(Cell<T,Descriptor>& cell, T rhoPhiBar, T rhoBar,
                                         Array<T,Descriptor<T>::d> const& jEq, Array<T,Descriptor<T>::d> const& jNeq, 
-                                        const Array<T,SymmetricTensor<T,Descriptor>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
+                                        const Array<T,SymmetricTensorImpl<T,Descriptor<T>::d>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
 {
     
     return advectionDiffusionDynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
         ::complete_bgk_ma2_regularize(cell.getRawPopulations(), rhoPhiBar, rhoBar, jEq, jNeq, piNeq, omega, omegaNonPhys, omegaFluid, omegaFluidNonPhys);
+}
+
+static T complete_bgk_ma2_regularized_collision(Cell<T,Descriptor>& cell, T rhoPhiBar, T rhoBar,
+                                                   Array<T,Descriptor<T>::d> const& jEq, Array<T,Descriptor<T>::d> const& jNeq, 
+                                                   const Array<T,SymmetricTensor<T,Descriptor>::n> &piNeq, T omega, T omegaNonPhys, 
+                                                   T omegaFluid, T omegaFluidNonPhys )
+{
+    return advectionDiffusionDynamicsTemplatesImpl<T,typename Descriptor<T>::BaseDescriptor>
+        ::complete_bgk_ma2_regularized_collision(cell.getRawPopulations(), rhoPhiBar, rhoBar,
+                                                 jEq, jNeq, piNeq, omega, omegaNonPhys, omegaFluid, omegaFluidNonPhys );
 }
 
 };  // struct advectionDiffusionDynamicsTemplates
@@ -223,7 +233,16 @@ static void complete_bgk_ma2_regularize(Array<T,Descriptor::q>& f, T rhoPhiBar, 
                                         Array<T,Descriptor::d> const& jEq, Array<T,Descriptor::d> const& jNeq, 
                                         const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n> &piNeq, T omega, T omegaNonPhys, T omegaFluid, T omegaFluidNonPhys )
 {
-    PLB_ASSERT(false);
+    PLB_ASSERT(false && "Not implemented in the generic case.");
+}
+
+static T complete_bgk_ma2_regularized_collision(Array<T,Descriptor::q>& f, T rhoPhiBar, T rhoBar,
+                                                   Array<T,Descriptor::d> const& jEq, Array<T,Descriptor::d> const& jNeq, 
+                                                   const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n> &piNeq, T omega, T omegaNonPhys, 
+                                                   T omegaFluid, T omegaFluidNonPhys )
+{
+    PLB_ASSERT(false && "Not implemented in the generic case.");
+    return T();
 }
 
 };  // struct advectionDiffusionDynamicsTemplatesImpl

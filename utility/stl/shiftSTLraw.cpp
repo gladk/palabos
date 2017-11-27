@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     }
 
     triangleSet->translate(Array<T,3>(shiftX,shiftY,shiftZ));
-    triangleSet->writeBinarySTL(outFileName);
+    triangleSet->writeAsciiSTL(outFileName);
 
     return 0;
 }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,6 +40,7 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <typeinfo>
 
 namespace plb {
 
@@ -72,7 +73,7 @@ template<typename T>
 void VtkDataWriter3D::writeDataField(DataSerializer const* serializer,
                                      std::string const& name, plint nDim)
 {
-    if (global::mpi().isMainProcessor()) {
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
         (*ostr) << "<DataArray type=\"" << VtkTypeNames<T>::getName()
                 << "\" Name=\"" << name
                 << "\" format=\"binary\" encoding=\"base64";
@@ -89,10 +90,30 @@ void VtkDataWriter3D::writeDataField(DataSerializer const* serializer,
     // there must be no newline between the encoded length indicator and the encoded data block.
 
     bool enforceUint=true; // VTK uses "unsigned" to indicate the size of data, even on a 64-bit machine.
-    serializerToBase64Stream(serializer, ostr, enforceUint);
+    serializerToBase64Stream(serializer, ostr, enforceUint, mainProcOnly);
 
-    if (global::mpi().isMainProcessor()) {
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
         (*ostr) << "\n</DataArray>\n";
+    }
+}
+
+
+////////// class ParallelVtkDataWriter3D ////////////////////////////////////////
+
+template<typename T>
+void ParallelVtkDataWriter3D::declareDataField( std::string const& name, plint nDim, plint declarationPos, plint dataOffset )
+{ 
+    if (global::mpi().isMainProcessor()) {
+        ostr = new std::ofstream(fileName.c_str(), std::ios_base::in|std::ios_base::out|std::ios_base::binary);
+        ostr->seekp(declarationPos);
+        (*ostr) << "\n<DataArray type=\"" << VtkTypeNames<T>::getName()
+                << "\" Name=\"" << name
+                << "\" format=\"appended";
+        if (nDim>1) {
+            (*ostr) << "\" NumberOfComponents=\"" << nDim;
+        }
+        (*ostr) << "\" offset=\"" << dataOffset << "\"/>\n";
+        delete ostr;
     }
 }
 
@@ -231,7 +252,7 @@ void VtkImageOutput2D<T>::writeData( MultiNTensorField2D<T>& nTensorField,
 {
     MultiNTensorField2D<TConv>* transformedField = copyConvert<T,TConv>(nTensorField, nTensorField.getBoundingBox());
     writeData<TConv> (
-            nTensorField.getNx(), nTensorField.getNy(), nTensorField.getNdim(),
+            transformedField->getNx(), transformedField->getNy(), transformedField->getNdim(),
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
             nTensorFieldName );
     delete transformedField;
@@ -386,8 +407,128 @@ void VtkImageOutput3D<T>::writeData( MultiNTensorField3D<T>& nTensorField,
 {
     MultiNTensorField3D<TConv>* transformedField = copyConvert<T,TConv>(nTensorField, nTensorField.getBoundingBox());
     writeData<TConv> (
-            nTensorField.getBoundingBox(), nTensorField.getNdim(),
+            transformedField->getBoundingBox(), transformedField->getNdim(),
             transformedField->getBlockSerializer(transformedField->getBoundingBox(), IndexOrdering::backward),
+            nTensorFieldName );
+    delete transformedField;
+}
+
+////////// class ParallelVtkImageOutput3D ////////////////////////////////////
+
+template<typename T>
+ParallelVtkImageOutput3D<T>::ParallelVtkImageOutput3D(std::string fName, plint numEntries_, double deltaX_)
+    : fullName ( global::directories().getVtkOutDir() + fName+".vti" ),
+      vtkOut( fullName ),
+      deltaX(deltaX_),
+      offset(T(),T(),T()),
+      headerWritten( false ),
+      numEntries(numEntries_)
+{
+    sizeOfEntry = 256; // Entries are smaller than that. We just make sure to 
+                       // provide enough space.
+    sizeOfFooter = 100;
+    nextDataOffset = 0;
+    iEntry = 0;
+}
+
+template<typename T>
+ParallelVtkImageOutput3D<T>::ParallelVtkImageOutput3D(std::string fName, plint numEntries_, double deltaX_, Array<double,3> offset_)
+    : fullName ( global::directories().getVtkOutDir() + fName+".vti" ),
+      vtkOut( fullName ),
+      deltaX(deltaX_),
+      offset(offset_),
+      headerWritten( false ),
+      numEntries(numEntries_)
+{
+    sizeOfEntry = 256; // Entries are smaller than that. We just make sure to 
+                       // provide enough space.
+    sizeOfFooter = 100;
+    nextDataOffset = 0;
+    iEntry = 0;
+}
+
+template<typename T>
+ParallelVtkImageOutput3D<T>::~ParallelVtkImageOutput3D() {
+    vtkOut.writeFooter2();
+}
+
+template<typename T>
+void ParallelVtkImageOutput3D<T>::writeHeader(Box3D boundingBox_) {
+    if (headerWritten) {
+        PLB_PRECONDITION(boundingBox == boundingBox_);
+    }
+    else {
+        boundingBox = boundingBox_;
+        vtkOut.writeHeader(boundingBox, offset, deltaX);
+        vtkOut.startPiece(boundingBox);
+        plint fillerSpace = numEntries*sizeOfEntry + sizeOfFooter;
+        vtkOut.appendFillerSpace(fillerSpace);
+        vtkOut.endPiece();
+        vtkOut.writeFooter1();
+        headerWritten = true;
+    }
+}
+
+template<typename T>
+template<typename TConv>
+void ParallelVtkImageOutput3D<T>::writeData( Box3D boundingBox, plint nDim,
+                                             MultiBlock3D& block, IndexOrdering::OrderingT ordering,
+                                             std::string const& name )
+{
+    PLB_ASSERT( iEntry < numEntries );
+
+    writeHeader(boundingBox);
+    plint declarationPos = vtkOut.getSizeOfHeader() + iEntry*sizeOfEntry;
+    vtkOut.declareDataField<TConv> (name, nDim, declarationPos, nextDataOffset);
+    plint nextDataSize = block.getBoundingBox().nCells()*nDim*sizeof(TConv);
+    nextDataOffset += nextDataSize + sizeof(pluint); // For the size indicator.
+    vtkOut.writeDataField(block, ordering, sizeof(TConv), nextDataSize);
+    ++iEntry;
+}
+
+template<typename T>
+template<typename TConv>
+void ParallelVtkImageOutput3D<T>::writeData( MultiScalarField3D<T>& scalarField,
+                                             std::string scalarFieldName, TConv scalingFactor,
+                                             TConv additiveOffset )
+{
+    std::auto_ptr<MultiScalarField3D<TConv> > transformedField = copyConvert<T,TConv>(scalarField);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    if (!util::isZero(additiveOffset)) {
+        addInPlace(*transformedField, additiveOffset);
+    }
+    writeData<TConv> (
+            scalarField.getBoundingBox(), 1,
+            *transformedField, IndexOrdering::backward, scalarFieldName );
+}
+
+template<typename T>
+template<plint n, typename TConv>
+void ParallelVtkImageOutput3D<T>::writeData( MultiTensorField3D<T,n>& tensorField,
+                                             std::string tensorFieldName, TConv scalingFactor )
+{
+    std::auto_ptr<MultiTensorField3D<TConv,n> > transformedField = copyConvert<T,TConv,n>(tensorField);
+    if (!util::isOne(scalingFactor)) {
+        multiplyInPlace(*transformedField, scalingFactor);
+    }
+    writeData<TConv> (
+            transformedField->getBoundingBox(), n,
+            *transformedField, IndexOrdering::backward,
+            tensorFieldName );
+}
+
+
+template<typename T>
+template<typename TConv>
+void ParallelVtkImageOutput3D<T>::writeData( MultiNTensorField3D<T>& nTensorField,
+                                             std::string nTensorFieldName )
+{
+    MultiNTensorField3D<TConv>* transformedField = copyConvert<T,TConv>(nTensorField, nTensorField.getBoundingBox());
+    writeData<TConv> (
+            transformedField->getBoundingBox(), transformedField->getNdim(),
+            *transformedField, IndexOrdering::backward,
             nTensorFieldName );
     delete transformedField;
 }
@@ -395,5 +536,4 @@ void VtkImageOutput3D<T>::writeData( MultiNTensorField3D<T>& nTensorField,
 }  // namespace plb
 
 #endif  // VTK_DATA_OUTPUT_HH
-
 

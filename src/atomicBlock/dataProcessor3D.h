@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -112,6 +112,19 @@ private:
     Box3D domain;
 };
 
+class MultiBoxedDataProcessorGenerator3D : public DataProcessorGenerator3D {
+public:
+    MultiBoxedDataProcessorGenerator3D(std::vector<Box3D> const& domains_);
+    virtual void shift(plint deltaX, plint deltaY, plint deltaZ);
+    virtual void multiply(plint scale);
+    virtual void divide(plint scale);
+    virtual bool extract(Box3D subDomain);
+    std::vector<Box3D> const& getDomains() const;
+    virtual void serialize(Box3D& domain, std::string& data) const;
+private:
+    std::vector<Box3D> domains;
+};
+
 class DottedDataProcessorGenerator3D : public DataProcessorGenerator3D {
 public:
     DottedDataProcessorGenerator3D(DotList3D const& dots_);
@@ -184,6 +197,19 @@ public:
     virtual void serialize(Box3D& domain, std::string& data) const;
 private:
     Box3D domain;
+};
+
+class MultiBoxedReductiveDataProcessorGenerator3D : public ReductiveDataProcessorGenerator3D {
+public:
+    MultiBoxedReductiveDataProcessorGenerator3D(std::vector<Box3D> const& domains_);
+    virtual void shift(plint deltaX, plint deltaY, plint deltaZ);
+    virtual void multiply(plint scale);
+    virtual void divide(plint scale);
+    virtual bool extract(Box3D subDomain);
+    std::vector<Box3D> const& getDomains() const;
+    virtual void serialize(Box3D& domain, std::string& data) const;
+private:
+    std::vector<Box3D> domains;
 };
 
 class DottedReductiveDataProcessorGenerator3D : public ReductiveDataProcessorGenerator3D {

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -83,7 +83,7 @@ int CarreauDynamics<T,Descriptor,N>::getId() const {
 
 template<typename T, template<typename U> class Descriptor, int N>
 int BGKCarreauDynamics<T,Descriptor,N>::id =
-    meta::registerOneParamDynamics<T,Descriptor,BGKCarreauDynamics<T,Descriptor,N> >
+    meta::registerGeneralDynamics<T,Descriptor,BGKCarreauDynamics<T,Descriptor,N> >
             ( std::string("CarreauDynamics_BGK_")+util::val2str(N) );
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
@@ -92,6 +92,13 @@ template<typename T, template<typename U> class Descriptor, int N>
 BGKCarreauDynamics<T,Descriptor,N>::BGKCarreauDynamics(T omega)
     : IsoThermalBulkDynamics<T,Descriptor>(omega)
 { }
+
+template<typename T, template<typename U> class Descriptor, int N>
+BGKCarreauDynamics<T,Descriptor,N>::BGKCarreauDynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor, int N>
 BGKCarreauDynamics<T,Descriptor,N>* BGKCarreauDynamics<T,Descriptor,N>::clone() const
@@ -163,7 +170,7 @@ T BGKCarreauDynamics<T,Descriptor,N>::computeEquilibrium (
 
 template<typename T, template<typename U> class Descriptor, int N>
 int RegularizedBGKCarreauDynamics<T,Descriptor,N>::id =
-    meta::registerOneParamDynamics<T,Descriptor,RegularizedBGKCarreauDynamics<T,Descriptor,N> >
+    meta::registerGeneralDynamics<T,Descriptor,RegularizedBGKCarreauDynamics<T,Descriptor,N> >
             ( std::string("CarreauDynamics_RLB_")+util::val2str(N) );
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
@@ -171,7 +178,13 @@ int RegularizedBGKCarreauDynamics<T,Descriptor,N>::id =
 template<typename T, template<typename U> class Descriptor, int N>
 RegularizedBGKCarreauDynamics<T,Descriptor,N>::RegularizedBGKCarreauDynamics(T omega)
     : IsoThermalBulkDynamics<T,Descriptor>(omega)
+{ }
+
+template<typename T, template<typename U> class Descriptor, int N>
+RegularizedBGKCarreauDynamics<T,Descriptor,N>::RegularizedBGKCarreauDynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>(T())
 {
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int N>

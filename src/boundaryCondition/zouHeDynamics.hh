@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -131,7 +131,7 @@ ZouHeVelocityDynamics<T,Descriptor,direction,orientation>::
     ZouHeVelocityDynamics(HierarchicUnserializer& unserializer)
         : VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -140,21 +140,6 @@ ZouHeVelocityDynamics<T,Descriptor,direction,orientation>*
 {
     return new ZouHeVelocityDynamics<T,Descriptor,direction,orientation>(*this);
 }
- 
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void ZouHeVelocityDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void ZouHeVelocityDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
-}
-
  
 template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
@@ -188,7 +173,7 @@ ZouHePressureDynamics<T,Descriptor,direction,orientation>::
     ZouHePressureDynamics(HierarchicUnserializer& unserializer)
         : DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -196,20 +181,6 @@ ZouHePressureDynamics<T,Descriptor,direction,orientation>*
     ZouHePressureDynamics<T,Descriptor, direction, orientation>::clone() const
 {
     return new ZouHePressureDynamics<T,Descriptor,direction,orientation>(*this);
-}
- 
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void ZouHePressureDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void ZouHePressureDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
 }
  
 template<typename T, template<typename U> class Descriptor,

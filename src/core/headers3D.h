@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,4 +46,7 @@
 #include "core/indexUtil.h"
 #include "core/multiBlockIdentifiers3D.h"
 #include "core/nonLocalDynamics3D.h"
+#include "core/functions.h"
+#include "core/vectorFunction3D.h"
+#include "core/realFunction3D.h"
 

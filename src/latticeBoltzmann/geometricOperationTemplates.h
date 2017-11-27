@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,6 +59,10 @@ struct VectorTemplate {
     static T scalarProduct(const T u1[d], Array<T,d> const& u2) {
         return VectorTemplateImpl<T,d>::scalarProduct(u1,u2);
     }
+    /// Compute scalar product between two a c-array and a plb-array
+    static T intScalarProduct(const int u1[d], Array<T,d> const& u2) {
+        return VectorTemplateImpl<T,d>::intScalarProduct(u1,u2);
+    }
     /// Compute norm-square of a vector
     static T normSqr(Array<T,d> const& u) {
         return VectorTemplateImpl<T,d>::normSqr(u);
@@ -95,6 +99,13 @@ struct VectorTemplateImpl {
         return result;
     }
     static T scalarProduct(const T u1[d], Array<T,d> const& u2) {
+        T result = T();
+        for (int iD=0; iD<d; ++iD) {
+            result += u1[iD]*u2[iD];
+        }
+        return result;
+    }
+    static T intScalarProduct(const int u1[d], Array<T,d> const& u2) {
         T result = T();
         for (int iD=0; iD<d; ++iD) {
             result += u1[iD]*u2[iD];
@@ -149,6 +160,9 @@ struct VectorTemplateImpl<T,2> {
     static T scalarProduct(const T u1[2], Array<T,2> const& u2) {
         return u1[0]*u2[0] + u1[1]*u2[1];
     }
+    static T intScalarProduct(const int u1[2], Array<T,2> const& u2) {
+        return u1[0]*u2[0] + u1[1]*u2[1];
+    }
     static T normSqr(Array<T,2> const& u) {
         return u[0]*u[0] + u[1]*u[1];
     }
@@ -181,6 +195,9 @@ struct VectorTemplateImpl<T,3> {
         return u1[0]*u2[0] + u1[1]*u2[1] + u1[2]*u2[2];
     }
     static T scalarProduct(const T u1[3], Array<T,3> const& u2) {
+        return u1[0]*u2[0] + u1[1]*u2[1] + u1[2]*u2[2];
+    }
+    static T intScalarProduct(const int u1[3], Array<T,3> const& u2) {
         return u1[0]*u2[0] + u1[1]*u2[1] + u1[2]*u2[2];
     }
     static T normSqr(Array<T,3> const& u) {
@@ -222,6 +239,31 @@ struct VectorTemplateImpl<T,3> {
 
 template <typename T, int d> struct SymmetricTensorImpl { };
 
+template<typename T> struct SymmetricTensorImpl<T,0> {
+    static const int n = 0;
+    static void matVectMult(Array<T,n> const& mat, Array<T,0> const& vect, Array<T,0>& result) {
+        result.resetToZero();
+    }
+    static T tensorNormSqr(Array<T,n> const& mat) {
+        return T();
+    }
+    static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+        return T();
+    }
+    static T trace(Array<T,n> const &A) {
+        return T();
+    }
+    static Array<T,n> id() {
+        return Array<T,n>::zero();
+    }
+    static T det(Array<T,n> const& A) {
+        return T();
+    }
+    static void inv(Array<T,n> const& A, Array<T,n>& result) {
+        result.resetToZero();
+    }
+};
+
 template<typename T> struct SymmetricTensorImpl<T,2> {
     static const int n = 3;
     enum Indices { xx=0, xy=1, yy=2 };
@@ -240,6 +282,15 @@ template<typename T> struct SymmetricTensorImpl<T,2> {
     }
     static Array<T,n> id() {
         return Array<T,n>((T)1,T(),(T)1);
+    }
+    static T det(Array<T,n> const& A) {
+        return A[xx]*A[yy]-(T)2*A[xy];
+    }
+    static void inv(Array<T,n> const& A, Array<T,n>& result) {
+        T iDet = (T)1/det(A);
+        result[xx] = iDet*A[yy];
+        result[yy] = iDet*A[xx];
+        result[xy] = -iDet*A[xy];
     }
 };
 
@@ -274,6 +325,20 @@ template<typename T> struct SymmetricTensorImpl<T,3> {
         
         return I;
     }
+    static T det(Array<T,n> const& A) {
+        return   A[xx]*(A[yy]*A[zz]-A[yz]*A[yz])
+               - A[xy]*(A[xy]*A[zz]-A[yz]*A[xz])
+               + A[xz]*(A[xy]*A[yz]-A[yy]*A[xz]);
+    }
+    static void inv(Array<T,n> const& A, Array<T,n>& result) {
+        T iDet = (T)1/det(A);
+        result[xx] = iDet* (A[yy]*A[zz]-A[yz]*A[yz]);
+        result[xy] = iDet* (A[xz]*A[yz]-A[xx]*A[xy]);
+        result[xz] = iDet* (A[xy]*A[yz]-A[yy]*A[xz]);
+        result[yy] = iDet* (A[xx]*A[zz]-A[xz]*A[xz]);
+        result[yz] = iDet* (A[xz]*A[xy]-A[yz]*A[xx]);
+        result[zz] = iDet* (A[xx]*A[yy]-A[xy]*A[xy]);
+    }
 };
 
 /// Operations on a symmetric tensor which stores only above-or-on-diagonal values
@@ -298,9 +363,31 @@ struct SymmetricTensor {
     static Array<T,n> id() {
         return SymmetricTensorImpl<T,d>::id();
     }
+    static T det(Array<T,n> const& A) {
+        return SymmetricTensorImpl<T,d>::det(A);
+    }
+    static void inv(Array<T,n> const& A, Array<T,n>& result) {
+        SymmetricTensorImpl<T,d>::inv(A, result);
+    }
 };
 
 template <typename T, int d> struct SymmetricRankThreeTensorImpl { };
+
+template<typename T> struct SymmetricRankThreeTensorImpl<T,0> {
+    static const int n = 0;
+    static void contractLastTwoIndexes(Array<T,n> const& tens, Array<T,0> & res) {
+        res.resetToZero();
+    }
+    
+    static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+        return T();
+    }
+    
+    static void multWithRankTwoSymTensor(Array<T,n> const&A, Array<T,SymmetricTensorImpl<T,0>::n> const &B,
+                                         Array<T,0> &x) {
+        x.resetToZero();
+    }
+};
 
 template<typename T> struct SymmetricRankThreeTensorImpl<T,2> {
     static const int n = 4;
@@ -456,6 +543,85 @@ struct SymmetricRankFourTensor {
     }
 };
 
+template <typename T, int d> struct SymmetricRankFiveTensorImpl { };
+
+template<typename T> struct SymmetricRankFiveTensorImpl<T,2> {
+    static const int n = 6;
+    enum Indices { xxxxx=0, xxxxy=1, xxxyy=2, xxyyy = 3, xyyyy = 4, yyyyy = 5};
+    
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return A[xxxxx]*B[xxxxx] + A[yyyy]*B[yyyy] + (T)4*(A[xxxy]*B[xxxy] + A[xyyy]*B[xyyy]) + (T)6*A[xxyy]*B[xxyy];
+    // }
+};
+
+template<typename T> struct SymmetricRankFiveTensorImpl<T,3> {
+    static const int n = 21;
+    enum Indices { xxxxx=0, xxxxy=1, xxxxz=2, xxxyy=3, xxxyz=4, xxxzz=5, xxyyy=6, xxyyz=7, xxyzz=8, xxzzz=9, 
+                   xyyyy=10, xyyyz=11, xyyzz=12, xyzzz=13, xzzzz=14, yyyyy=15, yyyyz=16, yyyzz=17, yyzzz=18, yzzzz=19 , zzzzz=20 };
+                   
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return A[xxxx]*B[xxxx] + A[yyyy]*B[yyyy] + A[zzzz]*B[zzzz] 
+    //         + (T)4*(A[xxxy]*B[xxxy] + A[xxxz]*B[xxxz] + A[xyyy]*B[xyyy] + A[xzzz]*B[xzzz] + A[yyyz]*B[yyyz] + A[yzzz]*B[yzzz])
+    //         + (T)6*(A[xxyy]*B[xxyy] + A[xxzz]*B[xxzz] + A[yyzz]*B[yyzz])
+    //         + (T)12*(A[xxyz]*B[xxyz] + A[xyyz]*B[xyyz] + A[xyzz]*B[xyzz]);
+    // }
+};
+
+/// Operations on a symmetric tensor which stores only above-or-on-diagonal values
+template <typename T, template<typename U> class Descriptor>
+struct SymmetricRankFiveTensor {
+    /// Number of dimensions for current lattice
+    static const int d = Descriptor<T>::d;
+    /// Number of elements (reduced by symmetry)
+    static const int n = SymmetricRankFiveTensorImpl<T,d>::n;
+    
+    // /// computes the contraction of the last two indexes of the tensor
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return SymmetricRankFiveTensorImpl<T,d>::contractIndexes(A, B);
+    // }
+};
+
+template <typename T, int d> struct SymmetricRankSixTensorImpl { };
+
+template<typename T> struct SymmetricRankSixTensorImpl<T,2> {
+    static const int n = 7;
+    enum Indices { xxxxxx=0, xxxxxy=1, xxxxyy=2, xxxyyy = 3, xxyyyy = 4, xyyyyy = 5, yyyyyy = 6};
+    
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return A[xxxxx]*B[xxxxx] + A[yyyy]*B[yyyy] + (T)4*(A[xxxy]*B[xxxy] + A[xyyy]*B[xyyy]) + (T)6*A[xxyy]*B[xxyy];
+    // }
+};
+
+template<typename T> struct SymmetricRankSixTensorImpl<T,3> {
+    static const int n = 28;
+    enum Indices { xxxxxx=0, xxxxxy=1, xxxxxz=2, xxxxyy=3, xxxxyz=4, xxxxzz=5, xxxyyy=6, xxxyyz=7, xxxyzz=8, xxxzzz=9, 
+                   xxyyyy=10, xxyyyz=11, xxyyzz=12, xxyzzz=13, xxzzzz=14, xyyyyy=15, xyyyyz=16, xyyyzz=17, xyyzzz=18, xyzzzz=19 , xzzzzz=20,
+                   yyyyyy=21, yyyyyz=22, yyyyzz=23, yyyzzz=24, yyzzzz=25, yzzzzz=26, zzzzzz=27 };
+                   
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return A[xxxx]*B[xxxx] + A[yyyy]*B[yyyy] + A[zzzz]*B[zzzz] 
+    //         + (T)4*(A[xxxy]*B[xxxy] + A[xxxz]*B[xxxz] + A[xyyy]*B[xyyy] + A[xzzz]*B[xzzz] + A[yyyz]*B[yyyz] + A[yzzz]*B[yzzz])
+    //         + (T)6*(A[xxyy]*B[xxyy] + A[xxzz]*B[xxzz] + A[yyzz]*B[yyzz])
+    //         + (T)12*(A[xxyz]*B[xxyz] + A[xyyz]*B[xyyz] + A[xyzz]*B[xyzz]);
+    // }
+};
+
+/// Operations on a symmetric tensor which stores only above-or-on-diagonal values
+template <typename T, template<typename U> class Descriptor>
+struct SymmetricRankSixTensor {
+    /// Number of dimensions for current lattice
+    static const int d = Descriptor<T>::d;
+    /// Number of elements (reduced by symmetry)
+    static const int n = SymmetricRankSixTensorImpl<T,d>::n;
+    
+    // /// computes the contraction of the last two indexes of the tensor
+    // static T contractIndexes(Array<T,n> const& A, Array<T,n> const& B) {
+    //     return SymmetricRankSixTensorImpl<T,d>::contractIndexes(A, B);
+    // }
+};
+
+
+
 template <typename T>
 void crossProduct(Array<T,3> const& u1, Array<T,3> const& u2, Array<T,3>& result)
 {
@@ -475,45 +641,56 @@ Array<T,3> crossProduct(Array<T,3> const& u1, Array<T,3> const& u2)
 
 /// Scalar product between two vectors.
 template<typename T, pluint n>
-T dot(Array<T,n> const& v1, Array<T,n> const& v2) {
+T dot(Array<T,n> const& v1, Array<T,n> const& v2)
+{
     return VectorTemplateImpl<T,n>::scalarProduct(v1,v2);
 }
 
 /// Scalar product between a c-array and a vector.
 template<typename T, pluint n>
-T dot(T v1[n], Array<T,n> const& v2) {
+T dot(const T v1[n], Array<T,n> const& v2)
+{
     return VectorTemplateImpl<T,n>::scalarProduct(v1,v2);
+}
+/// Scalar product between an explicitly int-based c-array and a vector.
+template<typename T, pluint n>
+T intDot(const int v1[n], Array<T,n> const& v2)
+{
+    return VectorTemplateImpl<T,n>::intScalarProduct(v1,v2);
 }
 
 template<typename T, pluint n>
-T normSqr(Array<T,n> const& v) {
+T normSqr(Array<T,n> const& v)
+{
     return VectorTemplateImpl<T,n>::normSqr(v);
 }
 
 template<typename T, pluint n>
-T norm(Array<T,n> const& v) {
+T norm(Array<T,n> const& v)
+{
     return std::sqrt(normSqr<T,n>(v));
 }
 
 /// Compute the normal vector for a given triangle. If "isAreaWeighted" is false,
-///   then the normal has length equal to one. If "isAreaWeighted" is true, then
-///   the normal has length equal to twice the area of the triangle.
+///   then the normal has length equal to one, or equal to zero if the triangle
+///   has a zero area. If "isAreaWeighted" is true, then the normal has length
+///   equal to twice the area of the triangle.
 template<typename T>
 Array<T,3> computeTriangleNormal(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> const& v2, bool isAreaWeighted)
 {
-#ifdef PLB_DEBUG
-    static T eps = getEpsilon<T>(floatingPointPrecision<T>());
-#endif
-
     Array<T,3> e01 = v1 - v0;
     Array<T,3> e02 = v2 - v0;
 
     Array<T,3> n;
-    crossProduct<T>(e01, e02, n);
-    T normN = norm<T,3>(n);
-    PLB_ASSERT(normN > eps);
-    if (!isAreaWeighted)
-        n /= normN;
+    crossProduct(e01, e02, n);
+    if (!isAreaWeighted) {
+        T normN = norm(n);
+        if (!util::isZero(normN)) {
+            n /= normN;
+        } else {
+            n.resetToZero();
+        }
+    }
 
     return n;
 }
@@ -524,27 +701,46 @@ T computeTriangleArea(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> con
     Array<T,3> e01 = v1 - v0;
     Array<T,3> e02 = v2 - v0;
     Array<T,3> cross;
-    crossProduct<T>(e01, e02, cross);
+    crossProduct(e01, e02, cross);
 
-    return 0.5 * norm<T,3>(cross);
+    return (T) 0.5 * norm(cross);
 }
 
 template<typename T>
 T computeTriangleArea(T *v0, T *v1, T *v2)
 {
-    int i;
-    T e01[3], e02[3], cross[3];
+    Array<T,3> a0; a0.from_cArray(v0);
+    Array<T,3> a1; a1.from_cArray(v1);
+    Array<T,3> a2; a2.from_cArray(v2);
+    return computeTriangleArea(a0, a1, a2);
+}
 
-    for (i = 0; i < 3; e01[i] = v1[i] - v0[i], i++)
-        ;
-    for (i = 0; i < 3; e02[i] = v2[i] - v0[i], i++)
-        ;
+template<typename T>
+void computeTriangleAreaAndUnitNormal(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> const& v2,
+        T& area, Array<T,3>& unitNormal)
+{
+    Array<T,3> e01 = v1 - v0;
+    Array<T,3> e02 = v2 - v0;
 
-    cross[0] = e01[1]*e02[2] - e01[2]*e02[1];
-    cross[1] = e01[2]*e02[0] - e01[0]*e02[2];
-    cross[2] = e01[0]*e02[1] - e01[1]*e02[0];
+    crossProduct(e01, e02, unitNormal);
+    T normN = norm(unitNormal);
+    if (!util::isZero(normN)) {
+        area = (T) 0.5 * normN;
+        unitNormal /= normN;
+    } else {
+        area = (T) 0;
+        unitNormal.resetToZero();
+    }
+}
 
-    return 0.5 * std::sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]);
+template<typename T>
+void computeTriangleNormalTimesArea(Array<T,3> const& v0, Array<T,3> const& v1, Array<T,3> const& v2,
+        Array<T,3>& normalTimesArea)
+{
+    Array<T,3> e01 = v1 - v0;
+    Array<T,3> e02 = v2 - v0;
+    crossProduct(e01, e02, normalTimesArea);
+    normalTimesArea *= (T) 0.5;
 }
 
 template<typename T>
@@ -558,7 +754,7 @@ T computeTetrahedronSignedVolume(Array<T,3> const& v0, Array<T,3> const& v1, Arr
     Array<T,3> e12 = v2 - v1;
     Array<T,3> e13 = v3 - v1;
     Array<T,3> cross;
-    crossProduct<T>(e12, e13, cross);
+    crossProduct(e12, e13, cross);
 
     return dot(e10, cross) / 6.0;
 }
@@ -569,12 +765,17 @@ template<typename T>
 T angleBetweenVectors(Array<T,3> const& v1, Array<T,3> const& v2)
 {
     Array<T,3> cross;
-    crossProduct<T>(v1, v2, cross); 
+    crossProduct(v1, v2, cross); 
     return std::atan2(norm(cross), dot(v1,v2));
 }
 
 template<typename T>
-Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T theta) {
+Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T theta)
+{
+    // Standard (initial) implementation.
+    // (This version is the slowest).
+
+    /*
     Array<T,3> const& u = normedAxis;
     T d = std::sqrt(u[1]*u[1] + u[2]*u[2]);
 
@@ -584,7 +785,7 @@ Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T t
     T eps = 1.e-2;
     //T eps = (T)100.*std::numeric_limits<T>::epsilon();
     // Rotate about the x-axis to be in xz-plane.
-    if (!util::fpequal(d, (T)0., eps)) {
+    if (!util::isZero(d, eps)) {
         q2[0] = q1[0];
         q2[1] = q1[1] * u[2] / d - q1[2] * u[1] / d;
         q2[2] = q1[1] * u[1] / d + q1[2] * u[2] / d;
@@ -609,41 +810,92 @@ Array<T,3> rotateAtOrigin(Array<T,3> const& p, Array<T,3> const& normedAxis, T t
 
     q2 = q1;
     // Rotate backward around x-axis.
-    if (!util::fpequal(d, (T)0., eps)) {
+    if (!util::isZero(d, eps)) {
         q2[0] =   q1[0];
         q2[1] =   q1[1] * u[2] / d + q1[2] * u[1] / d;
         q2[2] = - q1[1] * u[1] / d + q1[2] * u[2] / d;
     }
 
     return q2;
+    */
+
+    // Optimized implementation.
+    // (At the time of writing, this implementation is faster than the
+    //  next one when maximum compiler optimizations are used).
+
+    Array<T,3> const& e = normedAxis;
+    T c = std::cos(theta);
+    T s = std::sin(theta);
+    T omc = (T) 1 - c;
+
+    T R[3][3];
+    R[0][0] = omc * e[0] * e[0] + c;
+    R[0][1] = omc * e[0] * e[1] - s * e[2];
+    R[0][2] = omc * e[0] * e[2] + s * e[1];
+    R[1][0] = omc * e[1] * e[0] + s * e[2];
+    R[1][1] = omc * e[1] * e[1] + c;
+    R[1][2] = omc * e[1] * e[2] - s * e[0];
+    R[2][0] = omc * e[2] * e[0] - s * e[1];
+    R[2][1] = omc * e[2] * e[1] + s * e[0];
+    R[2][2] = omc * e[2] * e[2] + c;
+
+    Array<T,3> q;
+    q[0] = R[0][0] * p[0] + R[0][1] * p[1] + R[0][2] * p[2];
+    q[1] = R[1][0] * p[0] + R[1][1] * p[1] + R[1][2] * p[2];
+    q[2] = R[2][0] * p[0] + R[2][1] * p[1] + R[2][2] * p[2];
+
+    return q;
+
+    // Another optimized implementation.
+    // (This version is the fastest of the three when no compiler optimizations are used).
+
+    /*
+    Array<T,3> const& e = normedAxis;
+    T c = std::cos(theta);
+    T s = std::sin(theta);
+    T f = ((T) 1 - c) * (e[0] * p[0] + e[1] * p[1] + e[2] * p[2]);
+
+    Array<T,3> q;
+    q[0] = c * p[0] + s * (e[1] * p[2] - e[2] * p[1]) + f * e[0];
+    q[1] = c * p[1] + s * (e[2] * p[0] - e[0] * p[2]) + f * e[1];
+    q[2] = c * p[2] + s * (e[0] * p[1] - e[1] * p[0]) + f * e[2];
+
+    return q;
+    */
 }
 
 template<typename T>
 Array<T,3> rotateWithEulerAngles(Array<T,3> const& p, T phi, T theta, T psi)
 {
-    T eps = getEpsilon<T>(floatingPointPrecision<T>());
+#ifdef PLB_DEBUG
     T pi = std::acos((T) -1.0);
+#endif
+    PLB_ASSERT(util::greaterEqual(theta, (T) 0) && util::lessEqual(theta, pi));
 
-    PLB_ASSERT((theta > (T) 0.0 || util::fpequal(theta, (T) 0.0, eps)) &&
-               (theta < pi  || util::fpequal(theta, pi, eps)));
+    T cosPhi   = std::cos(phi);
+    T sinPhi   = std::sin(phi);
+    T cosTheta = std::cos(theta);
+    T sinTheta = std::sin(theta);
+    T cosPsi   = std::cos(psi);
+    T sinPsi   = std::sin(psi);
 
     T a[3][3];
     a[0][0] =  (T) 1.0;
     a[0][1] =  (T) 0.0;
     a[0][2] =  (T) 0.0;
     a[1][0] =  (T) 0.0;
-    a[1][1] =  std::cos(theta);
-    a[1][2] = -std::sin(theta);
+    a[1][1] =  cosTheta;
+    a[1][2] = -sinTheta;
     a[2][0] =  (T) 0.0;
-    a[2][1] =  std::sin(theta);
-    a[2][2] =  std::cos(theta);
+    a[2][1] =  sinTheta;
+    a[2][2] =  cosTheta;
 
     T b[3][3];
-    b[0][0] =  std::cos(phi);
-    b[0][1] = -std::sin(phi);
+    b[0][0] =  cosPhi;
+    b[0][1] = -sinPhi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(phi);
-    b[1][1] =  std::cos(phi);
+    b[1][0] =  sinPhi;
+    b[1][1] =  cosPhi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -659,11 +911,11 @@ Array<T,3> rotateWithEulerAngles(Array<T,3> const& p, T phi, T theta, T psi)
         }
     }
 
-    b[0][0] =  std::cos(psi);
-    b[0][1] = -std::sin(psi);
+    b[0][0] =  cosPsi;
+    b[0][1] = -sinPsi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(psi);
-    b[1][1] =  std::cos(psi);
+    b[1][0] =  sinPsi;
+    b[1][1] =  cosPsi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -689,52 +941,63 @@ Array<T,3> rotateWithEulerAngles(Array<T,3> const& p, T phi, T theta, T psi)
     return x;
 }
 
+// This function returns the new position of the point "oldPosition", after a rotation with with an
+// angle "theta". It needs the angle of the rotation, a normalized vector parallel to the axis of
+// rotation, and a point on the axis of rotation.
+template<typename T>
+Array<T,3> getRotatedPosition(Array<T,3> const& oldPosition, T theta,
+        Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
+{
+    // Standard optimized implementation.
+
+    return(pointOnRotationAxis +
+            rotateAtOrigin(oldPosition - pointOnRotationAxis,
+                rotationAxisUnitVector, theta));
+}
+
 // This function returns the new position of the point "oldPosition", after a discrete rotation
 // with time step equal to 1.0. It needs the angular velocity of the rotation, a normalized vector
 // parallel to the axis of rotation, and a point on the axis of rotation.
+// (The "rotationAxisUnitVector" is provided for optimization purposes).
 template<typename T>
 Array<T,3> getRotatedPosition(Array<T,3> const& oldPosition, Array<T,3> const& angularVelocity,
         Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
 {
-    // Standard implementation
-    /*
-    Array<T,3> dp = oldPosition - pointOnRotationAxis;
-    T theta = dot(angularVelocity, rotationAxisUnitVector);
-    Array<T,3> rotatedPosition = rotateAtOrigin(dp, rotationAxisUnitVector, theta);
-    Array<T,3> newPosition = rotatedPosition + pointOnRotationAxis;
-    return(newPosition);
-    */
-
-    // Optimized implementation
-
-    static T eps = getEpsilon<T>();
-    static T epsSqr = eps*eps;
-
-    Array<T,3> dp = oldPosition - pointOnRotationAxis;
-    Array<T,3> parallelDp = dot(dp, rotationAxisUnitVector) * rotationAxisUnitVector;
-    Array<T,3> oldR = dp - parallelDp;
-    T normSqrOldR = normSqr(oldR);
-    if (normSqrOldR <= epsSqr) {
-        return(oldPosition);
-    }
-    Array<T,3> velocity = crossProduct(angularVelocity, oldR);
-    Array<T,3> newR = oldR + velocity;
-    T normSqrNewR = normSqr(newR);
-    Array<T,3> correctedR = std::sqrt(normSqrOldR / normSqrNewR) * newR;
-    Array<T,3> newPosition = correctedR + parallelDp + pointOnRotationAxis;
-    return(newPosition);
+    return(getRotatedPosition(oldPosition, dot(angularVelocity, rotationAxisUnitVector),
+            rotationAxisUnitVector, pointOnRotationAxis));
 }
 
-// This function returns the discrete rotational velocity of the point "oldPosition", considering
-// a time step equal to 1.0. It needs the angular velocity of the rotation, a normalized vector
-// parallel to the axis of rotation, and a point on the axis of rotation.
+// This function returns the "discrete" rotational velocity of the point "oldPosition", considering
+// a rotation with an angle "theta". It needs the angle of the rotation, a normalized vector parallel
+// to the axis of rotation, and a point on the axis of rotation.
 template<typename T>
-Array<T,3> getRotationalVelocity(Array<T,3> const& oldPosition, Array<T,3> const& angularVelocity,
+Array<T,3> getDiscreteRotationalVelocity(Array<T,3> const& oldPosition, T theta,
         Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
 {
-    Array<T,3> newPosition = getRotatedPosition(oldPosition, angularVelocity, rotationAxisUnitVector, pointOnRotationAxis);
+    Array<T,3> newPosition = getRotatedPosition(oldPosition, theta, rotationAxisUnitVector, pointOnRotationAxis);
     Array<T,3> velocity = newPosition - oldPosition;
     return(velocity);
+}
+
+// This function returns the "discrete" rotational velocity of the point "oldPosition", considering
+// a time step equal to 1.0. It needs the angular velocity of the rotation, a normalized vector
+// parallel to the axis of rotation, and a point on the axis of rotation.
+// (The rotationAxisUnitVector is provided for optimization purposes).
+template<typename T>
+Array<T,3> getDiscreteRotationalVelocity(Array<T,3> const& oldPosition, Array<T,3> const& angularVelocity,
+        Array<T,3> const& rotationAxisUnitVector, Array<T,3> const& pointOnRotationAxis)
+{
+    return(getDiscreteRotationalVelocity(oldPosition, dot(angularVelocity, rotationAxisUnitVector),
+                rotationAxisUnitVector, pointOnRotationAxis));
+}
+
+// This function returns the "exact" rotational velocity of the point "position". It needs the
+// angular velocity of the rotation, and a point on the axis of rotation.
+template<typename T>
+Array<T,3> getExactRotationalVelocity(Array<T,3> const& position, Array<T,3> const& angularVelocity,
+        Array<T,3> const& pointOnRotationAxis)
+{
+    return(crossProduct(angularVelocity, position - pointOnRotationAxis));
 }
 
 }  // namespace plb

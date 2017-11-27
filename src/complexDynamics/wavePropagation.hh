@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,7 +40,7 @@ namespace plb {
 
 template<typename T, template<typename U> class Descriptor>
 int WaveDynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,WaveDynamics<T,Descriptor> >("Wave");
+    meta::registerGeneralDynamics<T,Descriptor,WaveDynamics<T,Descriptor> >("Wave");
 
 /** \param vs2_ speed of sound
  *  \param omega_ relaxation parameter, related to the dynamic viscosity
@@ -50,6 +50,14 @@ WaveDynamics<T,Descriptor>::WaveDynamics(T vs2_)
     : IsoThermalBulkDynamics<T,Descriptor>((T)2.0),
       vs2(vs2_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+WaveDynamics<T,Descriptor>::WaveDynamics(HierarchicUnserializer& unserializer)
+    : IsoThermalBulkDynamics<T,Descriptor>((T)2.0),
+      vs2(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 void WaveDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
@@ -93,7 +101,10 @@ void WaveDynamics<T,Descriptor>::collideExternal (
         Cell<T,Descriptor>& cell, T rhoBar,
         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat )
 {
-    waveCollision(cell, rhoBar, j, vs2);
+    T uSqr = waveCollision(cell, rhoBar, j, vs2);
+    if (cell.takesStatistics()) {
+        gatherStatistics(stat, rhoBar, uSqr);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -178,7 +189,7 @@ template<typename T, template<typename U> class Descriptor>
 WaveAbsorptionDynamics<T,Descriptor>::WaveAbsorptionDynamics(HierarchicUnserializer& unserializer)
     : CompositeDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -200,7 +211,6 @@ void WaveAbsorptionDynamics<T,Descriptor>::collide(Cell<T,Descriptor>& cell, Blo
         T rhoBar;
         Array<T,Descriptor<T>::d> j;
         this->getBaseDynamics().computeRhoBarJ(cell, rhoBar, j);
-        T invRho = Descriptor<T>::invRho(rhoBar);
         T jSqr = normSqr(j);
         Array<T,Descriptor<T>::q> fEq;
         this->getBaseDynamics().computeEquilibria(fEq, rhoBar, j, jSqr);
@@ -214,10 +224,6 @@ void WaveAbsorptionDynamics<T,Descriptor>::collide(Cell<T,Descriptor>& cell, Blo
 
         for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
             cell[iPop] -= sigma*(fEq[iPop] - fEqF[iPop]);
-        }
-
-        if (cell.takesStatistics()) {
-            gatherStatistics(statistics, rhoBar, jSqr*invRho*invRho);
         }
     }
 }
@@ -257,15 +263,50 @@ void WaveAbsorptionDynamics<T,Descriptor>::collideExternal (
 }
 
 template<typename T, template<typename U> class Descriptor>
-void WaveAbsorptionDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+void WaveAbsorptionDynamics<T,Descriptor>::recompose (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData, plint order ) const
 {
-    CompositeDynamics<T,Descriptor>::serialize(serializer);
+    PLB_PRECONDITION( (plint)rawData.size() == this->getBaseDynamics().numDecomposedVariables(order) );
+
+    if (order==0) {
+        recomposeOrder0(cell, rawData);
+    }
+    else {
+        recomposeOrder1(cell, rawData);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
-void WaveAbsorptionDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+void WaveAbsorptionDynamics<T,Descriptor>::recomposeOrder0 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
 {
-    CompositeDynamics<T,Descriptor>::unserialize(unserializer);
+    T rhoBar = rawData[0];
+    Array<T,Descriptor<T>::d> j;
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+    Array<T,Descriptor<T>::q> fEq;
+    this->getBaseDynamics().computeEquilibria(fEq,  rhoBar, j, jSqr);
+    
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        cell[iPop] = fEq[iPop] + rawData[1+Descriptor<T>::d+iPop];
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionDynamics<T,Descriptor>::recomposeOrder1 (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    Array<T,SymmetricTensor<T,Descriptor>::n> PiNeq;
+
+    rhoBar = rawData[0];
+    j.from_cArray(&rawData[1]);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    PiNeq.from_cArray(&rawData[1+Descriptor<T>::d]);
+
+    this->getBaseDynamics().regularize(cell,rhoBar,j,jSqr,PiNeq);
 }
 
 template<typename T, template<typename U> class Descriptor>

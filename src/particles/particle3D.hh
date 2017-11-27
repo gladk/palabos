@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,6 +29,7 @@
 #include "finiteDifference/interpolations3D.h"
 #include "particles/particle3D.h"
 #include "particles/particleIdentifiers3D.h"
+#include "multiGrid/multiGridUtil.h"
 #include <cmath>
 
 namespace plb {
@@ -172,6 +173,12 @@ template<typename T, template<typename U> class Descriptor>
 void PointParticle3D<T,Descriptor>::velocityToParticle(TensorField3D<T,3>& velocityField, T scaling)
 {
     velocity = predictorCorrectorTensorField<T,3>(velocityField, this->getPosition(), scaling);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void PointParticle3D<T,Descriptor>::velocityToParticle(NTensorField3D<T>& velocityField, T scaling)
+{
+    velocity = predictorCorrectorNTensorField<T>(velocityField, this->getPosition(), scaling);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -448,6 +455,9 @@ template<typename T, template<typename U> class Descriptor>
 void RestParticle3D<T,Descriptor>::velocityToParticle(TensorField3D<T,3>& velocityField, T scaling) { }
 
 template<typename T, template<typename U> class Descriptor>
+void RestParticle3D<T,Descriptor>::velocityToParticle(NTensorField3D<T>& velocityField, T scaling) { }
+
+template<typename T, template<typename U> class Descriptor>
 void RestParticle3D<T,Descriptor>::rhoBarJtoParticle (
         NTensorField3D<T>& rhoBarJfield, bool velIsJ, T scaling )
 { }
@@ -512,6 +522,26 @@ void VerletParticle3D<T,Descriptor>::velocityToParticle(TensorField3D<T,3>& velo
     fluidVelocity.resetToZero();
     for (plint iCell=0; iCell<8; ++iCell) {
         fluidVelocity += weights[iCell]*velocityField.get(pos[iCell].x,pos[iCell].y,pos[iCell].z)*scaling;
+    }
+
+    Array<T,3> force( (fluidVelocity-this->get_v()) *fluidCompliance);
+    this->set_a(force / this->get_rho());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void VerletParticle3D<T,Descriptor>::velocityToParticle(NTensorField3D<T>& velocityField, T scaling)
+{
+    Array<T,3> position(this->getPosition());
+    std::vector<Dot3D> pos(8);
+    std::vector<T> weights(8);
+    linearInterpolationCoefficients(velocityField, position, pos, weights);
+    Array<T,3> fluidVelocity;
+    fluidVelocity.resetToZero();
+    for (plint iCell=0; iCell<8; ++iCell) {
+        T* data = velocityField.get(pos[iCell].x,pos[iCell].y,pos[iCell].z);
+        fluidVelocity[0] += weights[iCell]*scaling * data[0];
+        fluidVelocity[1] += weights[iCell]*scaling * data[0];
+        fluidVelocity[2] += weights[iCell]*scaling * data[0];
     }
 
     Array<T,3> force( (fluidVelocity-this->get_v()) *fluidCompliance);

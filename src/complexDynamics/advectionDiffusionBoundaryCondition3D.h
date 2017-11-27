@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -128,8 +128,17 @@ public:
             plint x, plint y, plint z, BlockLattice3D<T,Descriptor>& lattice,
             boundary::BcType bcType=boundary::dirichlet ) =0;
 
-    void setTemperatureConditionOnBlockBoundaries(BlockLattice3D<T,Descriptor>& lattice,
+    void setTemperatureConditionOnBlockBoundaries(
+            BlockLattice3D<T,Descriptor>& lattice,
             boundary::BcType bcType=boundary::dirichlet);
+
+    void setTemperatureConditionOnBlockBoundaries(
+            BlockLattice3D<T,Descriptor>& lattice, Box3D applicationDomain,
+            boundary::BcType bcType=boundary::dirichlet);
+
+    void setTemperatureConditionOnBlockBoundaries(
+            BlockLattice3D<T,Descriptor>& lattice, Box3D block,
+            Box3D applicationDomain, boundary::BcType bcType=boundary::dirichlet);
 
     // 3D boundary condition for temperature:
     virtual void addTemperatureBoundary0N (
@@ -213,7 +222,20 @@ public:
             plint x, plint y, plint z, MultiBlockLattice3D<T,Descriptor>& lattice,
             boundary::BcType bcType=boundary::dirichlet ) =0;
 
-    void setTemperatureConditionOnBlockBoundaries(MultiBlockLattice3D<T,Descriptor>& lattice,
+    //void setTemperatureConditionOnBlockBoundaries(MultiBlockLattice3D<T,Descriptor>& lattice,
+//            boundary::BcType bcType=boundary::dirichlet);
+    void setTemperatureConditionOnBlockBoundaries(
+            MultiBlockLattice3D<T,Descriptor>& lattice,
+            boundary::BcType bcType=boundary::dirichlet);
+
+    void setTemperatureConditionOnBlockBoundaries(
+            MultiBlockLattice3D<T,Descriptor>& lattice,
+            Box3D applicationDomain,
+            boundary::BcType bcType=boundary::dirichlet);
+
+    void setTemperatureConditionOnBlockBoundaries(
+            MultiBlockLattice3D<T,Descriptor>& lattice,
+            Box3D block, Box3D applicationDomain,
             boundary::BcType bcType=boundary::dirichlet);
 
 };
@@ -228,6 +250,10 @@ OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
     createLocalRegularizedAdvectionDiffusionBoundaryCondition3D();
+
+    template<typename T, template<typename U> class Descriptor>
+OnLatticeAdvectionDiffusionBoundaryCondition3D<T,Descriptor>*
+    createLocalCompleteRegularizedAdvectionDiffusionBoundaryCondition3D();
     
 }  // namespace plb
 

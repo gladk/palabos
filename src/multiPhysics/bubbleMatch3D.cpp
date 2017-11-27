@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,7 +28,6 @@
 #include "atomicBlock/reductiveDataProcessingFunctional3D.h"
 #include "multiBlock/reductiveMultiDataProcessorWrapper3D.h"
 #include "atomicBlock/atomicContainerBlock3D.h"
-#include "atomicBlock/dataProcessingFunctional3D.h"
 #include "dataProcessors/dataInitializerFunctional3D.h"
 #include "dataProcessors/dataInitializerFunctional3D.hh"
 #include "dataProcessors/dataInitializerWrapper3D.h"
@@ -58,13 +57,12 @@ namespace plb {
 
 /* ************** class BubbleMatch3D ********************************** */
 
-BubbleMatch3D::BubbleMatch3D(MultiBlock3D& templ, bool matchEmpty_)
+BubbleMatch3D::BubbleMatch3D(MultiBlock3D& templ)
     : bubbleContainer (createContainerBlock(templ, new BubbleCounterData3D(maxNumBubbles))),
       bubbleAnalysisContainer (createContainerBlock(templ, new BubbleAnalysisData3D())),
       bubbleRemapContainer (createContainerBlock(templ, new BubbleRemapData3D(maxNumBubbles))),
       mpiData(*bubbleContainer),
-      tagMatrix (new MultiScalarField3D<plint>(*bubbleContainer)),
-      matchEmpty(matchEmpty_)
+      tagMatrix (new MultiScalarField3D<plint>(*bubbleContainer))
 {
     setToConstant(*tagMatrix, tagMatrix->getBoundingBox(), (plint)-1);
 }
@@ -215,7 +213,7 @@ void BubbleMatch3D::bubbleBucketFill(MultiScalarField3D<int>& flag)
     resetBubbleContainer();
     plint numIter=2;
     while(numIter>0) {
-        CountBubbleIteration3D functional(matchEmpty);
+        CountBubbleIteration3D functional;
         std::vector<MultiBlock3D*> args;
         args.push_back(tagMatrix);
         args.push_back(&flag);
@@ -368,9 +366,8 @@ bool BubbleRemapData3D::isMyTag(plint tag) {
 
 /* *************** Class CountBubbleIteration3D ******************************** */
 
-CountBubbleIteration3D::CountBubbleIteration3D(bool matchEmpty_)
-    : numConflictsId(this->getStatistics().subscribeIntSum()),
-      matchEmpty(matchEmpty_)
+CountBubbleIteration3D::CountBubbleIteration3D()
+    : numConflictsId(this->getStatistics().subscribeIntSum())
 { }
 
 CountBubbleIteration3D* CountBubbleIteration3D::clone() const {
@@ -406,9 +403,8 @@ void CountBubbleIteration3D::processGenericBlocks(Box3D domain,std::vector<Atomi
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
                 int currentFlag = flagMatrix.get(iX+flagOffset.x, iY+flagOffset.y, iZ+flagOffset.z);
-                if ( (matchEmpty && currentFlag==twoPhaseFlag::empty) ||
-                     (!matchEmpty && currentFlag==twoPhaseFlag::fluid) ||
-                     currentFlag==twoPhaseFlag::interface )
+                if ( currentFlag==freeSurfaceFlag::empty ||
+                     currentFlag==freeSurfaceFlag::interface )
                 {
                     bool isConflicting = data.convertCell (
                             tagMatrix.get(iX  ,iY  ,iZ  ),

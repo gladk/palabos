@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,7 +29,9 @@
 
 #include "core/globalDefs.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
+#include "multiBlock/multiBlockManagement3D.h"
 #include "offLattice/triangleHash.h"
+#include <memory>
 
 namespace plb {
 
@@ -46,6 +48,7 @@ namespace voxelFlag {
     /// Cells which are inside, but which have
     ///   outside neighbors.
     static const int innerBorder  = 4;
+    static const int toBeInside   = 5;
 
     int invert(int arg);
     int bulkFlag(int arg);
@@ -65,10 +68,19 @@ std::auto_ptr<MultiScalarField3D<int> > voxelize (
         TriangularSurfaceMesh<T> const& mesh,
         Box3D const& domain, plint borderWidth );
 
+// For faster results, the "seed" should contain at least one of the domain corners.
 template<typename T>
 std::auto_ptr<MultiScalarField3D<int> > voxelize (
         TriangularSurfaceMesh<T> const& mesh,
         Box3D const& domain, plint borderWidth, Box3D seed );
+
+// For faster results, the "seed" should contain at least one of the domain corners.
+template<typename T>
+std::auto_ptr<MultiScalarField3D<int> > voxelize (
+        TriangularSurfaceMesh<T> const& mesh,
+        MultiBlockManagement3D const& management,
+        plint borderWidth, Box3D seed );
+
 
 template<typename T>
 std::auto_ptr<MultiScalarField3D<int> > revoxelize (
@@ -80,7 +92,7 @@ template<typename T>
 class VoxelizeMeshFunctional3D : public BoxProcessingFunctional3D {
 public:
     VoxelizeMeshFunctional3D (
-            TriangularSurfaceMesh<T> const& mesh_ );
+            TriangularSurfaceMesh<T> const& mesh_, bool useFullVoxelizationRange_ = false );
     virtual void processGenericBlocks (
         Box3D domain, std::vector<AtomicBlock3D*> blocks );
     virtual VoxelizeMeshFunctional3D<T>* clone() const;
@@ -105,7 +117,20 @@ private:
             AtomicContainerBlock3D& hashContainer, Dot3D pos );
 private:
     TriangularSurfaceMesh<T> const& mesh;
+    bool useFullVoxelizationRange;
 };
+
+class UndeterminedToFlagFunctional3D : public BoxProcessingFunctional3D_S<int> {
+public:
+    UndeterminedToFlagFunctional3D(int flag_);
+    virtual UndeterminedToFlagFunctional3D* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual void process(Box3D domain, ScalarField3D<int>& voxels);
+private:
+    int flag;
+};
+
+void convertUndeterminedToFlag(MultiScalarField3D<int>& voxels, int flag);
 
 /// Convert inside flags to innerBoundary, and outside flags to outerBoundary,
 ///   within a layer of width "borderWidth".
@@ -123,6 +148,21 @@ public:
     virtual BlockDomain::DomainT appliesTo() const;
 private:
     plint borderWidth;
+};
+
+///// 'Undo' detectBorderLine (i.e. afterwards there are only inside and outside flags!
+template<typename T>
+void resetBorderFlags( MultiScalarField3D<T>& voxelMatrix,
+                       Box3D const& domain );
+
+template<typename T>
+class ResetBorderLineFunctional3D : public BoxProcessingFunctional3D_S<T> {
+public:
+    ResetBorderLineFunctional3D();
+    virtual void process(Box3D domain, ScalarField3D<T>& voxels);
+    virtual ResetBorderLineFunctional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
 };
 
 } // namespace plb

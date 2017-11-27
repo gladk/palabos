@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,48 @@
 
 
 namespace plb {
+
+/**
+* This class computes the temperature gradient 
+* on a convex edge wall in 3D but with a limited number of terms added to the
+* equilibrium distributions (i.e. only the c_i : jNeq term)
+*/
+template<typename T, template<typename U> class Descriptor,
+         int plane, int normal1, int normal2>
+class CompleteAdvectionDiffusionEdgeBoundaryFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
+public:
+    enum { direction1 = (plane+1)%3, direction2 = (plane+2)%3 };
+public:
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual CompleteAdvectionDiffusionEdgeBoundaryFunctional3D<T,Descriptor,plane,normal1,normal2>* clone() const {
+        return new CompleteAdvectionDiffusionEdgeBoundaryFunctional3D<T,Descriptor,plane,normal1,normal2>(*this);
+    }
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::staticVariables;
+    }
+public:
+    static void processCell(plint iX, plint iY, plint iZ, BlockLattice3D<T,Descriptor>& lattice);
+private:
+    template<int deriveDirection, int orientation>
+    static void interpolateGradients (
+            BlockLattice3D<T,Descriptor> const& lattice,
+            T& phiDeriv, plint iX, plint iY, plint iZ );
+};
+
+// This data processor uses asymmetric finite differences to compute a gradient.
+template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
+class CompleteAdvectionDiffusionCornerBoundaryFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    
+    virtual CompleteAdvectionDiffusionCornerBoundaryFunctional3D<T,Descriptor,xNormal,yNormal,zNormal>* clone() const {
+        return new CompleteAdvectionDiffusionCornerBoundaryFunctional3D<T,Descriptor,xNormal,yNormal,zNormal>(*this);
+    }
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+        modified[0] = modif::staticVariables;   // lattice
+    }
+};
 
 // This data processor uses symmetric finite differences to compute a gradient.
 // It cannot be applied on any part of the boundary of the global simulation

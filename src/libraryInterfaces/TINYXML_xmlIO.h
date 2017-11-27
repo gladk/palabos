@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <tinyxml.h>
+#include "tinyxml/tinyxml.h"
 #include "core/array.h"
 
 namespace plb {
@@ -97,10 +97,10 @@ class XMLwriter {
 public:
     XMLwriter();
     ~XMLwriter();
-    template<typename T> void set(T const& value);
+    template<typename T> void set(T const& value, plint precision=-1);
     void setString(std::string const& value);
-    template<typename T> void set(std::vector<T> const& values);
-    template<typename T, int N> void set(Array<T,N> const& values);
+    template<typename T> void set(std::vector<T> const& values, plint precision=-1);
+    template<typename T, int N> void set(Array<T,N> const& values, plint precision=-1);
     XMLwriter& operator[] (std::string name);
     XMLwriter& operator[] (plint id);
     template<typename ostrT>

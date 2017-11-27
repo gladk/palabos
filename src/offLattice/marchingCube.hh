@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define MARCHING_CUBE_HH
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "offLattice/marchingCube.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include <limits>
@@ -129,23 +130,22 @@ bool ScalarFieldIsoSurface3D<T>::isInside (
 {
     PLB_ASSERT(scalar);
     PLB_ASSERT(surfaceId < (plint)isoValues.size());
-    return scalar->get(position[0]-location.x, position[1]-location.y, position[2]-location.z) < isoValues[surfaceId];
+    return util::lessThan(scalar->get(position[0]-location.x, position[1]-location.y, position[2]-location.z),
+            isoValues[surfaceId]);
 }
 
 template<typename T>
 Array<T,3> ScalarFieldIsoSurface3D<T>::getSurfacePosition (
             plint surfaceId, Array<plint,3> const& p1, Array<plint,3> const& p2 ) const
 {
-    static const T epsilon = 1.e-5;
     PLB_ASSERT(scalar);
     PLB_ASSERT(surfaceId < (plint)isoValues.size());
     T valp1 = scalar->get(p1[0]-location.x, p1[1]-location.y, p1[2]-location.z);
     T valp2 = scalar->get(p2[0]-location.x, p2[1]-location.y, p2[2]-location.z);
 
     T isolevel = isoValues[surfaceId];
-    if (std::fabs(isolevel-valp1) < epsilon) return(p1);
-    if (std::fabs(isolevel-valp2) < epsilon) return(p2);
-    if (std::fabs(valp1-valp2) < epsilon) return(p1);
+    if (util::fpequal(isolevel,valp1) || util::fpequal(valp1,valp2)) return(p1);
+    if (util::fpequal(isolevel,valp2)) return(p2);
     T mu = (isolevel - valp1) / (valp2 - valp1);
     return Array<T,3> ( 
                (T)p1[0] + mu * (p2[0] - p1[0]),
@@ -230,23 +230,35 @@ Array<T,3> BoundaryShapeIsoSurface3D<T,SurfaceData>::getSurfacePosition (
         plint surfaceId, Array<plint,3> const& p1, Array<plint,3> const& p2 ) const
 {
     Array<T,3> realP1(p1), realP2(p2);
+    // Here's the catch: the marching-cube algorithm will call this function multiple times,
+    // with possibly inverted arguments p1/p2. This function might then not answer twice
+    // the same thing, because e.g. there are more than one surfaces cutting the edge.
+    // Therefore, we re-order p1 and p2 to always yield the same answer.
+    if (!(p2[0]>=p1[0] && p2[1]>=p1[1] && p2[2]>=p1[2])) {
+        std::swap(realP1, realP2);
+    }
     Array<T,3> surfacePosition, wallNormal;
     T distance;
     SurfaceData surfaceData;
     OffBoundary::Type bdType;
     plint id=-1;
+    static T epsilon = 1.e-6;
     bool ok =
-        shape->pointOnSurface( realP1, realP2-realP1, surfacePosition,
+        shape->pointOnSurface( realP1-epsilon*(realP2-realP1), ((T)1.0+epsilon)*(realP2-realP1), surfacePosition,
                                distance, wallNormal, surfaceData, bdType, id );
-    //PLB_ASSERT( ok );
     if (!ok) {
-        ok =
-            shape->pointOnSurface( realP1-(T)0.5*(realP2-realP1), (T)2.0*(realP2-realP1), surfacePosition,
-                                   distance, wallNormal, surfaceData, bdType, id );
-        if (!ok) {
-            surfacePosition = (T)0.5*(realP2+realP1);
-        }
+        surfacePosition = (T)0.5*(realP2+realP1);
     }
+    /// The following lines would allow that a surface crosses into itself.
+    /// In the examples we tried so far, this seemed however unnecessary.
+    /*
+    else {
+        T kappa = dot(surfacePosition-realP1, realP2-realP1);
+        if (kappa<epsilon) kappa=epsilon;
+        if (kappa>(T)1-epsilon) kappa = (T)1-epsilon;
+        surfacePosition = realP1 + kappa*(realP2-realP1);
+    }
+    */
     return surfacePosition;
 }
 
@@ -828,6 +840,15 @@ Array<T,3> AnalyticalIsoSurface3D<T,Function>::getSurfacePosition (
         maxIter *= 2;
         pos = T();
         ok = bisect(WrappedIsInside(p1, p2, function), (T)0-epsilon, (T)1+epsilon, epsilon, maxIter, pos);
+    }
+    if (!ok) {
+        count = 0;
+        while (!ok && count < countMax) {
+            count++;
+            maxIter *= 2;
+            pos = T();
+            ok = bisect(WrappedIsInside(p1, p2, function), (T)0, (T)1, epsilon, maxIter, pos);
+        }
     }
     PLB_ASSERT( ok );
 

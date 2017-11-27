@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -201,7 +201,7 @@ BoxProcessingFunctional2D_L<T,Descriptor>*
     RegularizedAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
         getAdvectionDiffusionCornerProcessor()
 {
-    return new AdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>();
+    return new AdvectionDiffusionCornerBoundaryFunctional2D<T,Descriptor,xNormal,yNormal>();
 }
 
 ////////// Regularized CompleteAdvectionDiffusionBoundaryManager2D /////////////////////////////////////////
@@ -211,7 +211,7 @@ template<int direction, int orientation>
 BoundaryCompositeDynamics<T,Descriptor>* RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
     getAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics)
 {
-    return new RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(baseDynamics);
+    return new CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(baseDynamics);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -240,7 +240,7 @@ BoxProcessingFunctional2D_L<T,Descriptor>*
     RegularizedCompleteAdvectionDiffusionBoundaryManager2D<T,Descriptor>::
         getAdvectionDiffusionCornerProcessor()
 {
-    return new CompleteAdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>();
+    return new CompleteAdvectionDiffusionCornerBoundaryFunctional2D<T,Descriptor,xNormal,yNormal>();
 }
 
 ////////// Factory functions //////////////////////////////////////////////////

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -218,6 +218,12 @@ public:
     void setPressureConditionOnBlockBoundaries( MultiBlockLattice2D<T,Descriptor>& lattice,
                                                 Box2D block, Box2D applicationDomain,
                                                 boundary::BcType bcType=boundary::dirichlet );
+
+
+    /// Set velocity/Neumann condition on inner boundaries of the lattice (multi-block
+    ///   version).
+    void setVelocityConditionOnInnerBlockBoundaries( MultiBlockLattice2D<T,Descriptor>& lattice,
+                                                     Box2D block, boundary::BcType bcType=boundary::dirichlet );
 
 };
 

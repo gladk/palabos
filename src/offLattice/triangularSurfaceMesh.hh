@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,13 +42,7 @@
 #include "core/util.h"
 #include "io/parallelIO.h"
 
-#define FPEQUAL_ABS(x, y, eps) (std::fabs((x)-(y)) <= (eps)) // Macro definition for the function
-                                                             // util::fpequal_abs<T>(T x, T y, T eps)
-
 namespace plb {
-
-template<typename T>
-const T TriangularSurfaceMesh<T>::eps0 = std::numeric_limits<T>::epsilon();
 
 template<typename T>
 const T TriangularSurfaceMesh<T>::eps1 =
@@ -196,50 +190,61 @@ void TriangularSurfaceMesh<T>::computeBoundingBox (
 template<typename T>
 void TriangularSurfaceMesh<T>::translate(Array<T,3> const& vector)
 {
-    if (util::fpequal(norm(vector), T(), eps0))
+    if (util::isZero(norm(vector))) {
         return;
+    }
 
-    for (plint i = 0; i < numVertices; i++)
+    for (plint i = 0; i < numVertices; i++) {
         getVertex(i) += vector;
+    }
 }
 
 template<typename T>
 void TriangularSurfaceMesh<T>::scale(T alpha)
 {
 
-    PLB_ASSERT(! util::fpequal(alpha, T(), eps0));
-    if (util::fpequal(alpha, (T) 1.0, eps0))
+    PLB_ASSERT(!util::isZero(alpha));
+    if (util::isOne(alpha)) {
         return;
+    }
 
-    for (plint i = 0; i < numVertices; i++)
+    for (plint i = 0; i < numVertices; i++) {
         getVertex(i) *= alpha;
+    }
 }
 
 template<typename T>
 void TriangularSurfaceMesh<T>::rotate(T phi, T theta, T psi)
 {
-    static const T pi = std::acos((T) -1.0);
+#ifdef PLB_DEBUG
+    static const T pi = std::acos((T) -1);
+#endif
+    PLB_ASSERT(util::greaterEqual(theta, (T) 0) && util::lessEqual(theta, pi));
 
-    PLB_ASSERT((theta > T() || util::fpequal(theta, T(), eps0)) &&
-               (theta < pi  || util::fpequal(theta, pi, eps0)));
+    T cosPhi   = std::cos(phi);
+    T sinPhi   = std::sin(phi);
+    T cosTheta = std::cos(theta);
+    T sinTheta = std::sin(theta);
+    T cosPsi   = std::cos(psi);
+    T sinPsi   = std::sin(psi);
 
     T a[3][3];
     a[0][0] =  (T) 1.0;
     a[0][1] =  (T) 0.0;
     a[0][2] =  (T) 0.0;
     a[1][0] =  (T) 0.0;
-    a[1][1] =  std::cos(theta);
-    a[1][2] = -std::sin(theta);
+    a[1][1] =  cosTheta;
+    a[1][2] = -sinTheta;
     a[2][0] =  (T) 0.0;
-    a[2][1] =  std::sin(theta);
-    a[2][2] =  std::cos(theta);
+    a[2][1] =  sinTheta;
+    a[2][2] =  cosTheta;
 
     T b[3][3];
-    b[0][0] =  std::cos(phi);
-    b[0][1] = -std::sin(phi);
+    b[0][0] =  cosPhi;
+    b[0][1] = -sinPhi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(phi);
-    b[1][1] =  std::cos(phi);
+    b[1][0] =  sinPhi;
+    b[1][1] =  cosPhi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -255,11 +260,11 @@ void TriangularSurfaceMesh<T>::rotate(T phi, T theta, T psi)
         }
     }
 
-    b[0][0] =  std::cos(psi);
-    b[0][1] = -std::sin(psi);
+    b[0][0] =  cosPsi;
+    b[0][1] = -sinPsi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(psi);
-    b[1][1] =  std::cos(psi);
+    b[1][0] =  sinPsi;
+    b[1][1] =  cosPsi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -289,11 +294,11 @@ template<typename T>
 void TriangularSurfaceMesh<T>::smooth(plint maxiter, T relax, bool isMeasureWeighted)
 {
     PLB_ASSERT(maxiter >= 0);
-    PLB_ASSERT((relax > (T) 0.0 || std::fabs(relax) <= eps0) &&
-               (relax < (T) 1.0 || std::fabs(relax - 1.0) <= eps0));
+    PLB_ASSERT(util::greaterEqual(relax, (T) 0) && util::lessEqual(relax, (T) 1));
 
-    if (maxiter <= 0)
+    if (maxiter <= 0) {
         return;
+    }
 
     std::vector<Array<T,3> > *bp0;
     bp0 = vertexList;
@@ -569,19 +574,11 @@ Array<T,3> TriangularSurfaceMesh<T>::computeTriangleNormal(
 {
     PLB_ASSERT(iTriangle >= 0 && iTriangle < numTriangles);
 
-    Array<T,3> v0 = getVertex(iTriangle, 0);
-    Array<T,3> v1 = getVertex(iTriangle, 1);
-    Array<T,3> v2 = getVertex(iTriangle, 2);
+    Array<T,3> const& v0 = getVertex(iTriangle, 0);
+    Array<T,3> const& v1 = getVertex(iTriangle, 1);
+    Array<T,3> const& v2 = getVertex(iTriangle, 2);
 
-    Array<T,3> e01 = v1 - v0;
-    Array<T,3> e02 = v2 - v0;
-
-    Array<T,3> n;
-    crossProduct(e01, e02, n);
-    if (!isAreaWeighted)
-        n /= norm(n);
-
-    return n;
+    return plb::computeTriangleNormal(v0, v1, v2, isAreaWeighted);
 }
 
 template<typename T>
@@ -628,19 +625,11 @@ Array<T,3> TriangularSurfaceMesh<T>::computeTriangleNormal(
         PLB_ASSERT(false); // Vertices do not belong to the same triangle.
     }
 
-    Array<T,3> v0 = getVertex(id0);
-    Array<T,3> v1 = getVertex(id1);
-    Array<T,3> v2 = getVertex(id2);
+    Array<T,3> const& v0 = getVertex(id0);
+    Array<T,3> const& v1 = getVertex(id1);
+    Array<T,3> const& v2 = getVertex(id2);
 
-    Array<T,3> e01 = v1 - v0;
-    Array<T,3> e02 = v2 - v0;
-
-    Array<T,3> n;
-    crossProduct(e01, e02, n);
-    if (!isAreaWeighted)
-        n /= norm(n);
-
-    return n;
+    return plb::computeTriangleNormal(v0, v1, v2, isAreaWeighted);
 }
 
 template<typename T>
@@ -650,10 +639,16 @@ Array<T,3> TriangularSurfaceMesh<T>::computeEdgeNormal(
     Array<T,3> n;
     std::vector<plint> adjacentTriangleIds = getAdjacentTriangleIds(iVertex, jVertex);
     std::vector<plint>::iterator tit = adjacentTriangleIds.begin();
-    for (n.resetToZero(); tit != adjacentTriangleIds.end(); ++tit)
+    for (n.resetToZero(); tit != adjacentTriangleIds.end(); ++tit) {
         n += computeTriangleNormal(*tit, isAreaWeighted);
+    }
 
-    n /= norm(n);
+    T normN = norm(n);
+    if (!util::isZero(normN)) {
+        n /= normN;
+    } else {
+        n.resetToZero();
+    }
     return n;
 }
 
@@ -664,10 +659,16 @@ Array<T,3> TriangularSurfaceMesh<T>::computeVertexNormal(
     std::vector<plint> neighborTriangleIds = getNeighborTriangleIds(iVertex);
     Array<T,3> n;
     std::vector<plint>::iterator it = neighborTriangleIds.begin();
-    for (n.resetToZero(); it != neighborTriangleIds.end(); ++it)
+    for (n.resetToZero(); it != neighborTriangleIds.end(); ++it) {
         n += computeTriangleNormal(*it, isAreaWeighted);
+    }
 
-    n /= norm(n);
+    T normN = norm(n);
+    if (!util::isZero(normN)) {
+        n /= normN;
+    } else {
+        n.resetToZero();
+    }
     return n;
 }
 
@@ -675,6 +676,11 @@ template<typename T>
 Array<T,3> TriangularSurfaceMesh<T>::computeContinuousNormal(
     Array<T,3> const& p, plint iTriangle, bool isAreaWeighted) const
 {
+    T area = computeTriangleArea(iTriangle);
+    if (util::isZero(area)) {
+        return Array<T,3>((T) 0, (T) 0, (T) 0);
+    }
+
     plint id0 = getVertexId(iTriangle, 0);
     plint id1 = getVertexId(iTriangle, 1);
     plint id2 = getVertexId(iTriangle, 2);
@@ -693,8 +699,6 @@ Array<T,3> TriangularSurfaceMesh<T>::computeContinuousNormal(
     crossProduct(ep2, ep0, n);
     T area1 = (T) 0.5 * norm(n);
 
-    T area = computeTriangleArea(iTriangle);
-
     T u = area0 / area;
     T v = area1 / area;
 
@@ -703,23 +707,20 @@ Array<T,3> TriangularSurfaceMesh<T>::computeContinuousNormal(
     Array<T,3> n2 = computeVertexNormal(id2, isAreaWeighted);
 
     n = u * n0 + v * n1 + ((T)1. - u - v) * n2;
-    n /= norm(n);
+    T normN = norm(n);
+    PLB_ASSERT(!util::isZero(normN));
+    n /= normN;
     return n;
 }
 
 template<typename T>
 T TriangularSurfaceMesh<T>::computeTriangleArea(plint iTriangle) const
 {
-    Array<T,3> v0 = getVertex(iTriangle, 0);
-    Array<T,3> v1 = getVertex(iTriangle, 1);
-    Array<T,3> v2 = getVertex(iTriangle, 2);
+    Array<T,3> const& v0 = getVertex(iTriangle, 0);
+    Array<T,3> const& v1 = getVertex(iTriangle, 1);
+    Array<T,3> const& v2 = getVertex(iTriangle, 2);
 
-    Array<T,3> e01 = v1 - v0;
-    Array<T,3> e02 = v2 - v0;
-
-    Array<T,3> n;
-    crossProduct(e01, e02, n);
-    return (T) 0.5 * norm(n);
+    return plb::computeTriangleArea(v0, v1, v2);
 }
 
 template<typename T>
@@ -755,9 +756,9 @@ T TriangularSurfaceMesh<T>::computeTriangleArea(
     PLB_ASSERT(kVertex == prevVertex || kVertex == nextVertex); // Vertices do not belong to the same triangle.
 #endif // PLB_DEBUG
 
-    Array<T,3> v0 = getVertex(iVertex);
-    Array<T,3> v1 = getVertex(jVertex);
-    Array<T,3> v2 = getVertex(kVertex);
+    Array<T,3> const& v0 = getVertex(iVertex);
+    Array<T,3> const& v1 = getVertex(jVertex);
+    Array<T,3> const& v2 = getVertex(kVertex);
 
     return plb::computeTriangleArea(v0,v1,v2);
 }
@@ -780,8 +781,7 @@ T TriangularSurfaceMesh<T>::computeVertexArea(plint iVertex) const
     std::vector<plint> neighborTriangleIds = getNeighborTriangleIds(iVertex);
     T area = T();
     std::vector<plint>::iterator it = neighborTriangleIds.begin();
-    for (; it != neighborTriangleIds.end(); ++it)
-    {
+    for (; it != neighborTriangleIds.end(); ++it) {
         area += computeTriangleArea(*it);
     }
 
@@ -857,14 +857,29 @@ TriangleSet<T> TriangularSurfaceMesh<T>::toTriangleSet(Precision precision) cons
 }
 
 template<typename T>
-void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx) const
+TriangleSet<T> TriangularSurfaceMesh<T>::toTriangleSet(T eps) const
 {
-    Array<T,3> location((T) 0, (T) 0, (T) 0);
-    writeAsciiSTL(fname, dx, location);
+    typedef typename TriangleSet<T>::Triangle Triangle;
+    std::vector<Triangle> triangles(numTriangles);
+    for (plint i = 0; i < numTriangles; i++) {
+        Triangle triangle;
+        triangle[0] = getVertex(i, 0);
+        triangle[1] = getVertex(i, 1);
+        triangle[2] = getVertex(i, 2);
+        triangles[i] = triangle;
+    }
+    return TriangleSet<T>(triangles, eps);
 }
 
 template<typename T>
-void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx, Array<T,3> location) const
+void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx, int numDecimalDigits) const
+{
+    Array<T,3> location((T) 0, (T) 0, (T) 0);
+    writeAsciiSTL(fname, dx, location, numDecimalDigits);
+}
+
+template<typename T>
+void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx, Array<T,3> location, int numDecimalDigits) const
 {
     // Output only from one MPI process.
     if (!global::mpi().isMainProcessor()) {
@@ -874,39 +889,26 @@ void TriangularSurfaceMesh<T>::writeAsciiSTL(std::string fname, T dx, Array<T,3>
         return;
     }
     FILE *fp = fopen(fname.c_str(), "w");
-    PLB_ASSERT(fp != NULL);
+    PLB_ASSERT(fp != 0);
 
-    char fmt1[64] = "  facet normal ";
-    char fmt2[64] = "      vertex ";
-    if (sizeof(T) == sizeof(long double)) {
-        strcat(fmt1, "% .12Le % .12Le % .12Le\n");
-        strcat(fmt2, "% .12Le % .12Le % .12Le\n");
-    }
-    else if (sizeof(T) == sizeof(float) ||
-             sizeof(T) == sizeof(double)) {
-        strcat(fmt1, "% .10e % .10e % .10e\n");
-        strcat(fmt2, "% .10e % .10e % .10e\n");
-    }
-    else {
-        PLB_ASSERT(false);
-    }
-
-    fprintf(fp, "solid surface\n");
+    fprintf(fp, "solid plb\n");
+    bool isAreaWeighted = false;
+    int d = numDecimalDigits;
     for (plint i = 0; i < numTriangles; i++) {
-        Array<T,3> n = computeTriangleNormal(i);
-        Array<T,3> v;
-        fprintf(fp, fmt1, n[0], n[1], n[2]);
+        Array<double,3> n = computeTriangleNormal(i, isAreaWeighted);
+        Array<double,3> v;
+        fprintf(fp, "  facet normal % .*e % .*e % .*e\n", d, n[0], d, n[1], d, n[2]);
         fprintf(fp, "    outer loop\n");
         v = getVertex(i, 0) * dx + location;
-        fprintf(fp, fmt2, v[0], v[1], v[2]);
+        fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v[0], d, v[1], d, v[2]);
         v = getVertex(i, 1) * dx + location;
-        fprintf(fp, fmt2, v[0], v[1], v[2]);
+        fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v[0], d, v[1], d, v[2]);
         v = getVertex(i, 2) * dx + location;
-        fprintf(fp, fmt2, v[0], v[1], v[2]);
+        fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v[0], d, v[1], d, v[2]);
         fprintf(fp, "    endloop\n");
         fprintf(fp, "  endfacet\n");
     }
-    fprintf(fp, "endsolid surface\n");
+    fprintf(fp, "endsolid plb\n");
 
     fclose(fp);
 }
@@ -929,7 +931,7 @@ void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname, T dx, Array<T,3
         return;
     }
     FILE *fp = fopen(fname.c_str(), "wb");
-    PLB_ASSERT(fp != NULL);
+    PLB_ASSERT(fp != 0);
 
     unsigned int nt = (unsigned int) numTriangles;
     unsigned short abc = 0;
@@ -940,9 +942,10 @@ void TriangularSurfaceMesh<T>::writeBinarySTL(std::string fname, T dx, Array<T,3
 
     fwrite(buf, sizeof(char), 80, fp);
     fwrite(&nt, sizeof(unsigned int), 1, fp);
+    bool isAreaWeighted = false;
     for (plint i = 0; i < numTriangles; i++) {
         Array<T,3> vertex;
-        Array<T,3> normal = computeTriangleNormal(i);
+        Array<T,3> normal = computeTriangleNormal(i, isAreaWeighted);
         float n[3];
         n[0] = normal[0];
         n[1] = normal[1];
@@ -974,8 +977,9 @@ template<typename T>
 inline bool TriangularSurfaceMesh<T>::isBoundaryVertex(plint iVertex) const
 {
     PLB_ASSERT(iVertex >= 0 && iVertex < numVertices);
-    if ( edges()[ emanatingEdges()[iVertex] ].ne < 0)
+    if ( edges()[ emanatingEdges()[iVertex] ].ne < 0) {
         return true;
+    }
     return false;
 }
 
@@ -1025,7 +1029,11 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
     Array<T,3> e1 = v2 - v0;
 
     crossProduct(e0, e1, normal); // Triangle unit normal
-    normal /= norm(normal);
+    T normN = norm(normal);
+    if (util::isZero(normN)) {
+        return 0;   // The triangle has zero area.
+    }
+    normal /= normN;
 
     Array<T,3> direction = point2 - point1;
 
@@ -1039,8 +1047,8 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
     //   one of the end-points of a segment is right on top of the surface
     //   this creates an awkward ambiguity. To remove this ambiguity, the
     //   triangle is slightly shifted in direction of its normal vector.
-    if (    ( (flag==0||flag==1) && util::fpequal_abs(t, T(), eps1) )
-         || ( (flag==0) && util::fpequal_abs(t, (T) 1.0, eps1) )
+    if (    ( (flag==0||flag==1) && util::isZero(t, eps1) )
+         || ( (flag==0) && util::isOne(t, eps1) )
        )
     {
         // Shift the vertex, and recompute everything that needs to be
@@ -1051,8 +1059,8 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
         t = num / denom;
     }
 
-    if (util::fpequal_abs(denom, T(), eps1)) {
-        if (util::fpequal_abs(num, T(), eps1)) {
+    if (util::isZero(denom, eps1)) {
+        if (util::isZero(num, eps1)) {
             return -1; // Line belongs to the plane
         }
         else {
@@ -1061,13 +1069,12 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
     }
 
     if (flag == 0) { // For intersection with a line segment
-        if ((t < (T) 0.0 && !util::fpequal_abs(t, (T) 0.0, eps1)) ||
-            (t > (T) 1.0 && !util::fpequal_abs(t, (T) 1.0, eps1))) {
+        if (util::lessThan(t, (T) 0, eps1) || util::greaterThan(t, (T) 1, eps1)) {
             return 0;
         }
     }
     else if (flag == 1) { // For intersection with a half-line
-        if (t < (T) 0.0 && !util::fpequal_abs(t, (T) 0.0, eps1)) {
+        if (util::lessThan(t, (T) 0, eps1)) {
             return 0;
         }
     }
@@ -1096,11 +1103,11 @@ int TriangularSurfaceMesh<T>::pointOnTriangle (
 
     T upv = u + v;
 
-    int ueq0   = util::fpequal_abs(u,   T(), eps1);
-    int ueq1   = util::fpequal_abs(u,   (T) 1.0, eps1);
-    int veq0   = util::fpequal_abs(v,   T(), eps1);
-    int veq1   = util::fpequal_abs(v,   (T) 1.0, eps1);
-    int upveq1 = util::fpequal_abs(upv, (T) 1.0, eps1);
+    bool ueq0   = util::isZero(u,   eps1);
+    bool ueq1   = util::isOne (u,   eps1);
+    bool veq0   = util::isZero(v,   eps1);
+    bool veq1   = util::isOne (v,   eps1);
+    bool upveq1 = util::isOne (upv, eps1);
 
     int is_vertex = -1;
     int is_in_edge = -1;
@@ -1181,7 +1188,7 @@ bool TriangularSurfaceMesh<T>::segmentIntersectsTriangle (
 
     T denom = direction[0]*normal[0] + direction[1]*normal[1] + direction[2]*normal[2];
 
-    if (FPEQUAL_ABS(denom, T(), eps1))
+    if (util::isZero(denom, eps1))
         return false; // The segment belongs to the plane or it is parallel to it
                       //   and does not intersect it.
 
@@ -1194,8 +1201,8 @@ bool TriangularSurfaceMesh<T>::segmentIntersectsTriangle (
     //   one of the end-points of a segment is right on top of the surface
     //   this creates an awkward ambiguity. To remove this ambiguity, the
     //   triangle is slightly shifted in direction of its normal vector.
-    if (    ( FPEQUAL_ABS(t, T(),     eps1) )
-         || ( FPEQUAL_ABS(t, (T) 1.0, eps1) )
+    if (    ( util::isZero(t, eps1) )
+         || ( util::isOne (t, eps1) )
        )
     {
         T norm_normal = std::sqrt(util::sqr(normal[0])+util::sqr(normal[1])+util::sqr(normal[2]));
@@ -1213,8 +1220,7 @@ bool TriangularSurfaceMesh<T>::segmentIntersectsTriangle (
         t = num / denom;
     }
 
-    if ((t < (T) 0.0 && !FPEQUAL_ABS(t, (T) 0.0, eps1)) ||
-        (t > (T) 1.0 && !FPEQUAL_ABS(t, (T) 1.0, eps1)))
+    if (util::lessThan(t, (T) 0, eps1) || util::greaterThan(t, (T) 1, eps1))
         return false;
 
     T intersection[3];
@@ -1245,11 +1251,9 @@ bool TriangularSurfaceMesh<T>::segmentIntersectsTriangle (
 
     T upv = u + v;
 
-    if ((u   < (T) 0.0 && !FPEQUAL_ABS(u,   (T) 0.0, eps1)) ||
-        (u   > (T) 1.0 && !FPEQUAL_ABS(u,   (T) 1.0, eps1)) ||
-        (v   < (T) 0.0 && !FPEQUAL_ABS(v,   (T) 0.0, eps1)) ||
-        (v   > (T) 1.0 && !FPEQUAL_ABS(v,   (T) 1.0, eps1)) ||
-        (upv > (T) 1.0 && !FPEQUAL_ABS(upv, (T) 1.0, eps1)))
+    if (util::lessThan(u, (T) 0, eps1) || util::greaterThan(u,   (T) 1, eps1) ||
+        util::lessThan(v, (T) 0, eps1) || util::greaterThan(v,   (T) 1, eps1) ||
+                                          util::greaterThan(upv, (T) 1, eps1))
         return false; // The point does not belong to the triangle
 
     return true;
@@ -1274,9 +1278,7 @@ void TriangularSurfaceMesh<T>::distanceToEdgeLine (
     Array<T,3> x = vertex1+u*e;
     distance = norm(point-x);
 
-    int ueq0 = util::fpequal_abs(u, (T) 0.0, eps1);
-    int ueq1 = util::fpequal_abs(u, (T) 1.0, eps1);
-    intersectionIsInside = (u >= (T) 0.0 || ueq0) && (u <= (T) 1.0 || ueq1);
+    intersectionIsInside = util::greaterEqual(u, (T) 0, eps1) && util::lessEqual(u, (T) 1, eps1);
 }
 
 template<typename T>
@@ -1285,15 +1287,14 @@ void TriangularSurfaceMesh<T>::distanceToTrianglePlane (
         T& distance, bool& intersectionIsInside, bool& pointIsBehind ) const
 {
     Array<T,3> normal = computeTriangleNormal(iTriangle);
-    Array<T,3> intersection;
+    Array<T,3> intersection((T) 0, (T) 0, (T) 0);
     int flag = 2; // Line.
     intersectionIsInside =
         pointOnTriangle( point, point+normal, flag, iTriangle,
                          intersection, normal, distance ) == 1;
     T projection = dot(normal, point-intersection);
 
-    pointIsBehind = projection <= (T)0. ||
-                    util::fpequal_abs(projection, (T)0., eps1);
+    pointIsBehind = util::lessEqual(projection, (T) 0, eps1);
 }
 
 template<typename T>
@@ -1642,8 +1643,8 @@ void computeBoundingBox (
         TriangularSurfaceMesh<T> const& mesh, Lid const& lid,
         Array<T,2>& xLim, Array<T,2>& yLim, Array<T,2>& zLim )
 {
-    xLim[0] = yLim[0] = zLim[0] = std::numeric_limits<T>::max();
-    xLim[1] = yLim[1] = zLim[1] = std::numeric_limits<T>::min();
+    xLim[0] = yLim[0] = zLim[0] =  std::numeric_limits<T>::max();
+    xLim[1] = yLim[1] = zLim[1] = -std::numeric_limits<T>::max();
     for ( plint iBoundary=0;
           iBoundary<(plint)lid.boundaryVertices.size(); ++iBoundary )
     {
@@ -1750,8 +1751,8 @@ void TriangularSurfaceMesh<T>::writeHTML (
         return;
     }
     std::vector<Array<T,3> > posVect(getNumVertices());
-    T maxLimit = std::numeric_limits<T>::max();
-    T minLimit = std::numeric_limits<T>::min();
+    T maxLimit =  std::numeric_limits<T>::max();
+    T minLimit = -std::numeric_limits<T>::max();
     Array<T,3> minPos(maxLimit,maxLimit,maxLimit), maxPos(minLimit,minLimit,minLimit);
     for (plint i=0; i<getNumVertices(); ++i) {
         posVect[i] = (*vertexList)[i];
@@ -1855,8 +1856,8 @@ void TriangularSurfaceMesh<T>::writeX3D (
         return;
     }
     std::vector<Array<T,3> > posVect(getNumVertices());
-    T maxLimit = std::numeric_limits<T>::max();
-    T minLimit = std::numeric_limits<T>::min();
+    T maxLimit =  std::numeric_limits<T>::max();
+    T minLimit = -std::numeric_limits<T>::max();
     Array<T,3> minPos(maxLimit,maxLimit,maxLimit), maxPos(minLimit,minLimit,minLimit);
     for (plint i=0; i<getNumVertices(); ++i) {
         posVect[i] = (*vertexList)[i];

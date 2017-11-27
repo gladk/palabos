@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,11 +22,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
- **/
-
 /** \file
- * Management of multi grid  3D domains -- Header file
+ * Main author: Daniel Lagrava, adapted by Helen Morrison
  */
 
 #ifndef MULTI_GRID_MANAGEMENT_3D_H
@@ -36,6 +33,7 @@
 #include "core/geometry3D.h"
 #include "multiGrid/multiScale.h"
 #include "multiGrid/parallelizer3D.h"
+#include "multiBlock/multiDataField3D.h"
 
 namespace plb {
 
@@ -77,6 +75,10 @@ public:
     void parallelize(Parallelizer3D* parallelizer);
 
     friend MultiGridManagement3D extractManagement(MultiGridManagement3D management, Box3D coarsestDomain, bool crop);
+
+    void eliminateBlocksOnFinestLevel(MultiScalarField3D<int>& domainMatrix,
+                                      plint blockSizeX, plint blockSizeY,
+                                      plint blockSizeZ);
     
 private:
     void initialize(Box3D const& level0_box);

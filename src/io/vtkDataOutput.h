@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,7 +43,7 @@ namespace plb {
 
 class VtkDataWriter3D {
 public:
-    VtkDataWriter3D(std::string const& fileName_);
+    VtkDataWriter3D(std::string const& fileName_, bool pointData_=true, bool mainProcOnly_=true);
     ~VtkDataWriter3D();
     void writeHeader(Box3D domain, Array<double,3> origin, double deltaX);
     void startPiece(Box3D domain);
@@ -56,6 +56,31 @@ private:
     VtkDataWriter3D(VtkDataWriter3D const& rhs);
     VtkDataWriter3D operator=(VtkDataWriter3D const& rhs);
 private:
+    std::string fileName;
+    std::ofstream *ostr;
+    bool pointData;
+    bool mainProcOnly;
+};
+
+class ParallelVtkDataWriter3D {
+public:
+    ParallelVtkDataWriter3D(std::string const& fileName_);
+    ~ParallelVtkDataWriter3D();
+    void writeHeader(Box3D domain, Array<double,3> origin, double deltaX);
+    void startPiece(Box3D domain);
+    void endPiece();
+    void writeFooter1();
+    void writeFooter2();
+    template<typename T>
+    void declareDataField(std::string const& name, plint nDim, plint declarationPos, plint dataOffset );
+    void writeDataField( MultiBlock3D& block, IndexOrdering::OrderingT ordering, plint sizeOfScalar, plint dataSize );
+    void appendFillerSpace(plint fillerSpace);
+    plint getSizeOfHeader() const { return sizeOfHeader; }
+private:
+    ParallelVtkDataWriter3D(ParallelVtkDataWriter3D const& rhs);
+    ParallelVtkDataWriter3D operator=(ParallelVtkDataWriter3D const& rhs);
+private:
+    plint sizeOfHeader;
     std::string fileName;
     std::ofstream *ostr;
 };
@@ -71,16 +96,16 @@ public:
                     DataSerializer const* serializer, std::string const& name );
     template<typename TConv>
     void writeData(ScalarField2D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
+                   std::string scalarFieldName, TConv scalingFactor=(TConv)1, TConv additiveOffset=(TConv)0);
     template<typename TConv>
     void writeData(MultiScalarField2D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
+                   std::string scalarFieldName, TConv scalingFactor=(TConv)1, TConv additiveOffset=(TConv)0);
     template<plint n, typename TConv>
     void writeData(TensorField2D<T,n>& tensorField,
-                   std::string tensorFieldName, TConv scalingFactor=(T)1);
+                   std::string tensorFieldName, TConv scalingFactor=(TConv)1);
     template<plint n, typename TConv>
     void writeData(MultiTensorField2D<T,n>& tensorField,
-                   std::string tensorFieldName, TConv scalingFactor=(T)1);
+                   std::string tensorFieldName, TConv scalingFactor=(TConv)1);
     template<typename TConv>
     void writeData(MultiNTensorField2D<T>& nTensorField, std::string nTensorFieldName);
 private:
@@ -110,16 +135,16 @@ public:
                     DataSerializer const* serializer, std::string const& name );
     template<typename TConv>
     void writeData(ScalarField3D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
+                   std::string scalarFieldName, TConv scalingFactor=(TConv)1, TConv additiveOffset=(TConv)0);
     template<typename TConv>
     void writeData(MultiScalarField3D<T>& scalarField,
-                   std::string scalarFieldName, TConv scalingFactor=(T)1, TConv additiveOffset=(T)0);
+                   std::string scalarFieldName, TConv scalingFactor=(TConv)1, TConv additiveOffset=(TConv)0);
     template<plint n, typename TConv>
     void writeData(TensorField3D<T,n>& tensorField,
-                   std::string tensorFieldName, TConv scalingFactor=(T)1);
+                   std::string tensorFieldName, TConv scalingFactor=(TConv)1);
     template<plint n, typename TConv>
     void writeData(MultiTensorField3D<T,n>& tensorField,
-                   std::string tensorFieldName, TConv scalingFactor=(T)1);
+                   std::string tensorFieldName, TConv scalingFactor=(TConv)1);
     template<typename TConv>
     void writeData(MultiNTensorField3D<T>& nTensorField, std::string nTensorFieldName);
 private:
@@ -133,6 +158,35 @@ private:
     Array<T,3> offset;
     bool headerWritten;
     Box3D boundingBox;
+};
+
+template<typename T>
+class ParallelVtkImageOutput3D {
+public:
+    ParallelVtkImageOutput3D(std::string fName, plint numEntries, double deltaX_=1.);
+    ParallelVtkImageOutput3D(std::string fName, plint numEntries, double deltaX_, Array<double,3> offset);
+    ~ParallelVtkImageOutput3D();
+    template<typename TConv>
+    void writeData( Box3D boundingBox_, plint nDim,
+                    MultiBlock3D& block, IndexOrdering::OrderingT ordering, std::string const& name );
+    template<typename TConv>
+    void writeData(MultiScalarField3D<T>& scalarField,
+                   std::string scalarFieldName, TConv scalingFactor=(TConv)1, TConv additiveOffset=(TConv)0);
+    template<plint n, typename TConv>
+    void writeData(MultiTensorField3D<T,n>& tensorField,
+                   std::string tensorFieldName, TConv scalingFactor=(TConv)1);
+    template<typename TConv>
+    void writeData(MultiNTensorField3D<T>& nTensorField, std::string nTensorFieldName);
+private:
+    void writeHeader(Box3D boundingBox_);
+private:
+    std::string fullName;
+    ParallelVtkDataWriter3D vtkOut;
+    double deltaX;
+    Array<T,3> offset;
+    bool headerWritten;
+    Box3D boundingBox;
+    plint numEntries, sizeOfEntry, sizeOfFooter, nextDataOffset, iEntry;
 };
 
 } // namespace plb

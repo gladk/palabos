@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,6 +33,8 @@
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "atomicBlock/blockLattice3D.h"
 #include "multiGrid/multiGridUtil.h"
+#include <limits>
+#include <algorithm>
 
 namespace plb {
 
@@ -79,6 +81,27 @@ void OneCellIndexedFunctional3D<T,Descriptor>::getTypeOfModification(std::vector
 
 template<typename T, template<class U> class Descriptor>
 void OneCellIndexedFunctional3D<T,Descriptor>::setscale(int dxScale, int dtScale)
+{ }
+
+
+
+template<typename T, template<class U> class Descriptor>
+OneCellIndexedWithRandFunctional3D<T,Descriptor>::~OneCellIndexedWithRandFunctional3D()
+{ }
+
+template<typename T, template<class U> class Descriptor>
+BlockDomain::DomainT OneCellIndexedWithRandFunctional3D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<class U> class Descriptor>
+void OneCellIndexedWithRandFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T, template<class U> class Descriptor>
+void OneCellIndexedWithRandFunctional3D<T,Descriptor>::setscale(int dxScale, int dtScale)
 { }
 
 
@@ -218,6 +241,98 @@ void GenericIndexedLatticeFunctional3D<T,Descriptor>::setscale(int dxScale, int 
 }
 
 
+
+
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::GenericIndexedWithRandLatticeFunctional3D (
+        OneCellIndexedWithRandFunctional3D<T,Descriptor>* f_, Box3D boundingBox, sitmo::prng_engine eng_ )
+    : f(f_),
+      nY(boundingBox.getNy()),
+      nZ(boundingBox.getNz()),
+      eng(eng_)
+{ }
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::GenericIndexedWithRandLatticeFunctional3D (
+        GenericIndexedWithRandLatticeFunctional3D<T,Descriptor> const& rhs )
+    : f(rhs.f->clone()),
+      nY(rhs.nY),
+      nZ(rhs.nZ),
+      eng(rhs.eng)
+{ }
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::~GenericIndexedWithRandLatticeFunctional3D() {
+    delete f;
+}
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>&
+    GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::operator= (
+        GenericIndexedWithRandLatticeFunctional3D<T,Descriptor> const& rhs )
+{
+    delete f;
+    f = rhs.f->clone();
+    return *this;
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    Dot3D relativeOffset = lattice.getLocation();
+    plint rng_index = 0;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint globalX = nY*(iX + relativeOffset.x);
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint globalY = nZ*(iY + relativeOffset.y + globalX);
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint globalZ = iZ + relativeOffset.z + globalY;
+                PLB_ASSERT( globalZ >= rng_index );
+                if (globalZ > rng_index) {
+                    eng.discard(globalZ-rng_index);
+                    rng_index = globalZ;
+                }
+                T rand_val = (T)eng() / ((T)std::numeric_limits<uint32_t>::max()+1.0);
+                ++rng_index;
+                f->execute ( iX+relativeOffset.x,
+                             iY+relativeOffset.y,
+                             iZ+relativeOffset.z,
+                             rand_val,
+                             lattice.get(iX,iY,iZ) );
+            }
+        }
+    }
+}
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>*
+    GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::clone() const
+{
+    return new GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    f->getTypeOfModification(modified);
+}
+
+template<typename T, template<class U> class Descriptor>
+BlockDomain::DomainT GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return f->appliesTo();
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>::setscale(int dxScale, int dtScale)
+{
+    f->setscale(dxScale, dtScale);
+}
+
+
 /* *************** Class InstantiateDynamicsFunctional3D ************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -262,15 +377,14 @@ void InstantiateDynamicsFunctional3D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateDynamicsFunctional3D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void InstantiateDynamicsFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -278,6 +392,67 @@ InstantiateDynamicsFunctional3D<T,Descriptor>*
     InstantiateDynamicsFunctional3D<T,Descriptor>::clone() const 
 {
     return new InstantiateDynamicsFunctional3D<T,Descriptor>(*this);
+}
+
+
+/* *************** Class InstantiateDynamicsInBulkAndEnvelopeFunctional3D ************* */
+
+template<typename T, template<typename U> class Descriptor>
+InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::InstantiateDynamicsInBulkAndEnvelopeFunctional3D (
+        Dynamics<T,Descriptor>* dynamics_ )
+    : dynamics(dynamics_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::InstantiateDynamicsInBulkAndEnvelopeFunctional3D (
+        InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor> const& rhs )
+    : dynamics(rhs.dynamics->clone())
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>&
+    InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::operator= (
+        InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor> const& rhs )
+{
+    delete dynamics; dynamics = rhs.dynamics->clone();
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::~InstantiateDynamicsInBulkAndEnvelopeFunctional3D() {
+    delete dynamics;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                lattice.attributeDynamics(iX,iY,iZ, dynamics->clone());
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;    // This is the only difference with the InstantiateDynamicsFunctional3D.
+}
+
+template<typename T, template<typename U> class Descriptor>
+void InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dataStructure;
+}
+
+template<typename T, template<typename U> class Descriptor>
+InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>*
+    InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>::clone() const 
+{
+    return new InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>(*this);
 }
 
 
@@ -333,15 +508,14 @@ void InstantiateComplexDomainDynamicsFunctional3D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateComplexDomainDynamicsFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void InstantiateComplexDomainDynamicsFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -402,7 +576,7 @@ template<typename T, template<typename U> class Descriptor>
 void InstantiateDotDynamicsFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -463,15 +637,14 @@ void DynamicsFromMaskFunctional3D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT DynamicsFromMaskFunctional3D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void DynamicsFromMaskFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
     modified[1] = modif::nothing;
 }
 
@@ -533,15 +706,14 @@ void DynamicsFromIntMaskFunctional3D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT DynamicsFromIntMaskFunctional3D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void DynamicsFromIntMaskFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
     modified[1] = modif::nothing;
 }
 
@@ -748,8 +920,6 @@ AssignOmegaFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT AssignOmegaFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Omega needs to be set on envelope nodes as well, because the dynamics object
-    //   is being modified.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -757,7 +927,7 @@ template<typename T, template<typename U> class Descriptor>
 void AssignOmegaFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dynamicVariables;
 }
 
 
@@ -804,16 +974,14 @@ AssignScalarFieldOmegaFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT AssignScalarFieldOmegaFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Omega needs to be set on envelope nodes as well, because the dynamics object
-    //   is being modified.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void AssignScalarFieldOmegaFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dynamicVariables;
     modified[1] = modif::nothing;
 }
 
@@ -854,8 +1022,6 @@ SetConstBoundaryVelocityFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetConstBoundaryVelocityFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Boundary condition needs to be set on envelope nodes as well to ensure
-    //   proper behavior.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -863,7 +1029,270 @@ template<typename T, template<typename U> class Descriptor>
 void SetConstBoundaryVelocityFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::allVariables;
+}
+
+
+/* ************* Class SetConstBoundaryVelocityWithTensorForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>::SetConstBoundaryVelocityWithTensorForceFunctional3D (
+        Array<T,Descriptor<T>::d> velocity )
+    : u(velocity)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force )
+{
+    Dot3D ofs = computeRelativeDisplacement(lattice, force);
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,3> scaledU = scaleFactor * (u - (T) 0.5 * force.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z));
+                lattice.get(iX,iY,iZ).defineVelocity(scaledU);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>*
+    SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>::clone() const
+{
+    return new SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::allVariables;  // Lattice.
+    modified[1] = modif::nothing;       // Force.
+}
+
+
+/* ************* Class SetConstBoundaryVelocityWithForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>::SetConstBoundaryVelocityWithForceFunctional3D (
+        Array<T,Descriptor<T>::d> force, Array<T,Descriptor<T>::d> velocity )
+    : f(force),
+      u(velocity)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,Descriptor<T>::d> scaledU = scaleFactor * (u - (T) 0.5 * f);
+                lattice.get(iX,iY,iZ).defineVelocity(scaledU);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>*
+    SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>::clone() const
+{
+    return new SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::allVariables;  // Lattice.
+}
+
+
+/* ************* Class SetCustomBoundaryVelocityWithTensorForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>::
+SetCustomBoundaryVelocityWithTensorForceFunctional3D(VelocityFunction f_)
+    : f(f_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+void SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force )
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, force);
+    Dot3D location = lattice.getLocation();
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                Array<T,3> u;
+                f(x, y, z, u);
+                Array<T,3> scaledU = scaleFactor * (u - (T) 0.5 * force.get(iX+offset.x, iY+offset.y, iZ+offset.z));
+                lattice.get(iX,iY,iZ).defineVelocity(scaledU);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>*
+    SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>::clone() const
+{
+    return new SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+BlockDomain::DomainT SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+void SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::allVariables;  // Lattice.
+    modified[1] = modif::nothing;       // Force.
+}
+
+
+/* ************* Class SetCustomBoundaryVelocityWithForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>::
+SetCustomBoundaryVelocityWithForceFunctional3D(Array<T,Descriptor<T>::d> force_, VelocityFunction f_)
+    : force(force_),
+      f(f_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+void SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    Dot3D location = lattice.getLocation();
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                Array<T,Descriptor<T>::d> u;
+                f(x, y, z, u);
+                Array<T,Descriptor<T>::d> scaledU = scaleFactor * (u - (T) 0.5 * force);
+                lattice.get(iX,iY,iZ).defineVelocity(scaledU);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>*
+    SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>::clone() const
+{
+    return new SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+BlockDomain::DomainT SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+void SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::allVariables;  // Lattice.
+}
+
+
+/* ************* Class SetCustomBoundaryVelocityWithCustomForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>::
+SetCustomBoundaryVelocityWithCustomForceFunctional3D(ForceVelocityFunction f_)
+    : f(f_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+void SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    Dot3D location = lattice.getLocation();
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                Array<T,Descriptor<T>::d> force;
+                Array<T,Descriptor<T>::d> u;
+                f(x, y, z, force, u);
+                Array<T,Descriptor<T>::d> scaledU = scaleFactor * (u - (T) 0.5 * force);
+                lattice.get(iX,iY,iZ).defineVelocity(scaledU);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>*
+    SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>::clone() const
+{
+    return new SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+BlockDomain::DomainT SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+void SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::allVariables;  // Lattice.
 }
 
 
@@ -897,8 +1326,6 @@ SetConstBoundaryDensityFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetConstBoundaryDensityFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Boundary condition needs to be set on envelope nodes as well to ensure
-    //   proper behavior.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -906,7 +1333,7 @@ template<typename T, template<typename U> class Descriptor>
 void SetConstBoundaryDensityFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::allVariables;
 }
 
 
@@ -914,11 +1341,11 @@ void SetConstBoundaryDensityFunctional3D<T,Descriptor>::getTypeOfModification (
 
 template<typename T, template<typename U> class Descriptor>
 IniConstEquilibriumFunctional3D<T,Descriptor>::IniConstEquilibriumFunctional3D (
-        T density_, Array<T,Descriptor<T>::d> velocity, T temperature )
-    : rhoBar(Descriptor<T>::rhoBar(density_)),
-      j     (density_*velocity[0], density_*velocity[1], density_*velocity[2]),
-      jSqr  (VectorTemplate<T,Descriptor>::normSqr(j)),
-      thetaBar(temperature-(T)1)
+        T density, Array<T,Descriptor<T>::d> velocity, T temperature )
+    : rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1)
 { }
 
 template<typename T, template<typename U> class Descriptor>
@@ -929,15 +1356,20 @@ void IniConstEquilibriumFunctional3D<T,Descriptor>::process (
     int dimDt = -1;
     T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
                                        this->getDtScale(), dimDt);
-    Array<T,3> scaledJ = j*scaleFactor;
-    T scaledJsqr = jSqr*scaleFactor*scaleFactor;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
-                    lattice.get(iX,iY,iZ)[iPop] =
-                        lattice.get(iX,iY,iZ).computeEquilibrium(iPop, rhoBar, scaledJ, scaledJsqr, thetaBar);
-                }
+                Array<T,Descriptor<T>::d> f;
+                f[0] = getExternalForceComponent(lattice.get(iX,iY,iZ), 0);
+                f[1] = getExternalForceComponent(lattice.get(iX,iY,iZ), 1);
+                f[2] = getExternalForceComponent(lattice.get(iX,iY,iZ), 2);
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * f[2]);
+                T scaledJsqr = normSqr(scaledJ);
+                lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
             }
         }
     }
@@ -953,7 +1385,6 @@ IniConstEquilibriumFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT IniConstEquilibriumFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -964,6 +1395,553 @@ void IniConstEquilibriumFunctional3D<T,Descriptor>::getTypeOfModification (
     modified[0] = modif::staticVariables;
 }
 
+
+/* ************* Class MaskedIniConstEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedIniConstEquilibriumFunctional3D<T,Descriptor>::MaskedIniConstEquilibriumFunctional3D (
+        T density, Array<T,Descriptor<T>::d> velocity, T temperature, int whichFlag_ )
+    : rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1),
+      whichFlag(whichFlag_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedIniConstEquilibriumFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask.get(iX+offset.x,iY+offset.y,iZ+offset.z) == whichFlag) {
+                    Array<T,Descriptor<T>::d> f;
+                    f[0] = getExternalForceComponent(lattice.get(iX,iY,iZ), 0);
+                    f[1] = getExternalForceComponent(lattice.get(iX,iY,iZ), 1);
+                    f[2] = getExternalForceComponent(lattice.get(iX,iY,iZ), 2);
+                    Array<T,Descriptor<T>::d> scaledJ;
+                    scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                    scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                    scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * f[2]);
+                    T scaledJsqr = normSqr(scaledJ);
+                    lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                            rhoBar, scaledJ, scaledJsqr, thetaBar);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedIniConstEquilibriumFunctional3D<T,Descriptor>*
+    MaskedIniConstEquilibriumFunctional3D<T,Descriptor>::clone() const
+{
+    return new MaskedIniConstEquilibriumFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT MaskedIniConstEquilibriumFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedIniConstEquilibriumFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+/* ************* Class IniConstTensorForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>::IniConstTensorForceEquilibriumFunctional3D(
+        T density, Array<T,Descriptor<T>::d> velocity, T temperature)
+    : rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>::process(
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, force);
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,Descriptor<T>::d> const& f = force.get(iX+offset.x, iY+offset.y, iZ+offset.z);
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * f[2]);
+                T scaledJsqr = normSqr(scaledJ);
+                lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>*
+    IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>::clone() const
+{
+    return new IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Force.
+}
+
+/* ************* Class IniCustomTensorForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::IniCustomTensorForceEquilibriumFunctional3D(
+        RhoUFunction f_, T temperature)
+    : f(f_),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::process(
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force)
+{
+    Dot3D offset = computeRelativeDisplacement(lattice, force);
+    Dot3D location = lattice.getLocation();
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                T rho;
+                Array<T,Descriptor<T>::d> u;
+                f(x, y, z, rho, u);
+                T rhoBar = Descriptor<T>::rhoBar(rho);
+
+                Array<T,Descriptor<T>::d> const& localForce = force.get(iX+offset.x, iY+offset.y, iZ+offset.z);
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * localForce[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * localForce[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * localForce[2]);
+
+                T scaledJsqr = normSqr(scaledJ);
+                lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
+    IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::clone() const
+{
+    return new IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+BlockDomain::DomainT IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+    modified[1] = modif::nothing;           // Force.
+}
+
+/* ************* Class IniCustomTensorForceRandomEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::IniCustomTensorForceRandomEquilibriumFunctional3D(
+        RhoUFunction f_, T temperature)
+    : f(f_),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::processGenericBlocks(
+        Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() >= 3);
+
+    plint iBlock = 0;
+
+    BlockLattice3D<T,Descriptor>* lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[iBlock]);
+    PLB_ASSERT(lattice);
+    iBlock++;
+
+    TensorField3D<T,Descriptor<T>::d>* force = dynamic_cast<TensorField3D<T,Descriptor<T>::d>*>(blocks[iBlock]);
+    PLB_ASSERT(force);
+    Dot3D ofsF = computeRelativeDisplacement(*lattice, *force);
+    iBlock++;
+
+    plint numRandomFields = (plint) blocks.size() - 2;
+    std::vector<ScalarField3D<T>*> randomFields(numRandomFields);
+    std::vector<Dot3D> ofsR(numRandomFields);
+    for (plint i = 0; i < numRandomFields; i++) {
+        randomFields[i] = dynamic_cast<ScalarField3D<T>*>(blocks[iBlock]);
+        PLB_ASSERT(randomFields[i]);
+        ofsR[i] = computeRelativeDisplacement(*lattice, *randomFields[i]);
+        iBlock++;
+    }
+
+    std::vector<T> randomValues(numRandomFields);
+
+    Dot3D location = lattice->getLocation();
+
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                T rho;
+                Array<T,Descriptor<T>::d> u;
+
+                for (plint i = 0; i < numRandomFields; i++) {
+                    randomValues[i] = randomFields[i]->get(iX+ofsR[i].x, iY+ofsR[i].y, iZ+ofsR[i].z);
+                }
+
+                f(x, y, z, randomValues, rho, u);
+
+                T rhoBar = Descriptor<T>::rhoBar(rho);
+
+                Array<T,Descriptor<T>::d> const& localForce = force->get(iX+ofsF.x, iY+ofsF.y, iZ+ofsF.z);
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * localForce[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * localForce[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * localForce[2]);
+
+                T scaledJsqr = normSqr(scaledJ);
+                lattice->get(iX,iY,iZ).getDynamics().computeEquilibria(lattice->get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
+    IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::clone() const
+{
+    return new IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+BlockDomain::DomainT IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    std::fill(modified.begin(), modified.end(), modif::nothing);
+    modified[0] = modif::staticVariables;   // Lattice.
+}
+
+/* ************* Class IniConstForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+IniConstForceEquilibriumFunctional3D<T,Descriptor>::IniConstForceEquilibriumFunctional3D(
+        Array<T,Descriptor<T>::d> force, T density, Array<T,Descriptor<T>::d> velocity, T temperature)
+    : f(force),
+      rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstForceEquilibriumFunctional3D<T,Descriptor>::process(
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * f[2]);
+                T scaledJsqr = normSqr(scaledJ);
+                lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+IniConstForceEquilibriumFunctional3D<T,Descriptor>*
+    IniConstForceEquilibriumFunctional3D<T,Descriptor>::clone() const
+{
+    return new IniConstForceEquilibriumFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT IniConstForceEquilibriumFunctional3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstForceEquilibriumFunctional3D<T,Descriptor>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+}
+
+/* ************* Class IniCustomForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::IniCustomForceEquilibriumFunctional3D(
+        Array<T,Descriptor<T>::d> force_, RhoUFunction f_, T temperature)
+    : force(force_),
+      f(f_),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::process(
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
+{
+    Dot3D location = lattice.getLocation();
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                T rho;
+                Array<T,Descriptor<T>::d> u;
+                f(x, y, z, rho, u);
+                T rhoBar = Descriptor<T>::rhoBar(rho);
+
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * force[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * force[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * force[2]);
+
+                T scaledJsqr = normSqr(scaledJ);
+                lattice.get(iX,iY,iZ).getDynamics().computeEquilibria(lattice.get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
+    IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::clone() const
+{
+    return new IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+BlockDomain::DomainT IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;   // Lattice.
+}
+
+/* ************* Class IniCustomForceRandomEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::IniCustomForceRandomEquilibriumFunctional3D(
+        Array<T,Descriptor<T>::d> force_, RhoUFunction f_, T temperature)
+    : force(force_),
+      f(f_),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::processGenericBlocks(
+        Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_ASSERT(blocks.size() >= 2);
+
+    plint iBlock = 0;
+
+    BlockLattice3D<T,Descriptor>* lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[iBlock]);
+    PLB_ASSERT(lattice);
+    iBlock++;
+
+    plint numRandomFields = (plint) blocks.size() - 2;
+    std::vector<ScalarField3D<T>*> randomFields(numRandomFields);
+    std::vector<Dot3D> ofsR(numRandomFields);
+    for (plint i = 0; i < numRandomFields; i++) {
+        randomFields[i] = dynamic_cast<ScalarField3D<T>*>(blocks[iBlock]);
+        PLB_ASSERT(randomFields[i]);
+        ofsR[i] = computeRelativeDisplacement(*lattice, *randomFields[i]);
+        iBlock++;
+    }
+
+    std::vector<T> randomValues(numRandomFields);
+
+    Dot3D location = lattice->getLocation();
+
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx, this->getDtScale(), dimDt);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint x = iX + location.x;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint y = iY + location.y;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint z = iZ + location.z;
+
+                T rho;
+                Array<T,Descriptor<T>::d> u;
+
+                for (plint i = 0; i < numRandomFields; i++) {
+                    randomValues[i] = randomFields[i]->get(iX+ofsR[i].x, iY+ofsR[i].y, iZ+ofsR[i].z);
+                }
+
+                f(x, y, z, randomValues, rho, u);
+
+                T rhoBar = Descriptor<T>::rhoBar(rho);
+
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * force[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * force[1]);
+                scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * force[2]);
+
+                T scaledJsqr = normSqr(scaledJ);
+                lattice->get(iX,iY,iZ).getDynamics().computeEquilibria(lattice->get(iX,iY,iZ).getRawPopulations(),
+                        rhoBar, scaledJ, scaledJsqr, thetaBar);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>*
+    IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::clone() const
+{
+    return new IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+BlockDomain::DomainT IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+void IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>::getTypeOfModification(
+        std::vector<modif::ModifT>& modified) const
+{
+    std::fill(modified.begin(), modified.end(), modif::nothing);
+    modified[0] = modif::staticVariables;   // Lattice.
+}
+
+/* ************* Class IniConstEquilibriumOnDomainFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class DomainFunctional>
+IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::IniConstEquilibriumOnDomainFunctional3D (
+        T density, Array<T,Descriptor<T>::d> velocity, T temperature,
+        DomainFunctional const& domain_)
+    : rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1),
+      domain(domain_)
+{ }
+
+template<typename T, template<typename U> class Descriptor, class DomainFunctional>
+void IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::process (
+        Box3D bbox, BlockLattice3D<T,Descriptor>& lattice )
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    Dot3D absPos = lattice.getLocation();
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    for (plint iX=bbox.x0; iX<=bbox.x1; ++iX) {
+        for (plint iY=bbox.y0; iY<=bbox.y1; ++iY) {
+            for (plint iZ=bbox.z0; iZ<=bbox.z1; ++iZ) {
+                if (domain(iX+absPos.x,iY+absPos.y,iZ+absPos.z)) {
+                    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                        Array<T,Descriptor<T>::d> f;
+                        f[0] = getExternalForceComponent(lattice.get(iX,iY,iZ), 0);
+                        f[1] = getExternalForceComponent(lattice.get(iX,iY,iZ), 1);
+                        f[2] = getExternalForceComponent(lattice.get(iX,iY,iZ), 2);
+                        Array<T,Descriptor<T>::d> scaledJ;
+                        scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                        scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                        scaledJ[2] = scaleFactor * rho * (u[2] - (T) 0.5 * f[2]);
+                        T scaledJsqr = normSqr(scaledJ);
+                        lattice.get(iX,iY,iZ)[iPop] =
+                            lattice.get(iX,iY,iZ).computeEquilibrium(iPop, rhoBar, scaledJ, scaledJsqr, thetaBar);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class DomainFunctional>
+IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>*
+    IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::clone() const
+{
+    return new IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class DomainFunctional>
+void IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
 
 /* ************* Class StripeOffDensityOffsetFunctional3D ******************* */
 
@@ -1002,7 +1980,6 @@ StripeOffDensityOffsetFunctional3D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT StripeOffDensityOffsetFunctional3D<T,Descriptor>::appliesTo() const
 {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1201,7 +2178,7 @@ void MaskedSetExternalScalarFunctional3D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT MaskedSetExternalScalarFunctional3D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1581,7 +2558,7 @@ void SetExternalVectorFromTensorFieldFunctional3D<T,Descriptor,nDim>::process (
 template<typename T, template<typename U> class Descriptor, int nDim>
 BlockDomain::DomainT SetExternalVectorFromTensorFieldFunctional3D<T,Descriptor,nDim>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor, int nDim>
@@ -1688,7 +2665,6 @@ IniConstScalarFunctional3D<T>* IniConstScalarFunctional3D<T>::clone() const {
 
 template<typename T>
 BlockDomain::DomainT IniConstScalarFunctional3D<T>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1732,8 +2708,7 @@ MaskedIniConstScalarFunctional3D<T>* MaskedIniConstScalarFunctional3D<T>::clone(
 
 template<typename T>
 BlockDomain::DomainT MaskedIniConstScalarFunctional3D<T>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T>
@@ -1742,6 +2717,49 @@ void MaskedIniConstScalarFunctional3D<T>::getTypeOfModification (
 {
     modified[0] = modif::staticVariables;  // Scalar-Field.
     modified[1] = modif::nothing; // Mask.
+}
+
+
+/* ************** Class MaskedIniConstScalarFunctional3D_N ******************* */
+
+template<typename T>
+MaskedIniConstScalarFunctional3D_N<T>::MaskedIniConstScalarFunctional3D_N(int flag_, T value_)
+    : flag(flag_),
+      value(value_)
+{ }
+
+template<typename T>
+void MaskedIniConstScalarFunctional3D_N<T>::process(Box3D domain, ScalarField3D<T>& field, NTensorField3D<int>& mask)
+{
+    Dot3D offset = computeRelativeDisplacement(field, mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (*mask.get(iX+offset.x,iY+offset.y,iZ+offset.z) == flag) {
+                    field.get(iX,iY,iZ) = value;
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+MaskedIniConstScalarFunctional3D_N<T>* MaskedIniConstScalarFunctional3D_N<T>::clone() const
+{
+    return new MaskedIniConstScalarFunctional3D_N<T>(*this);
+}
+
+template<typename T>
+BlockDomain::DomainT MaskedIniConstScalarFunctional3D_N<T>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T>
+void MaskedIniConstScalarFunctional3D_N<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;   // Scalar-Field.
+    modified[1] = modif::nothing;           // Mask.
 }
 
 
@@ -1773,7 +2791,6 @@ IniConstTensorFunctional3D<T,nDim>* IniConstTensorFunctional3D<T,nDim>::clone() 
 
 template<typename T, int nDim>
 BlockDomain::DomainT IniConstTensorFunctional3D<T,nDim>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1818,8 +2835,7 @@ MaskedIniConstTensorFunctional3D<T,nDim>* MaskedIniConstTensorFunctional3D<T,nDi
 
 template<typename T, int nDim>
 BlockDomain::DomainT MaskedIniConstTensorFunctional3D<T,nDim>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, int nDim>
@@ -1828,6 +2844,89 @@ void MaskedIniConstTensorFunctional3D<T,nDim>::getTypeOfModification (
 {
     modified[0] = modif::nothing;  // Mask.
     modified[1] = modif::staticVariables;   // Tensor-Field.
+}
+
+
+/* ************** Class MaskedIniConstTensorFunctional3D_N ******************* */
+
+template<typename T, int nDim>
+MaskedIniConstTensorFunctional3D_N<T,nDim>::MaskedIniConstTensorFunctional3D_N (
+        int flag_, Array<T,nDim> const& value_ )
+    : flag(flag_),
+      value(value_)
+{ }
+
+template<typename T, int nDim>
+void MaskedIniConstTensorFunctional3D_N<T,nDim>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    NTensorField3D<int>* mask = dynamic_cast<NTensorField3D<int>*>(atomicBlocks[0]);
+    PLB_ASSERT(mask);
+    TensorField3D<T,3>* field = dynamic_cast<TensorField3D<T,3>*>(atomicBlocks[1]);
+    PLB_ASSERT(field);
+
+    Dot3D offset = computeRelativeDisplacement(*mask, *field);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (*mask->get(iX,iY,iZ) == flag) {
+                    field->get(iX+offset.x,iY+offset.y,iZ+offset.z) = value;
+                }
+            }
+        }
+    }
+}
+
+template<typename T, int nDim>
+MaskedIniConstTensorFunctional3D_N<T,nDim>* MaskedIniConstTensorFunctional3D_N<T,nDim>::clone() const {
+    return new MaskedIniConstTensorFunctional3D_N<T,nDim>(*this);
+}
+
+template<typename T, int nDim>
+BlockDomain::DomainT MaskedIniConstTensorFunctional3D_N<T,nDim>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+template<typename T, int nDim>
+void MaskedIniConstTensorFunctional3D_N<T,nDim>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::nothing;  // Mask.
+    modified[1] = modif::staticVariables;   // Tensor-Field.
+}
+
+
+/* ************** Class SwapValuesBulkAndEnvelope3D_N ******************* */
+
+template<typename T>
+void SwapValuesBulkAndEnvelope3D_N<T>::process( Box3D domain, NTensorField3D<T>& A, NTensorField3D<T>& B ) {
+    Dot3D offset = computeRelativeDisplacement(A, B);
+    plint ndim = A.getNdim();
+    PLB_ASSERT(ndim == B.getNdim());
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                for (plint i=0; i<ndim; ++i) {
+                    std::swap(A.get(iX,iY,iZ)[i], B.get(iX+offset.x,iY+offset.y,iZ+offset.z)[i]);
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+BlockDomain::DomainT SwapValuesBulkAndEnvelope3D_N<T>::appliesTo() const {
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T>
+SwapValuesBulkAndEnvelope3D_N<T>* SwapValuesBulkAndEnvelope3D_N<T>::clone() const {
+    return new SwapValuesBulkAndEnvelope3D_N<T>(*this);
+}
+
+template<typename T>
+void SwapValuesBulkAndEnvelope3D_N<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
 }
 
 
@@ -1916,6 +3015,50 @@ void SetToCoordinatesFunctional3D<T>::getTypeOfModification (
     modified[0] = modif::staticVariables;
 }
 
+/* ************** Class SetToRandomFunctional3D ***************** */
+
+template<typename T>
+SetToRandomFunctional3D<T>::SetToRandomFunctional3D(Box3D boundingBox, sitmo::prng_engine eng_)
+    : nY(boundingBox.getNy()),
+      nZ(boundingBox.getNz()),
+      eng(eng_)
+{ }
+
+template<typename T>
+void SetToRandomFunctional3D<T>::process(Box3D domain, ScalarField3D<T>& field) {
+    Dot3D relativeOffset = field.getLocation();
+    plint rng_index = 0;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint globalX = nY*(iX + relativeOffset.x);
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint globalY = nZ*(iY + relativeOffset.y + globalX);
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                plint globalZ = iZ + relativeOffset.z + globalY;
+                PLB_ASSERT( globalZ >= rng_index );
+                if (globalZ > rng_index) {
+                    eng.discard(globalZ-rng_index);
+                    rng_index = globalZ;
+                }
+                field.get(iX,iY,iZ) = (T)eng() / ((T)std::numeric_limits<uint32_t>::max()+1.0);
+                ++rng_index;
+            }
+        }
+    }
+}
+
+template<typename T>
+SetToRandomFunctional3D<T>* SetToRandomFunctional3D<T>::clone() const {
+    return new SetToRandomFunctional3D<T>(*this);
+}
+
+template<typename T>
+void SetToRandomFunctional3D<T>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+
 /* ************** Class SetTensorComponentFunctional3D ***************** */
 
 template<typename T, int nDim>
@@ -1958,6 +3101,195 @@ void SetTensorComponentFunctional3D<T,nDim>::getTypeOfModification (
     modified[0] = modif::nothing;
     modified[1] = modif::staticVariables;
 }
+
+
+/* ************** Class PropagateInZdirection3D ***************** */
+
+template<typename T>
+void PropagateInZdirection3D<T>::process(Box3D domain, ScalarField3D<T>& field)
+{
+    if (field.getFlag()) return;
+    Dot3D relativeOffset = field.getLocation();
+    plint iniZ = domain.z0;
+    if (iniZ+relativeOffset.z==0) {
+        ++iniZ;
+    }
+    for (plint iX = domain.x0; iX <= domain.x1; ++iX) {
+        for (plint iY = domain.y0; iY <= domain.y1; ++iY) {
+            for (plint iZ = iniZ; iZ <= domain.z1; ++iZ) {
+                T nextData = field.get(iX,iY,iZ-1);
+                if (nextData<(T)(-0.5)) return;
+                field.get(iX,iY,iZ) = nextData;
+            }
+        }
+    }
+    // Indicate that all data has been propagated.
+    field.setFlag(true);
+}
+
+template<typename T>
+PropagateInZdirection3D<T>* PropagateInZdirection3D<T>::clone() const {
+    return new PropagateInZdirection3D<T>(*this);
+}
+
+template<typename T>
+void PropagateInZdirection3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
+}
+
+
+/* ******** GrowDomainFunctional3D ************************************* */
+
+template<typename T>
+GrowDomainFunctional3D<T>::GrowDomainFunctional3D(T flag_)
+    : flag(flag_)
+{ }
+
+template<typename T>
+void GrowDomainFunctional3D<T>::process (
+        Box3D domain, ScalarField3D<T>& voxels )
+{
+    ScalarField3D<T> tmpVoxels(voxels);
+    for (plint iX = domain.x0; iX <= domain.x1; ++iX) {
+        for (plint iY = domain.y0; iY <= domain.y1; ++iY) {
+            for (plint iZ = domain.z0; iZ <= domain.z1; ++iZ) {
+                for (plint dx=-1; dx<=1; ++dx)
+                for (plint dy=-1; dy<=1; ++dy)
+                for (plint dz=-1; dz<=1; ++dz)
+                if(!(dx==0 && dy==0 && dz==0)) {
+                    plint nextX = iX + dx;
+                    plint nextY = iY + dy;
+                    plint nextZ = iZ + dz;
+                    if (tmpVoxels.get(nextX,nextY,nextZ)==flag) {
+                        voxels.get(iX,iY,iZ) = flag;
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+GrowDomainFunctional3D<T>* GrowDomainFunctional3D<T>::clone() const {
+    return new GrowDomainFunctional3D<T>(*this);
+}
+
+template<typename T>
+void GrowDomainFunctional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T>
+BlockDomain::DomainT GrowDomainFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+
+/* ************** Class ScalarNeumannToUnusedEnvelopes3D ******************* */
+
+template<typename T>
+void ScalarNeumannToUnusedEnvelopes3D<T>::process(Box3D domain, ScalarField3D<T>& field)
+{
+    Box3D edomain(domain.enlarge(1));
+    Box3D bulk(field.getBoundingBox().enlarge(-1));
+    for (plint iX=edomain.x0; iX<=edomain.x1; ++iX) {
+        for (plint iY=edomain.y0; iY<=edomain.y1; ++iY) {
+            for (plint iZ=edomain.z0; iZ<=edomain.z1; ++iZ) {
+                if (!contained(Dot3D(iX,iY,iZ), bulk)) {
+                    T average = T();
+                    plint numcells = 0;
+                    for (plint x = -1; x<=+1; ++x) {
+                        for (plint y = -1; y<=+1; ++y) {
+                            for (plint z = -1; z<=+1; ++z) {
+                                if (contained(Dot3D(iX+x,iY+y,iZ+z), bulk)) {
+                                    average += field.get(iX+x,iY+y,iZ+z);
+                                    ++numcells;
+                                }
+                            }
+                        }
+                    }
+                    PLB_ASSERT( numcells>0 );
+                    average /= (T) numcells;
+
+                    field.get(iX,iY,iZ) = average;
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+ScalarNeumannToUnusedEnvelopes3D<T>* ScalarNeumannToUnusedEnvelopes3D<T>::clone() const
+{
+    return new ScalarNeumannToUnusedEnvelopes3D<T>(*this);
+}
+
+template<typename T>
+BlockDomain::DomainT ScalarNeumannToUnusedEnvelopes3D<T>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T>
+void ScalarNeumannToUnusedEnvelopes3D<T>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+
+/* ************** Class TensorNeumannToUnusedEnvelopes3D ******************* */
+
+template<typename T, int nDim>
+void TensorNeumannToUnusedEnvelopes3D<T,nDim>::process(Box3D domain, TensorField3D<T,nDim>& field)
+{
+    Box3D edomain(domain.enlarge(1));
+    Box3D bulk(field.getBoundingBox().enlarge(-1));
+    for (plint iX=edomain.x0; iX<=edomain.x1; ++iX) {
+        for (plint iY=edomain.y0; iY<=edomain.y1; ++iY) {
+            for (plint iZ=edomain.z0; iZ<=edomain.z1; ++iZ) {
+                if (!contained(Dot3D(iX,iY,iZ), bulk)) {
+                    Array<T,nDim> average(Array<T,nDim>::zero());
+                    plint numcells = 0;
+                    for (plint x = -1; x<=+1; ++x) {
+                        for (plint y = -1; y<=+1; ++y) {
+                            for (plint z = -1; z<=+1; ++z) {
+                                if (contained(Dot3D(iX+x,iY+y,iZ+z), bulk)) {
+                                    average += field.get(iX+x,iY+y,iZ+z);
+                                    ++numcells;
+                                }
+                            }
+                        }
+                    }
+                    PLB_ASSERT( numcells>0 );
+                    average /= (T) numcells;
+
+                    field.get(iX,iY,iZ) = average;
+                }
+            }
+        }
+    }
+}
+
+template<typename T, int nDim>
+TensorNeumannToUnusedEnvelopes3D<T,nDim>* TensorNeumannToUnusedEnvelopes3D<T,nDim>::clone() const
+{
+    return new TensorNeumannToUnusedEnvelopes3D<T,nDim>(*this);
+}
+
+template<typename T, int nDim>
+BlockDomain::DomainT TensorNeumannToUnusedEnvelopes3D<T,nDim>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+template<typename T, int nDim>
+void TensorNeumannToUnusedEnvelopes3D<T,nDim>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
 }  // namespace plb
 
 #endif  // DATA_INITIALIZER_FUNCTIONAL_3D_HH

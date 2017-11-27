@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define OFF_LATTICE_MODEL_3D_HH
 
 #include "offLattice/offLatticeModel3D.h"
+#include "offLattice/voxelizer.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "latticeBoltzmann/externalFieldAccess.h"
 #include <algorithm>
@@ -39,7 +40,11 @@ OffLatticeModel3D<T,SurfaceData>::OffLatticeModel3D (
     : shape(shape_),
       flowType(flowType_),
       velIsJflag(false),
-      partialReplaceFlag(false)
+      partialReplaceFlag(false),
+      secondOrderFlag(true),
+      regularizedModel(true),
+      computeStat(true),
+      defineVelocity(true)
 {
     PLB_ASSERT(flowType==voxelFlag::inside || flowType==voxelFlag::outside);
 }
@@ -50,7 +55,11 @@ OffLatticeModel3D<T,SurfaceData>::OffLatticeModel3D (
     : shape(rhs.shape->clone()),
       flowType(rhs.flowType),
       velIsJflag(rhs.velIsJflag),
-      partialReplaceFlag(rhs.partialReplaceFlag)
+      partialReplaceFlag(rhs.partialReplaceFlag),
+      secondOrderFlag(rhs.secondOrderFlag),
+      regularizedModel(rhs.regularizedModel),
+      computeStat(rhs.computeStat),
+      defineVelocity(rhs.defineVelocity)
 { }
 
 template<typename T, class SurfaceData>
@@ -62,6 +71,10 @@ OffLatticeModel3D<T,SurfaceData>& OffLatticeModel3D<T,SurfaceData>::operator= (
     flowType = rhs.flowType;
     velIsJflag = rhs.velIsJflag;
     partialReplaceFlag = rhs.partialReplaceFlag;
+    secondOrderFlag = rhs.secondOrderFlag;
+    regularizedModel = rhs.regularizedModel;
+    computeStat = rhs.computeStat;
+    defineVelocity = rhs.defineVelocity;
     return *this;
 }
 
@@ -116,7 +129,18 @@ bool OffLatticeModel3D<T,SurfaceData>::isFluid(Dot3D const& location) const
         return shape->isInside(location);
     }
     else {
-        return !shape->isInside(location);
+        return shape->isOutside(location);
+    }
+}
+
+template<typename T, class SurfaceData>
+bool OffLatticeModel3D<T,SurfaceData>::isSolid(Dot3D const& location) const
+{
+    if (flowType==voxelFlag::inside) {
+        return shape->isOutside(location);
+    }
+    else {
+        return shape->isInside(location);
     }
 }
 
@@ -176,6 +200,9 @@ void OffLatticeCompletionFunctional3D<T,Descriptor,SurfaceData>::getTypeOfModifi
 {
     PLB_ASSERT( (plint)modified.size() == 2+numShapeArgs+numCompletionArgs );
     modified[0] = modif::staticVariables;  // Lattice.
+    // It is very important that the "offLatticePattern" container block
+    // which is passed as the second atomic-block with the off-lattice info
+    // has the same multi-block management as the lattice used in the simulation.
     modified[1] = modif::nothing; // Container for wet/dry nodes.
     // Possible additional parameters for the shape function and
     //   for the completion algorithm are read-only.
@@ -198,6 +225,9 @@ void OffLatticeCompletionFunctional3D<T,Descriptor,SurfaceData>::processGenericB
     AtomicBlock3D* lattice = fields[0];
     PLB_ASSERT( lattice );
 
+    // It is very important that the "offLatticePattern" container block
+    // which is passed as the second atomic-block with the off-lattice info
+    // has the same multi-block management as the lattice used in the simulation.
     AtomicContainerBlock3D* container =  // Container for wet/dry nodes.
         dynamic_cast<AtomicContainerBlock3D*>(fields[1]);
     PLB_ASSERT( container );
@@ -209,7 +239,7 @@ void OffLatticeCompletionFunctional3D<T,Descriptor,SurfaceData>::processGenericB
         }
         offLatticeModel->provideShapeArguments(shapeParameters);
     }
-    std::vector<AtomicBlock3D const*> completionParameters(numCompletionArgs);
+    std::vector<AtomicBlock3D *> completionParameters(numCompletionArgs);
     for (plint i=0; i<numCompletionArgs; ++i) {
         completionParameters[i] = fields[i+2+numShapeArgs];
     }
@@ -266,6 +296,9 @@ template<typename T, class SurfaceData>
 void OffLatticePatternFunctional3D<T,SurfaceData>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
+    // It is very important that the "offLatticePattern" container block
+    // (the first atomic-block passed) has the same multi-block management
+    // as the lattice used in the simulation.
     modified[0] = modif::staticVariables;  // Container.
     // Possible additional parameters for the shape function are read-only.
     for (pluint i=1; i<modified.size(); ++i) {
@@ -383,6 +416,19 @@ Array<T,3> GetForceOnObjectFunctional3D<T,SurfaceData>::getForce() const {
             this->getStatistics().getSum(forceId[0]),
             this->getStatistics().getSum(forceId[1]),
             this->getStatistics().getSum(forceId[2]) );
+}
+
+template< typename T, class BoundaryType >
+Array<T,3> getForceOnObject (
+        MultiBlock3D& offLatticePattern, 
+        OffLatticeModel3D<T,BoundaryType> const& offLatticeModel )
+{
+    std::vector<MultiBlock3D*> arg;
+    arg.push_back(&offLatticePattern);
+    GetForceOnObjectFunctional3D<T,BoundaryType> functional(offLatticeModel.clone());
+    applyProcessingFunctional (
+            functional, offLatticePattern.getBoundingBox(), arg );
+    return functional.getForce();
 }
 
 }  // namespace plb

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -423,6 +423,39 @@ void instantiateOuterNLDboundary(MultiBlockLattice3D<T,Descriptor>& lattice, Box
             new ExecuteCornerNLD_3D<T,Descriptor>(1,  1, -1), surf.cornerPPN(), lattice );
     integrateProcessingFunctional (
             new ExecuteCornerNLD_3D<T,Descriptor>(1,  1,  1), surf.cornerPPP(), lattice );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void instantiateOuterNLDboundary(Actions3D& action, plint blockNum, Box3D bbox) {
+    BlockSurface3D surf(bbox, 1);
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(0,-1), blockNum, surf.surface0N() );
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(0,+1), blockNum, surf.surface0P() );
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(1,-1), blockNum, surf.surface1N() );
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(1,+1), blockNum, surf.surface1P() );
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(2,-1), blockNum, surf.surface2N() );
+    action.addProcessor(new ExecutePlaneNLD_3D<T,Descriptor>(2,+1), blockNum, surf.surface2P() );
+    
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(0, -1, -1), blockNum, surf.edge0NN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(0, -1,  1), blockNum, surf.edge0NP() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(0,  1, -1), blockNum, surf.edge0PN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(0,  1,  1), blockNum, surf.edge0PP() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(1, -1, -1), blockNum, surf.edge1NN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(1, -1,  1), blockNum, surf.edge1NP() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(1,  1, -1), blockNum, surf.edge1PN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(1,  1,  1), blockNum, surf.edge1PP() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(2, -1, -1), blockNum, surf.edge2NN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(2, -1,  1), blockNum, surf.edge2NP() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(2,  1, -1), blockNum, surf.edge2PN() );
+    action.addProcessor(new ExecuteEdgeNLD_3D<T,Descriptor>(2,  1,  1), blockNum, surf.edge2PP() );
+
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(-1, -1, -1), blockNum, surf.cornerNNN() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(-1, -1,  1), blockNum, surf.cornerNNP() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(-1,  1, -1), blockNum, surf.cornerNPN() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(-1,  1,  1), blockNum, surf.cornerNPP() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(1, -1, -1), blockNum, surf.cornerPNN() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(1, -1,  1), blockNum, surf.cornerPNP() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(1,  1, -1), blockNum, surf.cornerPPN() );
+    action.addProcessor(new ExecuteCornerNLD_3D<T,Descriptor>(1,  1,  1), blockNum, surf.cornerPPP() );
 }
 
 

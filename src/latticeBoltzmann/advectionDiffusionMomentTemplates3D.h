@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -59,6 +59,20 @@ static void get_jEq(const T& rhoBar, Array<T,Descriptor::d>& jEq, const T *u)
     jEq[0] = rho * u[0];
     jEq[1] = rho * u[1];
     jEq[2] = rho * u[2];
+}
+    
+static void get_rhoBar_jEq_jNeq_linear (
+        Array<T,Descriptor::q> const& f, T& rhoBar, 
+        Array<T,Descriptor::d>& jEq, Array<T,Descriptor::d>& jNeq, const T *u )
+{
+    rhoBar = momentTemplatesImpl<T,Descriptor>::get_rhoBar(f);
+    jEq[0] = u[0];
+    jEq[1] = u[1];
+    jEq[2] = u[2];
+    
+    jNeq[0] = - f[1] + f[4] - jEq[0];
+    jNeq[1] = - f[2] + f[5] - jEq[1];
+    jNeq[2] = - f[3] + f[6] - jEq[2];
 }
     
 static void get_rhoBar_jEq_jNeq(Array<T,Descriptor::q> const& f, T& rhoBar, 

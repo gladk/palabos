@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -78,16 +78,16 @@ std::string getMultiBlockInfo(MultiBlock3D const& multiBlock) {
         return std::string("Empty multi-block\n");
     }
     std::stringstream blockInfo;
-    blockInfo << "Size of the multi-block:     " << nx << "-by-" << ny << "-by-" << nz << "\n";
-    blockInfo << "Number of atomic-blocks:     " << numBlocks << "\n";
-    blockInfo << "Smallest atomic-block:       " << smallest.getNx() << "-by-"
-                                                 << smallest.getNy() << "-by-"
-                                                 << smallest.getNz() << "\n";
+    blockInfo << "Size of the multi-block:     "  << nx << "-by-" << ny << "-by-" << nz << "\n";
+    blockInfo << "Number of atomic-blocks:     "  << numBlocks << "\n";
+    blockInfo << "Smallest atomic-block:       "  << smallest.getNx() << "-by-"
+                                                  << smallest.getNy() << "-by-"
+                                                  << smallest.getNz() << "\n";
     blockInfo << "Largest atomic-block:        "  << largest.getNx()  << "-by-"
                                                   << largest.getNy() << "-by-"
                                                   << largest.getNz() << "\n";
-    blockInfo << "Number of allocated cells:   " << (double)numAllocatedCells/1.e6 << " million\n";
-    blockInfo << "Fraction of allocated cells: " << (double)numAllocatedCells/(double)(nx*ny*nz)*100 << " percent\n";
+    blockInfo << "Number of allocated cells:   "  << (double)numAllocatedCells/1.e6 << " million\n";
+    blockInfo << "Fraction of allocated domain: " << (double)numAllocatedCells/(double)(nx*ny*nz)*100 << " percent\n";
 
     return blockInfo.str();
 }

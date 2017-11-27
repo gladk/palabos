@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -98,7 +98,7 @@ pluint StoreDynamicsFunctional3D<T,Descriptor>::getMaxChainLength() const {
 
 template<typename T, template<typename U> class Descriptor>
 ExtractDynamicsChainFunctional3D<T,Descriptor>::ExtractDynamicsChainFunctional3D (
-        ExtractDynamicsChainFunctional3D<T,Descriptor>::DMap const& dynamicsMap_,
+        typename ExtractDynamicsChainFunctional3D<T,Descriptor>::DMap const& dynamicsMap_,
         pluint maxChainSize_ )
     : dynamicsMap(dynamicsMap_),
       maxChainSize(maxChainSize_)

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -48,18 +48,6 @@ BoundaryCompositeDynamics<T,Descriptor>::BoundaryCompositeDynamics(Dynamics<T,De
                                                                    bool automaticPrepareCollision_)
     : PreparePopulationsDynamics<T,Descriptor>(baseDynamics_,automaticPrepareCollision_)
 { }
-
-template<typename T, template<typename U> class Descriptor>
-void BoundaryCompositeDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
-{
-    PreparePopulationsDynamics<T,Descriptor>::unserialize(unserializer);
-}
-
-template<typename T, template<typename U> class Descriptor>
-void BoundaryCompositeDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
-{
-    PreparePopulationsDynamics<T,Descriptor>::serialize(serializer);
-}
 
 template<typename T, template<typename U> class Descriptor>
 BoundaryCompositeDynamics<T,Descriptor>* BoundaryCompositeDynamics<T,Descriptor>::clone() const
@@ -213,7 +201,7 @@ template<typename T, template<typename U> class Descriptor>
 StoreDensityDynamics<T,Descriptor>::StoreDensityDynamics(HierarchicUnserializer& unserializer)
     : BoundaryCompositeDynamics<T,Descriptor>(0,false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -230,15 +218,15 @@ int StoreDensityDynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void StoreDensityDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
-    unserializer.readValue(rhoBar);
     BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
+    unserializer.readValue(rhoBar);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void StoreDensityDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    serializer.addValue(rhoBar);
     BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(rhoBar);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -287,7 +275,7 @@ template<typename T, template<typename U> class Descriptor>
 StoreVelocityDynamics<T,Descriptor>::StoreVelocityDynamics(HierarchicUnserializer& unserializer)
     : BoundaryCompositeDynamics<T,Descriptor>(0,false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -305,19 +293,19 @@ template<typename T, template<typename U> class Descriptor>
 void StoreVelocityDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         unserializer.readValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void StoreVelocityDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         serializer.addValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -378,7 +366,7 @@ template<typename T, template<typename U> class Descriptor>
 StoreDensityAndVelocityDynamics<T,Descriptor>::StoreDensityAndVelocityDynamics(HierarchicUnserializer& unserializer)
     : BoundaryCompositeDynamics<T,Descriptor>(0,false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -396,21 +384,21 @@ template<typename T, template<typename U> class Descriptor>
 void StoreDensityAndVelocityDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
     unserializer.readValue(rhoBar);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         unserializer.readValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void StoreDensityAndVelocityDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue(rhoBar);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         serializer.addValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -494,7 +482,7 @@ template<typename T, template<typename U> class Descriptor>
 StoreTemperatureAndVelocityDynamics<T,Descriptor>::StoreTemperatureAndVelocityDynamics(HierarchicUnserializer& unserializer)
     : BoundaryCompositeDynamics<T,Descriptor>(0,false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -511,21 +499,21 @@ template<typename T, template<typename U> class Descriptor>
 void StoreTemperatureAndVelocityDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
     unserializer.readValue(thetaBar);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         unserializer.readValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void StoreTemperatureAndVelocityDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue(thetaBar);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         serializer.addValue(velocity[iDim]);
     }
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -622,20 +610,6 @@ int VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::getId
 
 template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
-void VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreVelocityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreVelocityDynamics<T,Descriptor>::unserialize(unserializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
 T VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::
     computeRhoBar(Cell<T,Descriptor> const& cell) const 
 {
@@ -702,6 +676,88 @@ void VelocityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::comp
 }
 
 
+
+/* *************** Class VelocityDirichletConstRhoBoundaryDynamics ************* */
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::id =
+    meta::registerGeneralDynamics<T,Descriptor, VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation> >
+            ( std::string("Boundary_VelocityDirichletConstRho_")+util::val2str(direction) +
+              std::string("_")+util::val2str(orientation) );
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    VelocityDirichletConstRhoBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics_, bool automaticPrepareCollision_)
+        : StoreVelocityDynamics<T,Descriptor>(baseDynamics_, automaticPrepareCollision_)
+{ }
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    VelocityDirichletConstRhoBoundaryDynamics(HierarchicUnserializer& unserializer)
+        : StoreVelocityDynamics<T,Descriptor>(0, false)
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>*
+    VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::clone() const
+{
+    return new VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+int VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+T VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    computeRhoBar(Cell<T,Descriptor> const& cell) const 
+{
+    return Descriptor<T>::rhoBar((T)1.0);
+}
+
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+T VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::
+    computeDensity(Cell<T,Descriptor> const& cell) const 
+{
+    return (T)1.0;
+}
+
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+void VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>::computeRhoBarJ (
+        Cell<T,Descriptor> const& cell,
+        T& rhoBar_, Array<T,Descriptor<T>::d>& j) const
+{
+    rhoBar_ = computeRhoBar(cell);
+    T rho = Descriptor<T>::fullRho(rhoBar_);
+    if (this->velIsJ()) {
+        for (int iD=0; iD<Descriptor<T>::d; ++iD) {
+            // Use the formula uLB = uP - 1/2 g. If there is no external force,
+            //   the force term automatically evaluates to zero.
+            j[iD] = this->velocity[iD] - 0.5*getExternalForceComponent(cell,iD);
+        }
+    }
+    else {
+        for (int iD=0; iD<Descriptor<T>::d; ++iD) {
+            // Use the formula uLB = uP - 1/2 g. If there is no external force,
+            //   the force term automatically evaluates to zero.
+            j[iD] = rho * (this->velocity[iD] - 0.5*getExternalForceComponent(cell,iD));
+        }
+    }
+}
+
+
 /* *************** Class DensityDirichletBoundaryDynamics ************* */
 
 template<typename T, template<typename U> class Descriptor,
@@ -739,20 +795,6 @@ template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 int DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,
-         int direction, int orientation>
-void DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,

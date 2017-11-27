@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -150,9 +150,9 @@ public:
      **/
     virtual void incrementTime();
     /// Get access to data transfer between blocks
-    virtual BlockLatticeDataTransfer2D<T,Descriptor>& getDataTransfer();
+    virtual BlockDataTransfer2D& getDataTransfer();
     /// Get access to data transfer between blocks (const version)
-    virtual BlockLatticeDataTransfer2D<T,Descriptor> const& getDataTransfer() const;
+    virtual BlockDataTransfer2D const& getDataTransfer() const;
 public:
     /// Attribute dynamics to a cell.
     void attributeDynamics(plint iX, plint iY, Dynamics<T,Descriptor>* dynamics);
@@ -160,6 +160,8 @@ public:
     Dynamics<T,Descriptor>& getBackgroundDynamics();
     /// Get a const reference to the background dynamics
     Dynamics<T,Descriptor> const& getBackgroundDynamics() const;
+    /// Assign an individual clone of the new dynamics to every cell.
+    void resetDynamics(Dynamics<T,Descriptor> const& dynamics);
     /// Apply streaming step to bulk (non-boundary) cells
     void bulkStream(Box2D domain);
     /// Apply streaming step to boundary cells
@@ -187,8 +189,12 @@ private:
     BlockLatticeDataTransfer2D<T,Descriptor> dataTransfer;
 public:
     static CachePolicy2D& cachePolicy();
-template<typename T_, template<typename U_> class Descriptor_>
+    template<typename T_, template<typename U_> class Descriptor_>
     friend class ExternalRhoJcollideAndStream2D;
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class ExternalCollideAndStream2D;
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class ExternalCollideAndStream2D;
 };
 
 template<typename T, template<typename U> class Descriptor>

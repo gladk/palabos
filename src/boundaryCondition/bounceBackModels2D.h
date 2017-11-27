@@ -1,11 +1,11 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
  *
- * The most recent release of Palabos can be downloaded at 
+ * The most recent release of Palabos can be downloaded at
  * <http://www.palabos.org/>
  *
  * The library Palabos is free software: you can redistribute it and/or
@@ -25,6 +25,7 @@
 /** \file
  * BounceBack dynamics models in 2D -- header file.
  */
+
 #ifndef BOUNCE_BACK_MODELS_2D_H
 #define BOUNCE_BACK_MODELS_2D_H
 
@@ -32,6 +33,7 @@
 #include "dataProcessors/dataInitializerFunctional2D.h"
 
 namespace plb {
+
 
 template<typename T, template<class U> class Descriptor>
 void initializeMomentumExchange (

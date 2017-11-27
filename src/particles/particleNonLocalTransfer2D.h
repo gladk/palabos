@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,6 +36,18 @@ template<class ParticleFieldT>
 void copy (                                                                   
         MultiParticleField2D<ParticleFieldT> const& from, Box2D const& fromDomain,
         MultiParticleField2D<ParticleFieldT>& to, Box2D const& toDomain );
+
+/// Gather particles from a particle-field into a vector of particles,
+/// on the main processor only.
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void gatherParticles( MultiParticleField2D<ParticleFieldT>& particleField,
+                      std::vector<Particle2D<T,Descriptor>*>& particles, Box2D domain );
+
+/// Inject particle which are only provided on the main processor into
+/// a particle-field.
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void injectParticlesAtMainProc( std::vector<Particle2D<T,Descriptor>*>& particles,
+                                MultiParticleField2D<ParticleFieldT>& particleField, Box2D domain );
 
 } // namespace plb
 

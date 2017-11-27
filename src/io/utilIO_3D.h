@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,6 +33,7 @@
 #include "atomicBlock/atomicContainerBlock3D.h"
 #include "multiBlock/multiBlock3D.h"
 #include "io/plbFiles.h"
+#include "multiBlock/group3D.h"
 
 namespace plb {
 
@@ -48,6 +49,17 @@ void loadState(std::vector<MultiBlock3D*> blocks, plint& iteration, bool saveDyn
 bool abortExecution(FileName abortFileName, std::vector<MultiBlock3D*> blocks, plint iteration,
         bool saveDynamicContent, FileName xmlFileName, FileName baseFileName,
         plint fileNamePadding = 8);
+
+/* Save all multi-blocks of the group with a filename that contains the actual
+ * name of the block. The baseFileName consists of a directory, in which the data
+ * is going to be written, the basis of the file names (which can simply be empty),
+ * and an extenstion. If no extension is provided, it defaults to ".dat".
+ */
+void saveBlocks(Group3D& blocks, bool saveDynamicContent, FileName fileName);
+
+/* Loads previously saved blocks into the multi-blocks of the group. The multi-blocks
+ * must have been previously properly allocated. */
+void loadBlocks(Group3D& blocks, bool saveDynamicContent, FileName fileName);
 
 }  // namespace plb
 

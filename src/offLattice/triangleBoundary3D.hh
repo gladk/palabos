@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,10 +27,18 @@
 
 #include "core/globalDefs.h"
 #include "core/geometry3D.h"
+#include "core/util.h"
 #include "offLattice/triangleBoundary3D.h"
 #include "offLattice/triangularSurfaceMesh.h"
 #include "offLattice/offLatticeBoundaryProfiles3D.h"
 #include "offLattice/triangleToDef.h"
+#include "offLattice/voxelizer.h"
+#include "offLattice/makeSparse3D.h"
+#include "offLattice/triangularSurfaceMesh.h"
+#include "dataProcessors/dataAnalysisWrapper3D.h"
+#include "multiBlock/defaultMultiBlockPolicy3D.h"
+#include "dataProcessors/dataInitializerWrapper3D.h"
+#include "multiBlock/multiBlockGenerator3D.h"
 #include "multiBlock/nonLocalTransfer3D.h"
 #include <cmath>
 #include <limits>
@@ -271,9 +279,7 @@ void DEFscaledMesh<T>::initialize (
         TriangleSet<T> const& triangleSet_, plint resolution_,
         plint referenceDirection_, Dot3D location )
 {
-    //T eps = 0.5 * triangleSet_.getMinEdgeLength();
-    // OR:
-    T eps = getEpsilon<T>(triangleSet_.getPrecision());
+    T eps = triangleSet_.getEpsilon();
 
     constructSurfaceMesh<T> (
             triangleSet_.getTriangles(),
@@ -297,7 +303,9 @@ DEFscaledMesh<T>::DEFscaledMesh (
     : vertexList(rhs.vertexList),
       emanatingEdgeList(rhs.emanatingEdgeList),
       edgeList(rhs.edgeList),
-      margin(rhs.margin)
+      margin(rhs.margin),
+      physicalLocation(rhs.physicalLocation),
+      dx(rhs.dx)
 {
     mesh = new TriangularSurfaceMesh<T>(vertexList, emanatingEdgeList, edgeList);
 }
@@ -316,10 +324,11 @@ void DEFscaledMesh<T>::swap(DEFscaledMesh<T>& rhs)
     vertexList.swap(rhs.vertexList);
     emanatingEdgeList.swap(rhs.emanatingEdgeList);
     edgeList.swap(rhs.edgeList);
-    std::swap(mesh,rhs.mesh);
     std::swap(margin, rhs.margin);
     std::swap(physicalLocation, rhs.physicalLocation);
     std::swap(dx, rhs.dx);
+    delete mesh; mesh = new TriangularSurfaceMesh<T>(vertexList, emanatingEdgeList, edgeList);
+    delete rhs.mesh; rhs.mesh = new TriangularSurfaceMesh<T>(rhs.vertexList, rhs.emanatingEdgeList, rhs.edgeList);
 }
 
 template<typename T>
@@ -457,6 +466,8 @@ TriangleBoundary3D<T>::TriangleBoundary3D (
       vertexProperties(rhs.vertexProperties.size()),
       lids(rhs.lids),
       margin(rhs.margin),
+      physicalLocation(rhs.physicalLocation),
+      dx(rhs.dx),
       topology(rhs.topology),
       vertexSet(rhs.vertexSet)
 {
@@ -504,9 +515,12 @@ void TriangleBoundary3D<T>::swap(TriangleBoundary3D<T>& rhs)
     vertexProperties.swap(rhs.vertexProperties);
     std::swap(lids, rhs.lids);
     std::swap(margin, rhs.margin);
+    std::swap(physicalLocation, rhs.physicalLocation);
+    std::swap(dx, rhs.dx);
     std::swap(topology, rhs.topology);
     std::swap(vertexSet, rhs.vertexSet);
     defineMeshes();
+    rhs.defineMeshes();
 }
 
 template<typename T>
@@ -620,7 +634,7 @@ void TriangleBoundary3D<T>::cloneVertexSet(plint whichVertexSet)
     vertexLists.push_back(vertexLists[whichVertexSet]);
     plint newVertexSet = (plint)vertexLists.size()-1;
     plint numVertexOpen = vertexLists[newVertexSet].size();
-    for (plint iLid=0; (plint)iLid<lids.size(); ++iLid) {
+    for (plint iLid=0; iLid<(plint)lids.size(); ++iLid) {
         numVertexOpen -= lids[iLid].numAddedVertices;
     }
     meshes.push_back( TriangularSurfaceMesh<T> (
@@ -688,13 +702,14 @@ void TriangleBoundary3D<T>::getLidProperties (
 
 template<typename T>
 void TriangleBoundary3D<T>::tagInletOutlet (
-        std::vector<Lid> const& newLids )
+        std::vector<Lid>& newLids )
 {
     // Inlet/Outlet can only be set for a closed mesh, by definition.
     PLB_PRECONDITION( topology.top()==1 );
 
     for (pluint iLid=0; iLid<newLids.size(); ++iLid) {
         ++currentTagNum; // Tag 0 is for default wall portions.
+        newLids[iLid].tag = currentTagNum;
         plint firstTriangle = newLids[iLid].firstTriangle;
         plint numTriangles = newLids[iLid].numTriangles;
         for (plint iTriangle = firstTriangle; iTriangle<firstTriangle+numTriangles; ++iTriangle)
@@ -748,7 +763,8 @@ plint TriangleBoundary3D<T>::tagDomain(DomainFunctional functional, Array<T,3> n
             }
             if (isInside) {
                 Array<T,3> triangleNormal = getMesh().computeTriangleNormal(iTriangle);
-                if (std::fabs(angleBetweenVectors(normal,triangleNormal)<angleTolerance)) {
+                T normN = norm(triangleNormal); // We decide not to tag zero-area triangles.
+                if (!util::isZero(normN) && std::fabs(angleBetweenVectors(normal,triangleNormal)<angleTolerance)) {
                     triangleTagList[iTriangle] = newTag;
                 }
             }
@@ -846,6 +862,15 @@ bool TriangleFlowShape3D<T,SurfaceData>::isInside (
     PLB_PRECONDITION( voxelFlags );
     Dot3D localPos = location-voxelFlags->getLocation();
     return voxelFlag::insideFlag(voxelFlags->get(localPos.x,localPos.y,localPos.z));
+}
+
+template< typename T, class SurfaceData >
+bool TriangleFlowShape3D<T,SurfaceData>::isOutside (
+        Dot3D const& location) const
+{
+    PLB_PRECONDITION( voxelFlags );
+    Dot3D localPos = location-voxelFlags->getLocation();
+    return voxelFlag::outsideFlag(voxelFlags->get(localPos.x,localPos.y,localPos.z));
 }
 
 template< typename T, class SurfaceData >
@@ -1058,7 +1083,7 @@ VoxelizedDomain3D<T>::VoxelizedDomain3D (
       boundary(boundary_)
 {
     PLB_ASSERT( flowType==voxelFlag::inside || flowType==voxelFlag::outside );
-    //PLB_ASSERT( boundary.getMargin() >= borderWidth );
+    PLB_ASSERT( boundary.getMargin() >= borderWidth );
     if (dynamicMesh_) {
         boundary.pushSelect(1,1); // Closed, Dynamic.
     }
@@ -1083,7 +1108,7 @@ VoxelizedDomain3D<T>::VoxelizedDomain3D (
       boundary(boundary_)
 {
     PLB_ASSERT( flowType==voxelFlag::inside || flowType==voxelFlag::outside );
-    //PLB_ASSERT( boundary.getMargin() >= borderWidth );
+    PLB_ASSERT( boundary.getMargin() >= borderWidth );
     if (dynamicMesh_) {
         boundary.pushSelect(1,1); // Closed, Dynamic.
     }
@@ -1186,6 +1211,21 @@ void VoxelizedDomain3D<T>::reparallelize(MultiBlockRedistribute3D const& redistr
 }
 
 template<typename T>
+void VoxelizedDomain3D<T>::reparallelize(MultiBlockManagement3D const& newManagement) {
+    MultiScalarField3D<int>* newVoxelMatrix =
+        new MultiScalarField3D<int>(
+                newManagement,
+                voxelMatrix->getBlockCommunicator().clone(),
+                voxelMatrix->getCombinedStatistics().clone(),
+                defaultMultiBlockPolicy3D().getMultiScalarAccess<int>(), 0 );
+    copyNonLocal(*voxelMatrix, *newVoxelMatrix, voxelMatrix->getBoundingBox());
+    std::swap(voxelMatrix, newVoxelMatrix);
+    delete newVoxelMatrix;
+    delete triangleHash;
+    createTriangleHash();
+}
+
+template<typename T>
 MultiBlockManagement3D const&
     VoxelizedDomain3D<T>::getMultiBlockManagement() const
 {
@@ -1201,6 +1241,8 @@ void VoxelizedDomain3D<T>::computeSparseVoxelMatrix (
     MultiScalarField3D<int> domainMatrix((MultiBlock3D const&)fullVoxelMatrix);
     setToConstant( domainMatrix, fullVoxelMatrix,
                    flowType, domainMatrix.getBoundingBox(), 1 );
+    setToConstant( domainMatrix, fullVoxelMatrix,
+                   voxelFlag::borderFlag(flowType), domainMatrix.getBoundingBox(), 1 );
     for (int iLayer=1; iLayer<=boundary.getMargin(); ++iLayer) {
         addLayer(domainMatrix, domainMatrix.getBoundingBox(), iLayer);
     }
@@ -1274,7 +1316,6 @@ void VoxelizedDomain3D<T>::reCreateTriangleHash (
             triangleHash->getBoundingBox(), hashParticleArg );
 }
 
-
 /* ******** DetectBorderLineFunctional3D ************************************* */
 
 template<typename T>
@@ -1333,3 +1374,4 @@ BlockDomain::DomainT AddLayerFunctional3D<T>::appliesTo() const {
 }  // namespace plb
 
 #endif  // TRIANGLE_BOUNDARY_3D_HH
+

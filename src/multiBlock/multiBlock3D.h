@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -88,6 +88,8 @@ private:
     MultiBlock3D& block;
 };
 
+struct BlockDataTransfer3D;
+
 class MultiBlock3D : public Block3D {
 public: 
     typedef std::pair<MultiBlock3D*, modif::ModifT> BlockAndModif;
@@ -174,6 +176,8 @@ public:
     ///   dynamics objects.
     void setInternalTypeOfModification(modif::ModifT internalModifT_);
     void setRefinementLevel(plint newLevel);
+    /// Assign a data transfer policy to all atomic-blocks.
+    void setDataTransfer(BlockDataTransfer3D* newDataTransfer);
 public:
     virtual AtomicBlock3D& getComponent(plint blockId) =0;
     virtual AtomicBlock3D const& getComponent(plint blockId) const =0;

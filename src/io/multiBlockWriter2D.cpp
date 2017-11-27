@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -53,7 +53,7 @@ namespace parallelIO {
 void writeXmlSpec( MultiBlock2D& multiBlock, FileName fName,
                    std::vector<plint> const& offset, bool dynamicContent )
 {
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     MultiBlockManagement2D const& management = multiBlock.getMultiBlockManagement();
     std::map<plint,Box2D> const& bulks = management.getSparseBlockStructure().getBulks();
     PLB_ASSERT( offset.empty() || bulks.size()==offset.size() );
@@ -139,7 +139,7 @@ void writeXmlSpec( MultiBlock2D& multiBlock, FileName fName,
 void writeOneBlockXmlSpec( MultiBlock2D& multiBlock, FileName fName, plint dataSize,
                            IndexOrdering::OrderingT ordering )
 {
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     MultiBlockManagement2D const& management = multiBlock.getMultiBlockManagement();
     std::vector<std::string> typeInfo = multiBlock.getTypeInfo();
     std::string blockName = multiBlock.getBlockName();

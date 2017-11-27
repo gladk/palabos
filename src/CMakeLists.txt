@@ -14,7 +14,7 @@ FILE(GLOB SRC_FILES_HHEAD "*.hh")
 INSTALL(FILES ${SRC_FILES_HEAD} ${SRC_FILES_HHEAD} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/palabos/")
 
 SET(SUBDIRS  algorithm atomicBlock basicDynamics boundaryCondition complexDynamics 
-  coProcessors core dataProcessors finiteDifference io latticeBoltzmann libraryInterfaces
+  coProcessors core dataProcessors finiteDifference gridRefinement io latticeBoltzmann libraryInterfaces
   multiBlock multiGrid multiPhysics offLattice parallelism particles)
 
 FOREACH(subdir ${SUBDIRS})

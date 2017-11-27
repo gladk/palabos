@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,6 +35,15 @@
 namespace plb {
 
 /* *************** Central finite-difference schemes ***************** */
+
+template<typename T>
+class BoxLaplacianFunctional2D : public BoxProcessingFunctional2D_SS<T,T>
+{
+public:
+    virtual void process( Box2D domain, ScalarField2D<T>& value, ScalarField2D<T>& laplacian );
+    virtual BoxLaplacianFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
 
 template<typename T>
 class BoxXderivativeFunctional2D : public BoundedBoxProcessingFunctional2D_SS<T,T>

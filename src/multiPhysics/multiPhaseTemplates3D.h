@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -56,6 +56,24 @@ static void shanChenInteraction( BlockLattice3D<T,Descriptor>& lattice,
         plint nextZ = iZ + Descriptor<T>::c[iPop][2];
         Cell<T,Descriptor> const& cell = lattice.get(nextX,nextY,nextZ);
         T rho = *cell.getExternal(densityOffset);
+        for (int iD = 0; iD < Descriptor<T>::d; ++iD) {
+           rhoContribution[iD] += Descriptor<T>::t[iPop] * rho * Descriptor<T>::c[iPop][iD];
+        }
+    }
+}
+
+static void shanChenInteraction( BlockLattice3D<T,Descriptor>& lattice,
+                                 ScalarField3D<T>& rhoBar,
+                                 Array<T,Descriptor<T>::d>& rhoContribution,
+                                 plint iX, plint iY, plint iZ )
+{
+    Dot3D ofs = computeRelativeDisplacement(lattice, rhoBar);
+    rhoContribution.resetToZero();
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        plint nextX = iX + Descriptor<T>::c[iPop][0];
+        plint nextY = iY + Descriptor<T>::c[iPop][1];
+        plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+        T rho = Descriptor<T>::fullRho(rhoBar.get(nextX+ofs.x, nextY+ofs.y, nextZ+ofs.z));
         for (int iD = 0; iD < Descriptor<T>::d; ++iD) {
            rhoContribution[iD] += Descriptor<T>::t[iPop] * rho * Descriptor<T>::c[iPop][iD];
         }

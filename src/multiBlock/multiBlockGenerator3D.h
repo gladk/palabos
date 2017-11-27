@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,6 +39,7 @@
 #include "multiBlock/multiDataField3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
 #include "particles/multiParticleField3D.h"
+#include "multiBlock/multiContainerBlock3D.h"
 #include "multiBlock/sparseBlockStructure3D.h"
 #include <memory>
 
@@ -135,6 +136,12 @@ std::auto_ptr<MultiScalarField3D<T> > generateJoinMultiScalarField (
         MultiBlock3D const& originalField2 );
 
 /// Generate a new multi-scalar-field with a distribution which is the
+/// the one of the orignal block, but with a new envelopeWidth 
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > extendEnvelopeWidth (
+        MultiScalarField3D<T>& originalBlock, plint envelopeWidth );
+
+/// Generate a new multi-scalar-field with a distribution which is the
 ///   union between the original one and an additional block.
 template<typename T>
 std::auto_ptr<MultiScalarField3D<T> > extend (
@@ -193,7 +200,7 @@ std::auto_ptr<MultiScalarField3D<T> > reparallelize (
 /// Generate a multi-scalar-field from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization value can be provided.
+///   envelope-width, etc.
 template<typename T>
 std::auto_ptr<MultiNTensorField3D<T> > defaultGenerateMultiNTensorField3D (
         MultiBlockManagement3D const& management, plint nDim=1 );
@@ -204,6 +211,9 @@ MultiNTensorField3D<T>* generateMultiNTensorField3D (
 
 template<typename T>
 MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint ndim);
+
+template<typename T>
+MultiNTensorField3D<T>* generateMultiNTensorField3D(Box3D const& domain, plint ndim, T* iniVal, plint envelopeWidth);
 
 /// Create a clone of a MultiNTensorField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -279,6 +289,12 @@ MultiNTensorField3D<T>* generateJoinMultiNTensorField (
         MultiBlock3D const& originalField2,
         plint nDim );
 
+/// Generate a new multi-NTensor-field with a distribution which is the
+/// the one of the orignal block, but with a new envelopeWidth 
+template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > extendEnvelopeWidth (
+        MultiNTensorField3D<T>& originalBlock, plint envelopeWidth );
+
 /// Generate a new multi-ntensor-field with a distribution which is the
 ///   union between the original one and an additional block.
 template<typename T>
@@ -305,6 +321,15 @@ template<typename T>
 MultiNTensorField3D<T>* reparallelize (
         MultiNTensorField3D<T> const& originalBlock );
 
+/// Create a clone of the original field, on a new regular distribution.
+/** The parameters blockLx, blockLy, and blockLz indicate the approximate size of the
+ *  blocks.
+ **/
+template<typename T>
+MultiNTensorField3D<T>* reparallelize (
+        MultiNTensorField3D<T> const& originalBlock,
+        plint blockLx, plint blockLy, plint blockLz );
+
 
 /* *************** 3. MultiTensorField ************************************** */
 
@@ -329,10 +354,10 @@ std::auto_ptr<MultiTensorField3D<T,nDim> > generateMultiTensorField (
 /// Generate a multi-tensor-field from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization value can be provided.
+///   envelope-width, etc. A default dummy argument is used for technical reasons.
 template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > defaultGenerateMultiTensorField3D (
-        MultiBlockManagement3D const& management, plint nDimParam=1 );
+        MultiBlockManagement3D const& management, plint unnamedDummyArg=1 );
 
 /// Create a clone of a MultiTensorField (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -393,6 +418,12 @@ template<typename T, int nDim>
 std::auto_ptr<MultiTensorField3D<T,nDim> > generateJoinMultiTensorField (
         MultiBlock3D const& originalField1,
         MultiBlock3D const& originalField2 );
+
+/// Generate a new multi-tensor-field with a distribution which is the
+/// the one of the orignal block, but with a new envelopeWidth 
+template<typename T, int nDim>
+std::auto_ptr<MultiTensorField3D<T, nDim> > extendEnvelopeWidth (
+        MultiTensorField3D<T, nDim>& originalBlock, plint envelopeWidth );
 
 /// Generate a new multi-tensor-field with a distribution which is the
 ///   union between the original one and an additional block.
@@ -460,11 +491,19 @@ std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
 /// Generate a multi-block-lattice from scratch. As opposed to the standard
 ///   constructor, this factory function takes the explicit block-management
 ///   object, which includes stuff like block-distribution, parallelization,
-///   envelope-width, etc. An optional initialization dynamics can be provided.
+///   envelope-width, etc. A default dummy argument is used for technical reasons.
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > defaultGenerateMultiBlockLattice3D (
-        MultiBlockManagement3D const& management, plint envelopeWidth=1 );
+        MultiBlockManagement3D const& management, plint unnamedDummyArg=1 );
 
+/// Generate a multi-block-lattice from scratch. As opposed to the standard
+///   constructor, this factory function takes the explicit block-management
+///   object, which includes stuff like block-distribution, parallelization,
+///   envelope-width, etc. An optional background dynamics is also provided.
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > generateMultiBlockLattice (
+        MultiBlockManagement3D const& management,
+        Dynamics<T,Descriptor>* backgroundDynamics=new NoDynamics<T,Descriptor> );
 
 /// Create a clone of a MultiBlockLattice (or of a sub-domain).
 /** This cannot be handled through a data processor, because the internal data
@@ -601,6 +640,29 @@ std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3
 template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
 std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
         MultiBlock3D& multiBlock, plint envelopeWidth );
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlockManagement3D const& management, PeriodicitySwitch3D const& periodicity,
+        plint envelopeWidth );
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+std::auto_ptr<MultiParticleField3D<ParticleFieldT> > generateMultiParticleField3D (
+        MultiBlockManagement3D const& management, plint envelopeWidth );
+
+/* *************** 5. MultiContainerBlock ************************************ */
+
+std::auto_ptr<MultiContainerBlock3D> generateMultiContainerBlock (
+        MultiBlock3D& multiBlock, plint envelopeWidth );
+
+MultiContainerBlock3D* createMultiContainerBlock3D (
+        MultiBlockManagement3D const& management,
+        PeriodicitySwitch3D const& periodicity,
+        plint envelopeWidth, plint gridLevel );
+
+MultiContainerBlock3D* createMultiContainerBlock3D (
+        MultiBlockManagement3D const& management,
+        plint envelopeWidth, plint gridLevel );
 
 /* *************** General Functions **************************************** */
 

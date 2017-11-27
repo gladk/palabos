@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,8 @@
 #include "dataProcessors/dataInitializerWrapper3D.hh"
 #include "dataProcessors/metaStuffFunctional3D.hh"
 #include "dataProcessors/metaStuffWrapper3D.hh"
+#include "dataProcessors/ntensorAnalysisFunctional3D.hh"
+#include "dataProcessors/ntensorAnalysisWrapper3D.hh"
 // Include 2D versions, because they are required, for example to save 2D
 // images from 3D data.
 #include "dataProcessors/dataAnalysisFunctional2D.hh"

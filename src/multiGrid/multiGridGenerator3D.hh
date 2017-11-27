@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 /** \file
@@ -35,6 +35,7 @@
 #include "multiGrid/multiGridGenerator3D.h"
 #include "multiGrid/domainDivision3D.h"
 #include "multiGrid/fineGridProcessors3D.h"
+#include "multiGrid/coarseGridProcessors3D.h"
 #include "multiGrid/helperFineGridProcessors3D.h"
 
 namespace plb {
@@ -251,7 +252,8 @@ void createInterfaces( std::vector<MultiBlockLattice3D<T,Descriptor>*>& multiBlo
 
 template<typename T, template<typename U> class Descriptor>
 void createCoarseGridInterface (
-        plint coarseLevel, Box3D coarseGridInterface, std::vector<MultiBlockLattice3D<T,Descriptor>*>& multiBlocks )
+        plint coarseLevel, Box3D coarseGridInterface,
+        std::vector<MultiBlockLattice3D<T,Descriptor>*>& multiBlocks )
 {
     PLB_PRECONDITION( coarseGridInterface.getNx()==1 ||
                       coarseGridInterface.getNy()==1 ||
@@ -268,74 +270,90 @@ void createCoarseGridInterface (
     plint executionTime = numTimeSteps-1;
     // Add a data processor which copies and rescales from the fine to the coarse lattice.
     plint scalingOrder=0;
-    
-    integrateProcessingFunctional (
+
+    /// ****** NO FILTERING **********/
+/*    integrateProcessingFunctional (
             new CopyFineToCoarse3D<T, Descriptor,Descriptor> (
                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder), numTimeSteps, executionTime),
             coarseGridInterface.multiply(2),
             fineLattice, coarseLattice );
+*/
+    
+    /// ******* WITH EDGES AND CORNERS EXPLICITLY ********/
+/*     Box3D reducedBulk = computeCopyReducedBulk(coarseGridInterface);
+     std::vector<Box3D> edges;
+     computeCopyEdges(coarseGridInterface, edges);
+
+     std::vector<Box3D> corners;
+     computeCopyCorners(coarseGridInterface, corners);
+
+     std::vector<plint> bulkIndices;
+     std::vector<std::vector<plint> > edgesFilteringIndices(edges.size());
+     std::vector<std::vector<plint> > cornersFilteringIndices(corners.size());
 
     
-//     Box3D reducedBulk = computeCopyReducedBulk(coarseGridInterface);
-//     std::vector<Box3D> edges;
-//     computeCopyEdges(coarseGridInterface, edges);
-//     
-//     std::vector<Box3D> corners;
-//     computeCopyCorners(coarseGridInterface, corners);
-//     
-//     std::vector<plint> bulkIndices;
-//     std::vector<std::vector<plint> > edgesFilteringIndices(edges.size());
-//     std::vector<std::vector<plint> > cornersFilteringIndices(corners.size());
-//     
-    
-//     computeFilteringIndicesEdges<T>(coarseGridInterface, edgesFilteringIndices);
-    
-    // always start from 1, cause the 0 is already and index
-//     for (plint iPop=1; iPop<descriptors::D3Q27Descriptor<T>::q; ++iPop){
-//         bulkIndices.push_back(iPop);
-//     }
+     computeFilteringIndicesEdges<T>(coarseGridInterface, edgesFilteringIndices);
+
+     // always start from 1, cause the 0 is already and index
+     for (plint iPop=1; iPop<descriptors::D3Q27Descriptor<T>::q; ++iPop){
+         bulkIndices.push_back(iPop);
+     }
     
     // assign the copy corresponding to the reduced bulk (full indices)
-//     integrateProcessingFunctional (
-//             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
-//                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
-//                 numTimeSteps, executionTime, bulkIndices ),
-//             reducedBulk.multiply(2),
-//             fineLattice, coarseLattice );
+     integrateProcessingFunctional (
+             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
+                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
+                 numTimeSteps, executionTime, bulkIndices ),
+             reducedBulk.multiply(2),
+             fineLattice, coarseLattice, 2 ); // I (Helen) added the 2 here...
             
     // assign the copy corresponding to the edges (reduced indices)
-//     for (pluint iEdge=0; iEdge<edges.size(); ++iEdge){
-//         integrateProcessingFunctional (
-//             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
-//                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
-//                 numTimeSteps, executionTime, edgesFilteringIndices[iEdge] ),
-//             edges[iEdge].multiply(2),
-//             fineLattice, coarseLattice );
-//     }
+     for (pluint iEdge=0; iEdge<edges.size(); ++iEdge){
+         integrateProcessingFunctional (
+             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
+                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
+                 numTimeSteps, executionTime, edgesFilteringIndices[iEdge] ),
+             edges[iEdge].multiply(2),
+             fineLattice, coarseLattice, 2 ); // I (Helen) added the 2 here...
+     }
     
     // finally do the same for the corners
-//     for (pluint iCorner=0; iCorner<corners.size(); ++iCorner){
-//         integrateProcessingFunctional (
-//             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
-//                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
-//                 numTimeSteps, executionTime, cornersFilteringIndices[iCorner] ),
-//             corners[iCorner].multiply(2),
-//             fineLattice, coarseLattice );
-//     }
-            
-     
-//     std::vector<plint> bulkIndices;
-//     // always start from 1, cause the 0 is already and index
-//     for (plint iPop=1; iPop<descriptors::D3Q27Descriptor<T>::q; ++iPop){
-//         bulkIndices.push_back(iPop);
-//     } 
-//      
-//     integrateProcessingFunctional (
-//             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
-//                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
-//                 numTimeSteps, executionTime, bulkIndices ),
-//             coarseGridInterface.multiply(2),
-//             fineLattice, coarseLattice );
+     for (pluint iCorner=0; iCorner<corners.size(); ++iCorner){
+         integrateProcessingFunctional (
+             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
+                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
+                 numTimeSteps, executionTime, cornersFilteringIndices[iCorner] ),
+             corners[iCorner].multiply(2),
+             fineLattice, coarseLattice, 2 ); // I (Helen) added the 2 here...
+     }
+*/
+     /// ***** ALL AT ONCE - ORIGINAL ********/
+/*     std::vector<plint> bulkIndices;
+     // always start from 1, cause the 0 is already and index
+     for (plint iPop=1; iPop<descriptors::D3Q27Descriptor<T>::q; ++iPop){
+         bulkIndices.push_back(iPop);
+     }
+
+     integrateProcessingFunctional (
+             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
+                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
+                 numTimeSteps, executionTime, bulkIndices ),
+             coarseGridInterface.multiply(2),
+             fineLattice, coarseLattice );
+*/
+     /// ****** ALL AT ONCE - MODIFIED *******/
+    std::vector<plint> bulkIndices;
+    // always start from 1, cause the 0 is already an index
+    for (plint iPop=1; iPop < Descriptor<T>::q; ++iPop){
+        bulkIndices.push_back(iPop);
+    }
+
+    integrateProcessingFunctional (
+             new CopyFineToCoarseWithFiltering3D<T, Descriptor,Descriptor> (
+                 new ConvectiveRescaleEngine<T,Descriptor>(scalingOrder),
+                 numTimeSteps, executionTime, bulkIndices ),
+             coarseGridInterface.multiply(2),
+             fineLattice, coarseLattice, 2 ); // I (Helen) added the 2 here...
 
 }
 
@@ -547,8 +565,7 @@ void createFineGridInterface (
                                 cornerPP, coarseLattice, fineLattice, processorLevelCoarse );
 
     }
-    
-    
+
     // Add a data processor which imposes a time-cyclic behavior on the fine grid
     //   boundary-dynamics.
     integrateProcessingFunctional (

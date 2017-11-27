@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -105,7 +105,7 @@ void GaussLegendreQuadrature<T>::evaluateLegendrePolynomialAndDerivative(plint k
 template<typename T>
 void GaussLegendreQuadrature<T>::evaluateNodesAndWeights()
 {
-    static T tol = (T) 4.0 * std::numeric_limits<T>::epsilon();
+    static T tol = getEpsilon<T>((T) 4);
     static T pi = std::acos((T) -1);
 
     if (n == 0) {

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -58,6 +58,8 @@ public:
     virtual void setOmega(T omega_);
     /// Returns omega0.
     virtual T getOmega() const;
+    /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
+    virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
 private:
     T omega0;    //< "Laminar" relaxation parameter, used when the strain-rate is zero.
     T cSmago;    //< Smagorinsky constant.
@@ -135,7 +137,6 @@ public:
     /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
     virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 private:
@@ -180,11 +181,47 @@ template<typename T, template<typename U> class Descriptor>
 class ConsistentSmagorinskyCompleteRegularizedTRTdynamics : public CompleteRegularizedTRTdynamics<T,Descriptor> {
 public:
     /* *************** Construction / Destruction ************************ */
-    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, T psi_, T cSmago_);
-    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, T cSmago_);
+    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, T psi_, int order_, T cSmago_);
+    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, int order_, T cSmago_);
     ConsistentSmagorinskyCompleteRegularizedTRTdynamics(HierarchicUnserializer& unserializer);
     /// Clone the object on its dynamic type.
     virtual ConsistentSmagorinskyCompleteRegularizedTRTdynamics<T,Descriptor>* clone() const;
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                                 Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+    /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
+    virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
+private:
+    template<typename U>
+    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, T psi_, U order_, T cSmago_);
+
+    template<typename U>
+    ConsistentSmagorinskyCompleteRegularizedTRTdynamics(T omega_, U order_, T cSmago_);
+private:
+    int order;
+    T cSmago;    //< Smagorinsky constant.
+    static int id;
+};
+
+/// Consistent according to Orestis' model: doesn't mix the stress
+/// modes with the other ones when you change the relaxation time.
+template<typename T, template<typename U> class Descriptor>
+class ConsistentSmagorinskyCompleteRegularizedBGKdynamics : public CompleteRegularizedBGKdynamics<T,Descriptor> {
+public:
+    /* *************** Construction / Destruction ************************ */
+    ConsistentSmagorinskyCompleteRegularizedBGKdynamics(T omega_, T cSmago_);
+    ConsistentSmagorinskyCompleteRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
+    /// Clone the object on its dynamic type.
+    virtual ConsistentSmagorinskyCompleteRegularizedBGKdynamics<T,Descriptor>* clone() const;
     /// Return a unique ID for this class.
     virtual int getId() const;
     /// Serialize the dynamics object.
@@ -268,7 +305,6 @@ public:
     /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
     virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 private:
@@ -300,6 +336,9 @@ public:
     /// Compute the physical velocity
     virtual void computeVelocity (Cell<T,Descriptor> const& cell,
                                   Array<T,Descriptor<T>::d>& u ) const;
+    /// Compute the physical velocity given rhoBar and j
+    virtual void computeVelocityExternal (Cell<T,Descriptor> const& cell, T rhoBar,
+            Array<T,Descriptor<T>::d> const& j, Array<T,Descriptor<T>::d>& u ) const;
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
@@ -322,7 +361,7 @@ template<typename T, template<typename U> class Descriptor>
 class SmagorinskyIncBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
-    SmagorinskyIncBGKdynamics(T omega0_, T cSmago_, T rho0=(T)1 );
+    SmagorinskyIncBGKdynamics(T omega0_, T cSmago_);
     SmagorinskyIncBGKdynamics(HierarchicUnserializer& unserializer);
     /// Clone the object on its dynamic type.
     virtual SmagorinskyIncBGKdynamics<T,Descriptor>* clone() const;
@@ -344,6 +383,10 @@ public:
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
+    /// For PiNeq, subtract equilibrium term jj instead of invRho*jj.
+    virtual void computeRhoBarJPiNeq( Cell<T,Descriptor> const& cell,
+                                      T& rhoBar, Array<T,Descriptor<T>::d>& j,
+                                      Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq ) const;
     /// With this method, you can modify the constant value omega0 (not the actual value of omega,
     ///  which is computed during run-time from omega0 and the local strain-rate).
     virtual void setOmega(T omega_);
@@ -351,12 +394,10 @@ public:
     virtual T getOmega() const;
 
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 
     /// Set local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual void setParameter(plint whichParameter, T value);
     ///  Is it in the incompressible BGK model
@@ -365,60 +406,6 @@ private:
     T omega0;    //< "Laminar" relaxation parameter, used when the strain-rate is zero.
     T cSmago;    //< Smagorinsky constant.
     T preFactor; //< A factor depending on the Smagorinky constant, used to compute the effective viscosity.
-    T invRho0;
-    static int id;
-};
-
-/// (Jonas) Attention: This class is highly suspicious. I copy-pasted it from
-/// GuoExternalForceSmagorinskyBGKdynamics with some adaptations, but it needs
-/// to be checked more carefully.
-template<typename T, template<typename U> class Descriptor>
-class IncGuoExternalForceSmagorinskyBGKdynamics : public IsoThermalBulkDynamics<T,Descriptor> {
-public:
-/* *************** Construction / Destruction ************************ */
-    IncGuoExternalForceSmagorinskyBGKdynamics(T omega0_, T cSmago_, T rho0=(T)1 );
-    IncGuoExternalForceSmagorinskyBGKdynamics(HierarchicUnserializer& unserializer);
-    /// Clone the object on its dynamic type.
-    virtual IncGuoExternalForceSmagorinskyBGKdynamics<T,Descriptor>* clone() const;
-    /// Return a unique ID for this class.
-    virtual int getId() const;
-    /// Serialize the dynamics object.
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    /// Un-Serialize the dynamics object.
-    virtual void unserialize(HierarchicUnserializer& unserializer);
-    /// Implementation of the collision step
-    virtual void collide(Cell<T,Descriptor>& cell,
-                         BlockStatistics& statistics_);
-    /// Implementation of the collision step, with imposed macroscopic variables
-    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
-                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
-    /// Compute the physical velocity
-    virtual void computeVelocity (Cell<T,Descriptor> const& cell,
-                                  Array<T,Descriptor<T>::d>& u ) const;
-    /// Compute equilibrium distribution function
-    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
-                                 T jSqr, T thetaBar=T()) const;
-    /// With this method, you can modify the constant value omega0 (not the actual value of omega,
-    ///  which is computed during run-time from omega0 and the local strain-rate).
-    virtual void setOmega(T omega_);
-    /// Returns omega0.
-    virtual T getOmega() const;
-
-    /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
-    /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
-    virtual T getParameter(plint whichParameter) const;
-
-    /// Set local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
-    /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
-    virtual void setParameter(plint whichParameter, T value);
-    ///  Is it in the incompressible BGK model
-    virtual bool velIsJ() const;
-private:
-    T omega0;    //< "Laminar" relaxation parameter, used when the strain-rate is zero.
-    T cSmago;    //< Smagorinsky constant.
-    T invRho0;
     static int id;
 };
 
@@ -426,6 +413,7 @@ template<typename T, template<typename U> class Descriptor>
 class SmagorinskyRegularizedDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
     SmagorinskyRegularizedDynamics(T omega0_, T cSmago_);
+    SmagorinskyRegularizedDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual SmagorinskyRegularizedDynamics<T,Descriptor>* clone() const;
@@ -558,7 +546,6 @@ public:
     /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
     virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 private:
@@ -577,10 +564,6 @@ public:
     virtual ConsistentSgsMRTdynamics<T,Descriptor>* clone() const;
     /// Return a unique ID for this class.
     virtual int getId() const;
-    /// Serialize the dynamics object.
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    /// Un-Serialize the dynamics object.
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
@@ -593,7 +576,6 @@ public:
     /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
     virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Sgs constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 private:
@@ -605,6 +587,7 @@ class GuoExternalForceConsistentSgsMRTdynamics : public ExternalForceDynamics<T,
 public:
     /* *************** Construction / Destruction ************************ */
     GuoExternalForceConsistentSgsMRTdynamics(T omega0_);
+    GuoExternalForceConsistentSgsMRTdynamics(HierarchicUnserializer& unserializer);
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceConsistentSgsMRTdynamics<T,Descriptor>* clone() const;
     /// Return a unique ID for this class.
@@ -633,6 +616,22 @@ public:
     virtual void serialize(HierarchicSerializer& serializer) const;
     /// Un-Serialize the dynamics object.
     virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    /// Say if velocity in this dynamics is computed as "j" (the order-1 moment
+    ///   of the populations) or as "j/rho".
+    virtual bool velIsJ() const;
+
+/* *************** Macroscopic variables ***************************** */
+    /// Velocity is equal to j, not u.
+    virtual void computeVelocity( Cell<T,Descriptor> const& cell,
+                                  Array<T,Descriptor<T>::d>& u ) const;
+
+    /// For PiNeq, subtract equilibrium term jj instead of invRho*jj.
+    virtual void computeRhoBarJPiNeq( Cell<T,Descriptor> const& cell,
+                                      T& rhoBar, Array<T,Descriptor<T>::d>& j,
+                                      Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq ) const;
+
+/* *************** Collision and Equilibrium ************************* */
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
@@ -645,7 +644,6 @@ public:
     /// Return dynamic value of omega for whichParameter=dynamicOmega or smagorinskyConstant.
     virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
     /// Get local value of any generic parameter.
-    /// For the density rho0, use parameter 110.
     /// For the Smagorinsky constant cSmago, use dynamicParams::smagorinskyConstant.
     virtual T getParameter(plint whichParameter) const;
 private:

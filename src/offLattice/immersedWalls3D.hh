@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -878,6 +878,187 @@ BlockDomain::DomainT InstantiateImmersedWallDataWithIndexedTagging3D<T>::applies
     return BlockDomain::bulk;
 }
 
+
+/* ******** InstantiateSurfaceBlockData3D ************************************ */
+
+template<typename T>
+InstantiateSurfaceBlockData3D<T>::InstantiateSurfaceBlockData3D(plint envelopeWidth_, std::vector< Array<T,3> > const& vertices_)
+    : envelopeWidth(envelopeWidth_),
+      vertices(vertices_)
+{
+    PLB_ASSERT(envelopeWidth >= 1);
+}
+
+template<typename T>
+void InstantiateSurfaceBlockData3D<T>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_PRECONDITION(blocks.size()==1);
+    AtomicContainerBlock3D *container = dynamic_cast<AtomicContainerBlock3D*>(blocks[0]);
+    PLB_ASSERT(container);
+
+    Dot3D location = container->getLocation();
+    Array<T,3> offset(location.x, location.y, location.z);
+
+    SurfaceBlockData3D<T> *surfaceData = new SurfaceBlockData3D<T>;
+    Box3D extendedEnvelope(domain.enlarge(envelopeWidth));
+
+    for (pluint i=0; i<vertices.size(); ++i) {
+        Array<T,3> vertex = vertices[i]-offset;
+        if (containedInclusive(vertex, extendedEnvelope)) {
+            surfaceData->vertices.push_back(vertex);
+        }
+    }
+    surfaceData->offset = offset;
+    container->setData(surfaceData);
+}
+
+template<typename T>
+InstantiateSurfaceBlockData3D<T> *InstantiateSurfaceBlockData3D<T>::clone() const
+{
+    return new InstantiateSurfaceBlockData3D<T>(*this);
+}
+
+template<typename T>
+void InstantiateSurfaceBlockData3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;  // Container Block with triangle data.
+}
+
+template<typename T>
+BlockDomain::DomainT InstantiateSurfaceBlockData3D<T>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+
+/* ******** SurfaceOnLattice3D *************************************** */
+
+template<typename T, typename U>
+SurfaceOnLattice3D<T,U>::SurfaceOnLattice3D(U value_, plint envelopeWidth_)
+    : value(value_),
+      envelopeWidth(envelopeWidth_)
+{
+    PLB_ASSERT(envelopeWidth >= 1);
+}
+
+template<typename T, typename U>
+void SurfaceOnLattice3D<T,U>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION(blocks.size() == 2);
+    ScalarField3D<U> *surfaceOnLattice = dynamic_cast<ScalarField3D<U>*>(blocks[0]);
+    AtomicContainerBlock3D *container = dynamic_cast<AtomicContainerBlock3D*>(blocks[1]);
+    PLB_ASSERT(surfaceOnLattice);
+    PLB_ASSERT(container);
+
+    SurfaceBlockData3D<T> *surfaceData = dynamic_cast<SurfaceBlockData3D<T>*>(container->getData());
+    PLB_ASSERT(surfaceData);
+
+    std::vector< Array<T,3> > const& vertices = surfaceData->vertices;
+
+    plint w = envelopeWidth;
+    for (pluint i=0; i<vertices.size(); ++i) {
+        Array<T,3> const& vertex = vertices[i];
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        // x  x  x . x  x  x
+        for (plint dx=-(w-1); dx<=+w; ++dx) {
+            for (plint dy=-(w-1); dy<=+w; ++dy) {
+                for (plint dz=-(w-1); dz<=+w; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    if (contained(pos[0], pos[1], pos[2], domain)) {
+                        surfaceOnLattice->get(pos[0], pos[1], pos[2]) = value;
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, typename U>
+SurfaceOnLattice3D<T,U>* SurfaceOnLattice3D<T,U>::clone() const
+{
+    return new SurfaceOnLattice3D<T,U>(*this);
+}
+
+template<typename T, typename U>
+void SurfaceOnLattice3D<T,U>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;  // Surface values (ScalarField3D<U>).
+    modified[1] = modif::nothing;          // Container Block with triangle data.
+}
+
+template<typename T, typename U>
+BlockDomain::DomainT SurfaceOnLattice3D<T,U>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+
+/* ******** SurfaceOnLattice3D_N *************************************** */
+
+template<typename T, typename U>
+SurfaceOnLattice3D_N<T,U>::SurfaceOnLattice3D_N(U value_, plint envelopeWidth_)
+    : value(value_),
+      envelopeWidth(envelopeWidth_)
+{
+    PLB_ASSERT(envelopeWidth >= 1);
+}
+
+template<typename T, typename U>
+void SurfaceOnLattice3D_N<T,U>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION(blocks.size() == 2);
+    NTensorField3D<U> *surfaceOnLattice = dynamic_cast<NTensorField3D<U>*>(blocks[0]);
+    AtomicContainerBlock3D *container = dynamic_cast<AtomicContainerBlock3D*>(blocks[1]);
+    PLB_ASSERT(surfaceOnLattice);
+    PLB_ASSERT(container);
+
+    SurfaceBlockData3D<T> *surfaceData = dynamic_cast<SurfaceBlockData3D<T>*>(container->getData());
+    PLB_ASSERT(surfaceData);
+
+    std::vector< Array<T,3> > const& vertices = surfaceData->vertices;
+
+    plint w = envelopeWidth;
+    for (pluint i=0; i<vertices.size(); ++i) {
+        Array<T,3> const& vertex = vertices[i];
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        // x  x  x . x  x  x
+        for (plint dx=-(w-1); dx<=+w; ++dx) {
+            for (plint dy=-(w-1); dy<=+w; ++dy) {
+                for (plint dz=-(w-1); dz<=+w; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    if (contained(pos[0], pos[1], pos[2], domain)) {
+                        *surfaceOnLattice->get(pos[0], pos[1], pos[2]) = value;
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, typename U>
+SurfaceOnLattice3D_N<T,U>* SurfaceOnLattice3D_N<T,U>::clone() const
+{
+    return new SurfaceOnLattice3D_N<T,U>(*this);
+}
+
+template<typename T, typename U>
+void SurfaceOnLattice3D_N<T,U>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;  // Surface values (NTensorField3D<U>).
+    modified[1] = modif::nothing;          // Container Block with triangle data.
+}
+
+template<typename T, typename U>
+BlockDomain::DomainT SurfaceOnLattice3D_N<T,U>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+
 /* ******** ResetForceStatistics3D ************************************ */
 
 template<typename T>
@@ -1025,6 +1206,145 @@ BlockDomain::DomainT RecomputeImmersedForce3D<T,Descriptor,NormalFunction>::appl
     return BlockDomain::bulk;
 }
 
+
+/* ******** OpenSurfaceImmersedForce3D ************************************ */
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>::OpenSurfaceImmersedForce3D(
+        NormalFunction normalFunction_, T omega_, T densityOffset_,
+        bool incompressibleModel_)
+    : normalFunction(normalFunction_),
+      omega(omega_),
+      rho0(densityOffset_),
+      incompressibleModel(incompressibleModel_)
+{
+    PLB_ASSERT(densityOffset_ > (T) 0);
+}
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+void OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>::processGenericBlocks(
+        Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_PRECONDITION(blocks.size() == 3);
+
+    ScalarField3D<T>* rhoBar = dynamic_cast<ScalarField3D<T>*>(blocks[0]);
+    TensorField3D<T,SymmetricTensorImpl<T,3>::n>* PiNeq = dynamic_cast<TensorField3D<T,SymmetricTensorImpl<T,3>::n>*>(blocks[1]);
+    AtomicContainerBlock3D* container = dynamic_cast<AtomicContainerBlock3D*>(blocks[2]);
+    PLB_ASSERT(rhoBar);
+    PLB_ASSERT(PiNeq);
+    PLB_ASSERT(container);
+
+    Dot3D ofsPN = computeRelativeDisplacement(*rhoBar, *PiNeq);
+
+    ImmersedWallData3D<T>* wallData = 
+        dynamic_cast<ImmersedWallData3D<T>*>( container->getData() );
+    PLB_ASSERT(wallData);
+
+    std::vector< Array<T,3> > const& vertices = wallData->vertices;
+    std::vector<T> const& areas = wallData->areas;
+    PLB_ASSERT( vertices.size()==areas.size() );
+    std::vector<Array<T,3> >& g = wallData->g;
+    PLB_ASSERT( vertices.size()==g.size() );
+    std::vector<pluint> const& globalVertexIds = wallData->globalVertexIds;
+    PLB_ASSERT( vertices.size()==globalVertexIds.size() );
+
+    for (pluint i=0; i<vertices.size(); ++i) {
+        Array<T,3> normal = normalFunction(globalVertexIds[i]);
+
+
+        Array<T,3> const& vertex = vertices[i];
+
+        // Interpolate rhoBar and PiNeq on the vertex position.
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+
+        T averageRhoBar1 = 0.0, averageRhoBar2 = 0.0;
+        Array<T,SymmetricTensorImpl<T,3>::n> averagePiNeq1, averagePiNeq2;
+        averagePiNeq1.resetToZero();
+        averagePiNeq2.resetToZero();
+        plint n1=0, n2=0;
+        T w1=T(), w2=T();
+
+        // x   x . x   x
+        for (plint dx=-1; dx<=+2; ++dx) {
+            for (plint dy=-1; dy<=+2; ++dy) {
+                for (plint dz=-1; dz<=+2; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    T nextRhoBar = rhoBar->get(pos[0], pos[1], pos[2]);
+                    Array<T,SymmetricTensorImpl<T,3>::n>& nextPiNeq = PiNeq->get(pos[0]+ofsPN.x, pos[1]+ofsPN.y, pos[2]+ofsPN.z);
+                    Array<T,3> r(pos[0]-vertex[0],pos[1]-vertex[1],pos[2]-vertex[2]);
+                    T W = inamuroDeltaFunction<T>().W(r);
+                    if (dot(r, normal)>0) {
+                        averageRhoBar1 += W * nextRhoBar;
+                        averagePiNeq1 += W * nextPiNeq;
+                        w1 += W;
+                        ++n1;
+                    }
+                    else {
+                        averageRhoBar2 += W * nextRhoBar;
+                        averagePiNeq2 += W * nextPiNeq;
+                        w2 += W;
+                        ++n2;
+                    }
+                }
+            }
+        }
+
+        T averageRho1 = rho0;
+        T averageRho2 = rho0;
+        if (n1>0) {
+            averageRhoBar1 /= w1;
+            averageRho1 = Descriptor<T>::fullRho(averageRhoBar1);
+            averagePiNeq1 /= w1;
+        }
+        if (n2>0) {
+            averageRhoBar2 /= w2;
+            averageRho2 = Descriptor<T>::fullRho(averageRhoBar2);
+            averagePiNeq2 /= w2;
+        }
+
+        // Compute the force on the fluid at the vertex position.
+        Array<T,3> averagePi_n1;
+        SymmetricTensorImpl<T,3>::matVectMult(averagePiNeq1, normal, averagePi_n1);
+        // Important: on the reverse side, take the negative normal.
+        Array<T,3> averagePi_n2;
+        SymmetricTensorImpl<T,3>::matVectMult(averagePiNeq2, -normal, averagePi_n2);
+
+        // Here we want the force acting on the fluid from the solid. "normal" points towards the fluid,
+        // this is why the minus sign in front of the area is needed.
+        if (incompressibleModel) {
+            g[i] = -areas[i] * (
+                        (averageRho2-averageRho1)*Descriptor<T>::cs2*normal +
+                        (omega/(T)2.-(T)1.)*(averagePi_n1+averagePi_n2) );  // Incompressible vision
+        } else {
+            g[i] = -areas[i] * (
+                    (averageRho2-averageRho1)*Descriptor<T>::cs2*normal +
+                    Descriptor<T>::invRho(averageRhoBar1)*(omega/(T)2.-(T)1.)*averagePi_n1 +  // Compressible vision
+                    Descriptor<T>::invRho(averageRhoBar2)*(omega/(T)2.-(T)1.)*averagePi_n2 );
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>* OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>::clone() const
+{
+    return new OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+void OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::nothing;   // RhoBar
+    modified[1] = modif::nothing;   // PiNeq
+    modified[2] = modif::nothing;   // Container with triangle data
+}
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+BlockDomain::DomainT OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
 /* ******** TwoPhaseInamuroParam3D ************************************ */
 
 template<typename T>
@@ -1061,7 +1381,7 @@ Array<plint,3> TwoPhaseInamuroParam3D<T>::intVertex(plint i) const {
 template<typename T>
 T TwoPhaseInamuroParam3D<T>::rhoBar(plint iX, plint iY, plint iZ) const {
     int flag = getFlag(iX,iY,iZ);
-    if (flag==twoPhaseFlag::empty) {
+    if (flag==freeSurfaceFlag::empty) {
         return rhoBar2_->get(iX+ofsRhoBar2.x,iY+ofsRhoBar2.y,iZ+ofsRhoBar2.z);
     }
     else {
@@ -1072,7 +1392,7 @@ T TwoPhaseInamuroParam3D<T>::rhoBar(plint iX, plint iY, plint iZ) const {
 template<typename T>
 Array<T,3> TwoPhaseInamuroParam3D<T>::j(plint iX, plint iY, plint iZ) const {
     int flag = getFlag(iX,iY,iZ);
-    if (flag==twoPhaseFlag::empty) {
+    if (flag==freeSurfaceFlag::empty) {
         return j2_->get(iX+ofsJ2.x,iY+ofsJ2.y,iZ+ofsJ2.z);
     }
     else {
@@ -1084,11 +1404,11 @@ template<typename T>
 void TwoPhaseInamuroParam3D<T>::addToJ(plint iX, plint iY, plint iZ, Array<T,3> deltaJ)
 {
     int flag = getFlag(iX,iY,iZ);
-    if (flag==twoPhaseFlag::interface) {
+    if (flag==freeSurfaceFlag::interface) {
         j_->get(iX+ofsJ.x,iY+ofsJ.y,iZ+ofsJ.z) += deltaJ;
         j2_->get(iX+ofsJ2.x,iY+ofsJ2.y,iZ+ofsJ2.z) += deltaJ;
     }
-    else if (flag==twoPhaseFlag::empty) {
+    else if (flag==freeSurfaceFlag::empty) {
         j2_->get(iX+ofsJ2.x,iY+ofsJ2.y,iZ+ofsJ2.z) += deltaJ;
     }
     else {

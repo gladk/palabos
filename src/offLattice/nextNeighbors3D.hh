@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,7 +33,10 @@
 namespace plb {
 
 template <typename T>
-const int NextNeighbor<T>::c[numNeighbors][3] =
+const int NextNeighbor<T>::numNeighbors = 26;
+
+template <typename T>
+const int NextNeighbor<T>::c[26][3] =
 {             { 0, 0, 1}, { 0, 0,-1},
   { 0, 1, 0}, { 0, 1, 1}, { 0, 1,-1},
   { 0,-1, 0}, { 0,-1, 1}, { 0,-1,-1},
@@ -48,30 +51,42 @@ const int NextNeighbor<T>::c[numNeighbors][3] =
 };
 
 template <typename T>
-const T NextNeighbor<T>::d1 = (T)1.;
+const T NextNeighbor<T>::d1 = (T) 1;
 template <typename T>
-const T NextNeighbor<T>::d2 = std::sqrt((T)2);
+const T NextNeighbor<T>::d2 = std::sqrt((T) 2);
 template <typename T>
-const T NextNeighbor<T>::d3 = std::sqrt((T)3);
+const T NextNeighbor<T>::d3 = std::sqrt((T) 3);
 
 template <typename T>
-const T NextNeighbor<T>::d[numNeighbors] =
-{     d1, d1,  d1, d2, d2,  d1, d2, d2,
-  d1, d2, d2,  d2, d3, d3,  d2, d3, d3,
-  d1, d2, d2,  d2, d3, d3,  d2, d3, d3 };
+const T NextNeighbor<T>::d[26] =
+{                     (T) 1,            (T) 1,
+    (T) 1,            std::sqrt((T) 2), std::sqrt((T) 2),
+    (T) 1,            std::sqrt((T) 2), std::sqrt((T) 2),
+    (T) 1,            std::sqrt((T) 2), std::sqrt((T) 2),
+    std::sqrt((T) 2), std::sqrt((T) 3), std::sqrt((T) 3),
+    std::sqrt((T) 2), std::sqrt((T) 3), std::sqrt((T) 3),
+    (T) 1,            std::sqrt((T) 2), std::sqrt((T) 2),
+    std::sqrt((T) 2), std::sqrt((T) 3), std::sqrt((T) 3),
+    std::sqrt((T) 2), std::sqrt((T) 3), std::sqrt((T) 3) };
 
 template <typename T>
-const T NextNeighbor<T>::id1 = (T)1;
+const T NextNeighbor<T>::id1 = (T) 1;
 template <typename T>
-const T NextNeighbor<T>::id2 = (T)1/std::sqrt((T)2);
+const T NextNeighbor<T>::id2 = (T) 1 / std::sqrt((T) 2);
 template <typename T>
-const T NextNeighbor<T>::id3 = (T)1/std::sqrt((T)3);
+const T NextNeighbor<T>::id3 = (T) 1 / std::sqrt((T) 3);
 
 template <typename T>
-const T NextNeighbor<T>::invD[numNeighbors] =
-{      id1, id1,  id1, id2, id2,  id1, id2, id2,
-  id1, id2, id2,  id2, id3, id3,  id2, id3, id3,
-  id1, id2, id2,  id2, id3, id3,  id2, id3, id3 };
+const T NextNeighbor<T>::invD[26] =
+{                             (T) 1,                    (T) 1,
+    (T) 1,                    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 2),
+    (T) 1,                    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 2),
+    (T) 1,                    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 2),
+    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 3), (T) 1 / std::sqrt((T) 3),
+    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 3), (T) 1 / std::sqrt((T) 3),
+    (T) 1,                    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 2),
+    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 3), (T) 1 / std::sqrt((T) 3),
+    (T) 1 / std::sqrt((T) 2), (T) 1 / std::sqrt((T) 3), (T) 1 / std::sqrt((T) 3) };
 
 template<typename T, template<typename U> class Descriptor>
 NextNeighborPop<T,Descriptor>::NextNeighborPop()

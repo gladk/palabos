@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,9 +37,9 @@
 #include "core/cell.h"
 #include "core/dynamicsIdentifiers.h"
 #include "latticeBoltzmann/indexTemplates.h"
-#include <Eigen/Core>
-#include <Eigen/LU>
-#include <Eigen/Cholesky>
+#include <Eigen3/Core>
+#include <Eigen3/LU>
+#include <Eigen3/Cholesky>
 
 namespace plb {
 
@@ -66,7 +66,7 @@ GeneralizedVelocityBoundaryDynamics<T,Descriptor>::
     GeneralizedVelocityBoundaryDynamics(HierarchicUnserializer& unserializer)
         : StoreVelocityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -84,22 +84,22 @@ int GeneralizedVelocityBoundaryDynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedVelocityBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    StoreVelocityDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue((int)(missingIndices.size()));
     serializer.addValues(missingIndices);
     serializer.addValue((int)(knownIndices.size()));
     serializer.addValues(knownIndices);
-    StoreVelocityDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedVelocityBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    StoreVelocityDynamics<T,Descriptor>::unserialize(unserializer);
     missingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(missingIndices);
     knownIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(knownIndices);
-    StoreVelocityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -146,7 +146,7 @@ GeneralizedMassConservingVelocityBoundaryDynamics<T,Descriptor>::
     GeneralizedMassConservingVelocityBoundaryDynamics(HierarchicUnserializer& unserializer)
         : StoreVelocityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -164,26 +164,26 @@ int GeneralizedMassConservingVelocityBoundaryDynamics<T,Descriptor>::getId() con
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedMassConservingVelocityBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    StoreVelocityDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue((int)(missingIndices.size()));
     serializer.addValues(missingIndices);
     serializer.addValue((int)(knownIndices.size()));
     serializer.addValues(knownIndices);
     serializer.addValue((int)(inGoingIndices.size()));
     serializer.addValues(inGoingIndices);
-    StoreVelocityDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedMassConservingVelocityBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    StoreVelocityDynamics<T,Descriptor>::unserialize(unserializer);
     missingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(missingIndices);
     knownIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(knownIndices);
     inGoingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(inGoingIndices);
-    StoreVelocityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -235,7 +235,7 @@ GeneralizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::
     GeneralizedDensityBoundaryDynamics(HierarchicUnserializer& unserializer)
         : DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
@@ -256,13 +256,13 @@ template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 void GeneralizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
 {
+    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
     serializer.addValue((int)(missingIndices.size()));
     serializer.addValues(missingIndices);
     serializer.addValue((int)(knownIndices.size()));
     serializer.addValues(knownIndices);
 //     serializer.addValues(u);
 //     serializer.addValues(PiNeq);
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
@@ -270,13 +270,13 @@ template<typename T, template<typename U> class Descriptor,
 void GeneralizedDensityBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
     missingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(missingIndices);
     knownIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(knownIndices);
 //     unserializer.readValues(u);
 //     unserializer.readValues(PiNeq);
-    DensityDirichletBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
@@ -350,24 +350,24 @@ int GeneralizedVelocityTemperatureBoundaryDynamics<T,Descriptor>::getId() const 
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedVelocityTemperatureBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    StoreTemperatureAndVelocityDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue((int)(missingIndices.size()));
     serializer.addValues(missingIndices);
     serializer.addValue((int)(knownIndices.size()));
     serializer.addValues(knownIndices);
     serializer.addValue(massConserving);
-    StoreTemperatureAndVelocityDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedVelocityTemperatureBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    StoreTemperatureAndVelocityDynamics<T,Descriptor>::unserialize(unserializer);
     missingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(missingIndices);
     knownIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(knownIndices);
     massConserving = unserializer.readValue<bool>();
-    StoreTemperatureAndVelocityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -471,22 +471,22 @@ int GeneralizedNextToBoundaryDynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedNextToBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue((int)(missingIndices.size()));
     serializer.addValues(missingIndices);
     serializer.addValue((int)(knownIndices.size()));
     serializer.addValues(knownIndices);
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void GeneralizedNextToBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
     missingIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(missingIndices);
     knownIndices.resize(unserializer.readValue<int>());
     unserializer.readValues(knownIndices);
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>

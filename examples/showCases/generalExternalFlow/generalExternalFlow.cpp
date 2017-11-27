@@ -1,7 +1,7 @@
 
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,6 +35,7 @@
  * Using sponge zones.
  * Imposing time dependent inlet boundary conditions.
  * Computing the force on objects.
+ * Computing the torque on moving objects.
  * Checkpointing (saving the state of the simulation and restarting).
  * Parallel I/O.
  * */
@@ -150,6 +151,9 @@ struct SimulationParameters {
 
     Precision precision;                            // Precision for geometric operations.
 
+    std::vector<Array<T,3> > torqueAxisPoints;      // Axes with respect to which the torques on moving objects is computed.
+    std::vector<Array<T,3> > torqueAxisDirections;
+
     bool outputInDomain;                            // Save data on disk in a volume domain or not?
     Cuboid<T> outputCuboid;                         // Volume domain for disk output.
 
@@ -193,6 +197,8 @@ struct SimulationParameters {
     bool saveDynamicContent;
     plint fileNamePadding;
     bool incompressibleModel;
+
+    std::vector<Array<T,3> > torqueAxisPoints_LB;
 
     Box3D outputDomain;                             // Domains for disk output.
     std::vector<Box3D> xSlices;
@@ -346,6 +352,41 @@ void readUserDefinedSimulationParameters(std::string xmlInputFileName, Simulatio
     document["output"]["abIter"].read(param.abIter);
     PLB_ASSERT(param.abIter > 0);
 
+    {
+        std::vector<T> x, y, z;
+        document["output"]["torques"]["axisPoints"]["x"].read(x);
+        document["output"]["torques"]["axisPoints"]["y"].read(y);
+        document["output"]["torques"]["axisPoints"]["z"].read(z);
+        PLB_ASSERT(x.size() == y.size() && y.size() == z.size());
+        PLB_ASSERT(x.size() == param.movingSurfaceFileNames.size());
+        plint sz = x.size();
+        param.torqueAxisPoints.resize(sz);
+        for (plint iSurface = 0; iSurface < sz; iSurface++) {
+            param.torqueAxisPoints[iSurface][0] = x[iSurface];
+            param.torqueAxisPoints[iSurface][1] = y[iSurface];
+            param.torqueAxisPoints[iSurface][2] = z[iSurface];
+        }
+    }
+    {
+        std::vector<T> x, y, z;
+        document["output"]["torques"]["axisDirections"]["x"].read(x);
+        document["output"]["torques"]["axisDirections"]["y"].read(y);
+        document["output"]["torques"]["axisDirections"]["z"].read(z);
+        PLB_ASSERT(x.size() == y.size() && y.size() == z.size());
+        PLB_ASSERT(x.size() == param.movingSurfaceFileNames.size());
+        plint sz = x.size();
+        param.torqueAxisDirections.resize(sz);
+        for (plint iSurface = 0; iSurface < sz; iSurface++) {
+            param.torqueAxisDirections[iSurface][0] = x[iSurface];
+            param.torqueAxisDirections[iSurface][1] = y[iSurface];
+            param.torqueAxisDirections[iSurface][2] = z[iSurface];
+
+            T axisNorm = norm(param.torqueAxisDirections[iSurface]);
+            PLB_ASSERT(!util::isZero(axisNorm));
+            param.torqueAxisDirections[iSurface] /= axisNorm;
+        }
+    }
+
     document["output"]["outputInDomain"].read(param.outputInDomain);
     if (param.outputInDomain) {
         std::vector<T> x, y, z;
@@ -395,42 +436,12 @@ void computeOutputDomain(SimulationParameters& param)
     Array<T,3> urc = param.outputCuboid.upperRightCorner;
 
     plint x0 = util::roundToInt(toLB(llc[0], 0, param.dx, param.physicalLocation));
-    if (x0 < 0) {
-        x0 = 0;
-    } else if (x0 > param.nx-1) {
-        x0 = param.nx-1;
-    }
     plint y0 = util::roundToInt(toLB(llc[1], 1, param.dx, param.physicalLocation));
-    if (y0 < 0) {
-        y0 = 0;
-    } else if (y0 > param.ny-1) {
-        y0 = param.ny-1;
-    }
     plint z0 = util::roundToInt(toLB(llc[2], 2, param.dx, param.physicalLocation));
-    if (z0 < 0) {
-        z0 = 0;
-    } else if (z0 > param.nz-1) {
-        z0 = param.nz-1;
-    }
 
     plint x1 = util::roundToInt(toLB(urc[0], 0, param.dx, param.physicalLocation));
-    if (x1 < 0) {
-        x1 = 0;
-    } else if (x1 > param.nx-1) {
-        x1 = param.nx-1;
-    }
     plint y1 = util::roundToInt(toLB(urc[1], 1, param.dx, param.physicalLocation));
-    if (y1 < 0) {
-        y1 = 0;
-    } else if (y1 > param.ny-1) {
-        y1 = param.ny-1;
-    }
     plint z1 = util::roundToInt(toLB(urc[2], 2, param.dx, param.physicalLocation));
-    if (z1 < 0) {
-        z1 = 0;
-    } else if (z1 > param.nz-1) {
-        z1 = param.nz-1;
-    }
 
     PLB_ASSERT(x1 >= x0 && y1 >= y0 && z1 >= z0);
 
@@ -447,45 +458,15 @@ void computeOutputSlices(SimulationParameters& param)
         param.xSlices.clear();
 
         plint y0 = util::roundToInt(toLB(param.xyRange[0], 1, param.dx, param.physicalLocation));
-        if (y0 < 0) {
-            y0 = 0;
-        } else if (y0 > param.ny-1) {
-            y0 = param.ny-1;
-        }
         plint y1 = util::roundToInt(toLB(param.xyRange[1], 1, param.dx, param.physicalLocation));
-        if (y1 < 0) {
-            y1 = 0;
-        } else if (y1 > param.ny-1) {
-            y1 = param.ny-1;
-        }
-
         plint z0 = util::roundToInt(toLB(param.xzRange[0], 2, param.dx, param.physicalLocation));
-        if (z0 < 0) {
-            z0 = 0;
-        } else if (z0 > param.nz-1) {
-            z0 = param.nz-1;
-        }
         plint z1 = util::roundToInt(toLB(param.xzRange[1], 2, param.dx, param.physicalLocation));
-        if (z1 < 0) {
-            z1 = 0;
-        } else if (z1 > param.nz-1) {
-            z1 = param.nz-1;
-        }
         PLB_ASSERT(y1 >= y0 && z1 >= z0);
 
         for (plint i = 0; i < (plint) param.xPositions.size(); i++) {
             plint xPos = util::roundToInt(toLB(param.xPositions[i], 0, param.dx, param.physicalLocation));
-            plint x0, x1;
-            if (xPos <= 0) {
-                xPos = 0;
-                x0 = x1 = xPos;
-            } else if (xPos >= param.nx-1) {
-                xPos = param.nx-1;
-                x0 = x1 = xPos;
-            } else {
-                x0 = xPos-1;
-                x1 = xPos+1;
-            }
+            plint x0 = xPos - 1;
+            plint x1 = xPos + 1;
             param.xSlices.push_back(Box3D(x0, x1, y0, y1, z0, z1));
         }
     }
@@ -494,45 +475,15 @@ void computeOutputSlices(SimulationParameters& param)
         param.ySlices.clear();
 
         plint z0 = util::roundToInt(toLB(param.yzRange[0], 2, param.dx, param.physicalLocation));
-        if (z0 < 0) {
-            z0 = 0;
-        } else if (z0 > param.nz-1) {
-            z0 = param.nz-1;
-        }
         plint z1 = util::roundToInt(toLB(param.yzRange[1], 2, param.dx, param.physicalLocation));
-        if (z1 < 0) {
-            z1 = 0;
-        } else if (z1 > param.nz-1) {
-            z1 = param.nz-1;
-        }
-
         plint x0 = util::roundToInt(toLB(param.yxRange[0], 0, param.dx, param.physicalLocation));
-        if (x0 < 0) {
-            x0 = 0;
-        } else if (x0 > param.nx-1) {
-            x0 = param.nx-1;
-        }
         plint x1 = util::roundToInt(toLB(param.yxRange[1], 0, param.dx, param.physicalLocation));
-        if (x1 < 0) {
-            x1 = 0;
-        } else if (x1 > param.nx-1) {
-            x1 = param.nx-1;
-        }
         PLB_ASSERT(z1 >= z0 && x1 >= x0);
 
         for (plint i = 0; i < (plint) param.yPositions.size(); i++) {
             plint yPos = util::roundToInt(toLB(param.yPositions[i], 1, param.dx, param.physicalLocation));
-            plint y0, y1;
-            if (yPos <= 0) {
-                yPos = 0;
-                y0 = y1 = yPos;
-            } else if (yPos >= param.ny-1) {
-                yPos = param.ny-1;
-                y0 = y1 = yPos;
-            } else {
-                y0 = yPos-1;
-                y1 = yPos+1;
-            }
+            plint y0 = yPos - 1;
+            plint y1 = yPos + 1;
             param.ySlices.push_back(Box3D(x0, x1, y0, y1, z0, z1));
         }
     }
@@ -541,45 +492,15 @@ void computeOutputSlices(SimulationParameters& param)
         param.zSlices.clear();
 
         plint x0 = util::roundToInt(toLB(param.zxRange[0], 0, param.dx, param.physicalLocation));
-        if (x0 < 0) {
-            x0 = 0;
-        } else if (x0 > param.nx-1) {
-            x0 = param.nx-1;
-        }
         plint x1 = util::roundToInt(toLB(param.zxRange[1], 0, param.dx, param.physicalLocation));
-        if (x1 < 0) {
-            x1 = 0;
-        } else if (x1 > param.nx-1) {
-            x1 = param.nx-1;
-        }
-
         plint y0 = util::roundToInt(toLB(param.zyRange[0], 1, param.dx, param.physicalLocation));
-        if (y0 < 0) {
-            y0 = 0;
-        } else if (y0 > param.ny-1) {
-            y0 = param.ny-1;
-        }
         plint y1 = util::roundToInt(toLB(param.zyRange[1], 1, param.dx, param.physicalLocation));
-        if (y1 < 0) {
-            y1 = 0;
-        } else if (y1 > param.ny-1) {
-            y1 = param.ny-1;
-        }
         PLB_ASSERT(x1 >= x0 && y1 >= y0);
 
         for (plint i = 0; i < (plint) param.zPositions.size(); i++) {
             plint zPos = util::roundToInt(toLB(param.zPositions[i], 2, param.dx, param.physicalLocation));
-            plint z0, z1;
-            if (zPos <= 0) {
-                zPos = 0;
-                z0 = z1 = zPos;
-            } else if (zPos >= param.nz-1) {
-                zPos = param.nz-1;
-                z0 = z1 = zPos;
-            } else {
-                z0 = zPos-1;
-                z1 = zPos+1;
-            }
+            plint z0 = zPos - 1;
+            plint z1 = zPos + 1;
             param.zSlices.push_back(Box3D(x0, x1, y0, y1, z0, z1));
         }
     }
@@ -682,6 +603,11 @@ void calculateDerivedSimulationParameters(SimulationParameters& param)
     T nu_LB = param.nu * param.dt / (param.dx * param.dx);
     param.omega = 1.0 / (DESCRIPTOR<T>::invCs2 * nu_LB + 0.5);
 
+    param.torqueAxisPoints_LB.resize(param.torqueAxisPoints.size());
+    for (plint iSurface = 0; iSurface < (plint) param.torqueAxisPoints_LB.size(); iSurface++) {
+        param.torqueAxisPoints_LB[iSurface] = toLB(param.torqueAxisPoints[iSurface], param.dx, param.physicalLocation);
+    }
+
     computeOutputDomain(param);
     computeOutputSlices(param);
     defineOuterDomain(param);
@@ -744,6 +670,16 @@ void printSimulationParameters(SimulationParameters const& param)
     if (param.useSmagorinskySponges) {
         pcout << "targetCSmago = " << param.targetCSmago << std::endl;
     }
+    for (plint iSurface = 0; iSurface < (plint) param.torqueAxisPoints.size(); iSurface++) {
+        pcout << "torqueAxisPoints[" << iSurface << "] = [" << param.torqueAxisPoints[iSurface][0] << ", "
+                                                            << param.torqueAxisPoints[iSurface][1] << ", "
+                                                            << param.torqueAxisPoints[iSurface][2] << "]" << std::endl;
+    }
+    for (plint iSurface = 0; iSurface < (plint) param.torqueAxisDirections.size(); iSurface++) {
+        pcout << "torqueAxisDirections[" << iSurface << "] = [" << param.torqueAxisDirections[iSurface][0] << ", "
+                                                                << param.torqueAxisDirections[iSurface][1] << ", "
+                                                                << param.torqueAxisDirections[iSurface][2] << "]" << std::endl;
+    }
 
     pcout << "useParallelIO = " << (param.useParallelIO ? "true" : "false") << std::endl;
     pcout << "precision = " << (param.precision == FLT ? "FLT" :
@@ -773,6 +709,11 @@ void printSimulationParameters(SimulationParameters const& param)
     }
     for (int iSponge = 0; iSponge < 6; iSponge++) {
         pcout << "numSpongeCells[" << iSponge << "] = " << param.numSpongeCells[iSponge] << std::endl;
+    }
+    for (plint iSurface = 0; iSurface < (plint) param.torqueAxisPoints_LB.size(); iSurface++) {
+        pcout << "torqueAxisPoints_LB[" << iSurface << "] = [" << param.torqueAxisPoints_LB[iSurface][0] << ", "
+                                                               << param.torqueAxisPoints_LB[iSurface][1] << ", "
+                                                               << param.torqueAxisPoints_LB[iSurface][2] << "]" << std::endl;
     }
     pcout << "Re = " << param.inletVelocity[param.flowDirection] * param.characteristicLength / param.nu << std::endl;
     pcout << "omega = " << param.omega << std::endl;
@@ -890,9 +831,9 @@ void initializeImmersedSurfaceData(SimulationParameters& param)
     }
 }
 
-class VelocityFunction {
+class VelFunction {
 public:
-    VelocityFunction(SimulationParameters& param_)
+    VelFunction(SimulationParameters& param_)
         : param(param_)
     { }
 
@@ -912,14 +853,13 @@ public:
             return Array<T,3>((T) 0, (T) 0, (T) 0);
         }
 
-        Array<T,3> const& n = param.rotationAxisUnitVectors[iSurface];
         Array<T,3> const& p0 = param.rotationAxisPoints_LB[iSurface];
         Array<T,3> const& omegaMax = param.angularVelocities_LB[iSurface];
         Array<T,3> const& position = param.vertices[id];
 
         Array<T,3> omega = getVelocity(omegaMax, param.nextIter, param.startIter);
 
-        return(getRotationalVelocity(position, omega, n, p0));
+        return(getExactRotationalVelocity(position, omega, p0));
     }
 
 private:
@@ -977,7 +917,7 @@ void updateMovingSurfaces(SimulationParameters& param, plint iIter)
     }
 }
 
-void saveMovingSurfaces(SimulationParameters& param, std::string baseName, plint iIter)
+void outputMovingSurfaces(SimulationParameters& param, std::string baseName, plint iIter)
 {
     plint numDigits = util::val2str(param.numMovingSurfaces).length();
     for (plint iMovingSurface = 0; iMovingSurface < param.numMovingSurfaces; iMovingSurface++) {
@@ -996,28 +936,78 @@ void saveMovingSurfaces(SimulationParameters& param, std::string baseName, plint
     }
 }
 
-void readMovingSurfaces(SimulationParameters& param, std::string baseName, plint iIter)
+void saveMovingSurfaces(SimulationParameters& param, std::string baseName, plint iIter)
 {
-    plint numDigits = util::val2str(param.numMovingSurfaces).length();
-    for (plint iMovingSurface = 0; iMovingSurface < param.numMovingSurfaces; iMovingSurface++) {
-        std::string fname = createFileName(
-                createFileName(baseName + "moving_surface_", iMovingSurface, numDigits+1)+"_", iIter, param.fileNamePadding)
-            + ".stl";
+    // Checkpointing of moving surfaces is kept to a very basic level for simplicity.
+    // We assume that if one process exits, then all the others will exit as well.
+    if (global::mpi().isMainProcessor()) {
+        std::string fname = createFileName(baseName + "surfaces_", iIter, param.fileNamePadding) + ".dat";
+        FILE* fp = fopen(fname.c_str(), "wb");
+        PLB_ASSERT(fp != 0);
 
-        TriangleSet<T> *surfaceTriangleSet = new TriangleSet<T>(fname, param.precision);
-        surfaceTriangleSet->scale(1.0 / param.dx);
-        surfaceTriangleSet->translate(-param.physicalLocation / param.dx);
-
-        ConnectedTriangleSet<T> connectedTriangleSet(*surfaceTriangleSet);
-        delete surfaceTriangleSet;
-        plint numVertices = connectedTriangleSet.getNumVertices();
-
-        plint startId = param.startIds[iMovingSurface];
-        for (plint iVertex = 0; iVertex < numVertices; iVertex++) {
-            plint id = startId + iVertex;
-            param.vertices[id] = connectedTriangleSet.getVertex(iVertex);
+        plint numVertices = param.vertices.size();
+        if ((plint) fwrite(&param.vertices[0], sizeof(Array<T,3>), numVertices, fp) != numVertices) {
+            fclose(fp);
+            remove(fname.c_str());
+            std::cout << "Error in saving surface data." << std::endl;
+            exit(1);
         }
     }
+
+    // If all the processes do not exit in the case that one does, then the code
+    // will deliberately hang here.
+    global::mpi().barrier();
+}
+
+void readMovingSurfaces(SimulationParameters& param, std::string baseName, plint iIter)
+{
+    // Checkpointing of moving surfaces is kept to a very basic level for simplicity.
+    // We assume that if one process exits, then all the others will exit as well.
+    // We also assume that all processes can read a file from the filesystem.
+    std::string fname = createFileName(baseName + "surfaces_", iIter, param.fileNamePadding) + ".dat";
+    FILE* fp = fopen(fname.c_str(), "rb");
+    PLB_ASSERT(fp != 0);
+
+    plint numVertices = param.vertices.size();
+    if ((plint) fread(&param.vertices[0], sizeof(Array<T,3>), numVertices, fp) != numVertices) {
+        std::cout << "Error in loading surface data." << std::endl;
+        exit(1);
+    }
+
+    // If all the processes do not exit in the case that one or more do, then the code
+    // will deliberately hang here.
+    global::mpi().barrier();
+}
+
+Box3D boundAllSurfaces(SimulationParameters& param)
+{
+    Box3D totalBound;
+    for (plint iSurface = 0; iSurface < param.numSurfaces; iSurface++) {
+        TriangleSet<T>* triangleSet = param.allSurfaces[iSurface].toTriangleSet(param.precision,
+                &param.vertices, param.startIds[iSurface]);
+        PLB_ASSERT(triangleSet != 0);
+        Cuboid<T> bCuboid = triangleSet->getBoundingCuboid();
+        delete triangleSet;
+
+        Array<T,3> const& llc = bCuboid.lowerLeftCorner;
+        Array<T,3> const& urc = bCuboid.upperRightCorner;
+        Box3D localBound;
+        localBound.x0 = llc[0];
+        localBound.y0 = llc[1];
+        localBound.z0 = llc[2];
+        localBound.x1 = urc[0] + 1;
+        localBound.y1 = urc[1] + 1;
+        localBound.z1 = urc[2] + 1;
+        localBound = localBound.enlarge(2);
+
+        if (iSurface == 0) {
+            totalBound = localBound;
+        } else {
+            totalBound = bound(totalBound, localBound);
+        }
+    }
+
+    return totalBound;
 }
 
 void createFluidBlocks(SimulationParameters& param, MultiBlockLattice3D<T,DESCRIPTOR>*& lattice,
@@ -1052,7 +1042,7 @@ void createFluidBlocks(SimulationParameters& param, MultiBlockLattice3D<T,DESCRI
             lattice->getBoundingBox(), lattice_rho_bar_j_arg, 0);
     integrateProcessingFunctional(
             new BoxRhoBarJfunctional3D<T,DESCRIPTOR>(),
-            lattice->getBoundingBox(), lattice_rho_bar_j_arg, 3); // Boundary conditions are executed at levels 1 and 2.
+            lattice->getBoundingBox(), lattice_rho_bar_j_arg, 3); // Boundary conditions are executed at levels 0, 1 and 2.
 
     // Integrate the immersed boundary processors in the lattice multi-block.
 
@@ -1073,8 +1063,8 @@ void createFluidBlocks(SimulationParameters& param, MultiBlockLattice3D<T,DESCRI
         args.push_back(j);
         args.push_back(container);
         integrateProcessingFunctional(
-            new IndexedInamuroIteration3D<T,VelocityFunction>(
-                VelocityFunction(param), 1.0 / param.omega, param.incompressibleModel),
+            new IndexedInamuroIteration3D<T,VelFunction>(
+                VelFunction(param), 1.0 / param.omega, param.incompressibleModel),
             rhoBar->getBoundingBox(), *lattice, args, pl);
         pl++;
     }
@@ -1097,7 +1087,7 @@ void createSpongeZones(SimulationParameters const& param, bool continueSimulatio
 
             std::vector<MultiBlock3D*> args;
             args.push_back(lattice);
-            applyProcessingFunctional(new SmagorinskySpongeZone<T,DESCRIPTOR>(
+            applyProcessingFunctional(new SmagorinskySpongeZone3D<T,DESCRIPTOR>(
                         param.nx, param.ny, param.nz, bulkValue, targetValue, param.numSpongeCells),
                     lattice->getBoundingBox(), args);
         } else {
@@ -1107,7 +1097,7 @@ void createSpongeZones(SimulationParameters const& param, bool continueSimulatio
 
             std::vector<MultiBlock3D*> args;
             args.push_back(lattice);
-            applyProcessingFunctional(new ViscositySpongeZone<T,DESCRIPTOR>(
+            applyProcessingFunctional(new ViscositySpongeZone3D<T,DESCRIPTOR>(
                         param.nx, param.ny, param.nz, bulkValue, param.numSpongeCells),
                     lattice->getBoundingBox(), args);
         }
@@ -1246,7 +1236,7 @@ void initializeSimulation(SimulationParameters& param, bool continueSimulation, 
     if (continueSimulation) {
         pcout << "Reading state of the simulation from file: " << xmlRestartFileName << std::endl;
         loadState(checkpointBlocks, iniIter, param.saveDynamicContent, xmlRestartFileName);
-        lattice->getTimeCounter().resetTime(iniIter);
+        lattice->resetTime(iniIter);
         readMovingSurfaces(param, param.baseFileName, iniIter);
         pcout << std::endl;
     }
@@ -1257,9 +1247,14 @@ void initializeSimulation(SimulationParameters& param, bool continueSimulation, 
 void writeVTK(SimulationParameters const& param, MultiBlockLattice3D<T,DESCRIPTOR> *lattice,
         plint iIter)
 {
+    T outletPressure = param.rho_LB;
+    if (param.outflowBcType != 0) {
+        outletPressure = computeAverageDensity(*lattice, param.outlet);
+    }
+    outletPressure *= param.rho * (param.dx * param.dx) / (param.dt * param.dt) * DESCRIPTOR<T>::cs2;
+
     T pressureScale = param.rho * (param.dx * param.dx) / (param.dt * param.dt) * DESCRIPTOR<T>::cs2;
-    T pressureOffset = param.ambientPressure -
-        param.rho_LB * param.rho * (param.dx * param.dx) / (param.dt * param.dt) * DESCRIPTOR<T>::cs2;
+    T pressureOffset = param.ambientPressure - outletPressure;
 
     if (param.outputInDomain) {
         std::string fname = createFileName(outDir + "domain_", iIter, param.fileNamePadding);
@@ -1417,11 +1412,11 @@ int main(int argc, char* argv[])
     initializeSimulation(param, continueSimulation, xmlRestartFileName, iniIter, lattice, lattice_rho_bar_j_arg,
             checkpointBlocks);
 
-    FILE *fpEnergy = NULL;
+    FILE *fpEnergy = 0;
     if (global::mpi().isMainProcessor()) {
         std::string fileName = outDir + "average_energy.dat";
         fpEnergy = fopen(fileName.c_str(), continueSimulation ? "a" : "w");
-        PLB_ASSERT(fpEnergy != NULL);
+        PLB_ASSERT(fpEnergy != 0);
     }
 
     std::vector<FILE *> fpForces(param.numSurfaces);
@@ -1435,7 +1430,22 @@ int main(int argc, char* argv[])
                 fileName = outDir + "total_force_on_surface.dat";
             }
             fpForces[iSurface] = fopen(fileName.c_str(), continueSimulation ? "a" : "w");
-            PLB_ASSERT(fpForces[iSurface] != NULL);
+            PLB_ASSERT(fpForces[iSurface] != 0);
+        }
+    }
+
+    std::vector<FILE *> fpTorques(param.numMovingSurfaces);
+    if (global::mpi().isMainProcessor()) {
+        plint numDigits = util::val2str(param.numMovingSurfaces).length();
+        for (plint iSurface = 0; iSurface < param.numMovingSurfaces; iSurface++) {
+            std::string fileName;
+            if (param.numMovingSurfaces != 1) {
+                fileName = createFileName(outDir + "total_torque_on_surface_", iSurface, numDigits+1) + ".dat";
+            } else {
+                fileName = outDir + "total_torque_on_surface.dat";
+            }
+            fpTorques[iSurface] = fopen(fileName.c_str(), continueSimulation ? "a" : "w");
+            PLB_ASSERT(fpTorques[iSurface] != 0);
         }
     }
 
@@ -1459,14 +1469,18 @@ int main(int argc, char* argv[])
             T energy = computeAverageEnergy(*lattice) * param.rho * (param.dx * param.dx) / (param.dt * param.dt);
             pcout << "Average kinetic energy: " << energy << std::endl;
             if (global::mpi().isMainProcessor()) {
-                fprintf(fpEnergy, "% .8e\t% .8e\n", (double) (iIter * param.dt), (double) energy);
+                double t = (double) (iIter * param.dt);
+                double ed = (double) energy;
+                fprintf(fpEnergy, "% .8e\t% .8e\n", t, ed);
                 fflush(fpEnergy);
             }
 
             // Forces on immersed surfaces.
 
+            Box3D totalBound = boundAllSurfaces(param);
+            T averageDensity = computeAverageDensity(*lattice, totalBound);
             T forceConversion = 2.0 * param.rho * (param.dx * param.dx * param.dx * param.dx) / (param.dt * param.dt);
-            recomputeImmersedForce(SurfaceNormalFunction(param), param.omega, param.rho_LB, *lattice,
+            recomputeImmersedForce(SurfaceNormalFunction(param), param.omega, averageDensity, *lattice,
                     *container, param.largeEnvelopeWidth, lattice->getBoundingBox(), param.incompressibleModel);
             for (plint iSurface = 0; iSurface < param.numSurfaces; iSurface++) {
                 Array<T,3> force = -reduceImmersedForce<T>(*container, iSurface) * forceConversion;
@@ -1477,9 +1491,34 @@ int main(int argc, char* argv[])
                 }
                 pcout << "(" << force[0] << ", " << force[1] << ", " << force[2] << ")" << std::endl;
                 if (global::mpi().isMainProcessor()) {
-                    fprintf(fpForces[iSurface], "% .8e\t% .8e\t% .8e\t% .8e\n", (double) (iIter * param.dt),
-                            (double) force[0], (double) force[1], (double) force[2]);
+                    double t = (double) (iIter * param.dt);
+                    double f0 = (double) force[0];
+                    double f1 = (double) force[1];
+                    double f2 = (double) force[2];
+                    fprintf(fpForces[iSurface], "% .8e\t% .8e\t% .8e\t% .8e\n", t, f0, f1, f2);
                     fflush(fpForces[iSurface]);
+                }
+            }
+
+            // Torques on immersed moving surfaces.
+
+            T torqueConversion = 2.0 * param.rho * (param.dx * param.dx * param.dx * param.dx * param.dx) / (param.dt * param.dt);
+            for (plint iSurface = 0; iSurface < param.numMovingSurfaces; iSurface++) {
+                Array<T,3> torque = -reduceAxialTorqueImmersed<T>(*container, param.torqueAxisPoints_LB[iSurface],
+                        param.torqueAxisDirections[iSurface], iSurface) * torqueConversion;
+                if (param.numMovingSurfaces != 1) {
+                    pcout << "Torque on moving surface " << iSurface << ": ";
+                } else {
+                    pcout << "Torque on moving surface: ";
+                }
+                pcout << "(" << torque[0] << ", " << torque[1] << ", " << torque[2] << ")" << std::endl;
+                if (global::mpi().isMainProcessor()) {
+                    double t = (double) (iIter * param.dt);
+                    double t0 = (double) torque[0];
+                    double t1 = (double) torque[1];
+                    double t2 = (double) torque[2];
+                    fprintf(fpTorques[iSurface], "% .8e\t% .8e\t% .8e\t% .8e\n", t, t0, t1, t2);
+                    fflush(fpTorques[iSurface]);
                 }
             }
 
@@ -1491,7 +1530,7 @@ int main(int argc, char* argv[])
         if (iIter % param.outIter == 0 || iIter == param.maxIter - 1) {
             pcout << "Output to disk at iteration: " << iIter << std::endl;
             writeVTK(param, lattice, iIter);
-            saveMovingSurfaces(param, outDir, iIter);
+            outputMovingSurfaces(param, outDir, iIter);
             pcout << std::endl;
         }
 
@@ -1530,6 +1569,9 @@ int main(int argc, char* argv[])
         fclose(fpEnergy);
         for (plint iSurface = 0; iSurface < param.numSurfaces; iSurface++) {
             fclose(fpForces[iSurface]);
+        }
+        for (plint iSurface = 0; iSurface < param.numMovingSurfaces; iSurface++) {
+            fclose(fpTorques[iSurface]);
         }
     }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -126,6 +126,38 @@ Array<T,nDim> predictorCorrectorTensorField (
     vector2.resetToZero();
     for (plint iCell=0; iCell<8; ++iCell) {
         vector2 += weights[iCell]*tensorField.get(pos[iCell].x,pos[iCell].y,pos[iCell].z)*scaling;
+    }
+
+    return (vector1+vector2)/(T)2;
+}
+
+template<typename T>
+Array<T,3> predictorCorrectorNTensorField (
+        NTensorField3D<T>& tensorField, Array<T,3> const& position, T scaling )
+{
+    PLB_PRECONDITION( tensorField.getNdim() );
+    Array<T,3> position1(position);
+    std::vector<Dot3D> pos(8);
+    std::vector<T> weights(8);
+    linearInterpolationCoefficients(tensorField, position1, pos, weights);
+    Array<T,3> vector1;
+    vector1.resetToZero();
+    for (plint iCell=0; iCell<8; ++iCell) {
+        T* data = tensorField.get(pos[iCell].x,pos[iCell].y,pos[iCell].z);
+        vector1[0] += data[0] * weights[iCell] * scaling;
+        vector1[1] += data[1] * weights[iCell] * scaling;
+        vector1[2] += data[2] * weights[iCell] * scaling;
+    }
+
+    Array<T,3> position2(position1+vector1);
+    linearInterpolationCoefficients(tensorField, position2, pos, weights);
+    Array<T,3> vector2;
+    vector2.resetToZero();
+    for (plint iCell=0; iCell<8; ++iCell) {
+        T* data = tensorField.get(pos[iCell].x,pos[iCell].y,pos[iCell].z);
+        vector2[0] += data[0] * weights[iCell] * scaling;
+        vector2[1] += data[1] * weights[iCell] * scaling;
+        vector2[2] += data[2] * weights[iCell] * scaling;
     }
 
     return (vector1+vector2)/(T)2;

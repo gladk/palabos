@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #define EXTERNAL_FIELD_ACCESS_H
 
 #include "core/globalDefs.h"
+#include "core/cell.h"
 
 namespace plb {
 
@@ -47,7 +48,66 @@ struct ExternalForceAccess {
         PLB_PRECONDITION( iD < Descriptor<T>::d);
         return *(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt+iD));
     }
+    static void setComponent(Cell<T,Descriptor> const& cell, plint iD, T component) {
+        PLB_PRECONDITION( Descriptor<T>::d == Descriptor<T>::ExternalField::sizeOfForce );
+        PLB_PRECONDITION( iD < Descriptor<T>::d);
+        *(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt+iD)) = component;
+    }
+    static Array<T,numForceComponents> get(Cell<T,Descriptor> const& cell)
+    {
+        PLB_PRECONDITION( Descriptor<T>::d == Descriptor<T>::ExternalField::sizeOfForce );
+        Array<T,numForceComponents> force;
+        force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
+        return force;
+    }
+    static void set( Cell<T,Descriptor>& cell,
+                     Array<T,numForceComponents> const& force )
+    {
+        PLB_PRECONDITION( Descriptor<T>::d == Descriptor<T>::ExternalField::sizeOfForce );
+        force.to_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
+    }
+    
 };
+
+/// Specialization of ExternalForceAccess: return 0 if there is no external force.
+template<typename T, template<typename U> class Descriptor>
+struct ExternalForceAccess<T,Descriptor,0> {
+    static T getComponent(Cell<T,Descriptor> const& cell, plint iD) {
+        return T();
+    }
+
+    static void setComponent(Cell<T,Descriptor> const& cell, plint iD, T component) { }
+    static Array<T,0> get(Cell<T,Descriptor> const& cell) {
+        return Array<T,0>();
+    }
+    static void set( Cell<T,Descriptor>& cell,
+                     Array<T,0> const& force ) {}
+};
+
+
+/// Automatic instantiation of ExternalForceAccess, depending on the Descriptor
+template<typename T, template<typename U> class Descriptor>
+T getExternalForceComponent(Cell<T,Descriptor> const& cell, plint iD) {
+    return ExternalForceAccess<T, Descriptor, Descriptor<T>::ExternalField::sizeOfForce>::getComponent(cell,iD);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void setExternalForceComponent(Cell<T,Descriptor> const& cell, plint iD, T component) {
+    ExternalForceAccess<T, Descriptor, Descriptor<T>::ExternalField::sizeOfForce>::setComponent(cell,iD,component);
+}
+
+template<typename T, template<typename U> class Descriptor>
+Array<T,Descriptor<T>::ExternalField::sizeOfForce> getExternalForce(Cell<T,Descriptor> const& cell)
+{
+    return ExternalForceAccess<T, Descriptor, Descriptor<T>::ExternalField::sizeOfForce>::get(cell);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void setExternalForce( Cell<T,Descriptor>& cell,
+                       Array<T,Descriptor<T>::ExternalField::sizeOfForce> const& force )
+{
+    return ExternalForceAccess<T, Descriptor, Descriptor<T>::ExternalField::sizeOfForce>::set(cell, force);
+}
 
 template<typename T, template<typename U> class Descriptor, class ExternalField>
 struct RhoBarJAccess {
@@ -67,20 +127,6 @@ struct RhoBarJAccess {
         dynamics.computeRhoBarJ(cell, rhoBar, j);
     }
 };
-
-/// Specialization of ExternalForceAccess: return 0 if there is no external force.
-template<typename T, template<typename U> class Descriptor>
-struct ExternalForceAccess<T,Descriptor,0> {
-    static T getComponent(Cell<T,Descriptor> const& cell, plint iD) {
-        return T();
-    }
-};
-
-/// Automatic instantiation of ExternalForceAccess, depending on the Descriptor
-template<typename T, template<typename U> class Descriptor>
-T getExternalForceComponent(Cell<T,Descriptor> const& cell, plint iD) {
-    return ExternalForceAccess<T, Descriptor, Descriptor<T>::ExternalField::sizeOfForce>::getComponent(cell,iD);
-}
 
 template<typename T, template<typename U> class Descriptor>
 struct RhoBarJAccess<T,Descriptor,descriptors::RhoBarJdescriptor3D> {

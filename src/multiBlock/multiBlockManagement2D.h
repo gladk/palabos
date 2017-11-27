@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -65,6 +65,9 @@ public:
             std::vector<plint>& foundX, std::vector<plint>& foundY ) const;
     plint getRefinementLevel() const;
     void setRefinementLevel(plint newLevel);
+    void changeEnvelopeWidth(plint newEnvelopeWidth);
+    // Same multi-block-management, except for envelope-width
+    bool equivalentTo(MultiBlockManagement2D const& rhs) const;
 private:
     plint                  envelopeWidth;
     SparseBlockStructure2D sparseBlock;

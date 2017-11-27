@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * Neumann and outflow boundary conditions -- generic implementation.
  */
+
 #ifndef NEUMANN_CONDITION_3D_HH
 #define NEUMANN_CONDITION_3D_HH
 
@@ -338,7 +339,7 @@ VirtualOutlet<T,Descriptor>::VirtualOutlet(T outsideDensity_, Box3D globalDomain
           globalDomain(globalDomain_),
           type(type_)
 {
-    PLB_ASSERT(type == 0 || type == 1);
+    PLB_ASSERT(type == 0 || type == 1 || type == 2);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -357,18 +358,14 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
     Dot3D ofsRB = computeRelativeDisplacement(*lattice, *rhoBar);
     Dot3D ofsJ = computeRelativeDisplacement(*lattice, *j);
 
-    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
     static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-    static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
-    static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
 
     if (type == 0) {
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     Cell<T,Descriptor>& cell = lattice->get(iX, iY, iZ);
-                    const int dynamicsId = cell.getDynamics().getId();
-                    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+                    if (!cell.getDynamics().hasMoments()) {
                         continue;
                     }
                     for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
@@ -396,13 +393,12 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
                 }
             }
         }
-    } else {
+    } else {  // type==1 or type==2
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     Cell<T,Descriptor>& cell = lattice->get(iX, iY, iZ);
-                    int dynamicsId = cell.getDynamics().getId();
-                    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+                    if (!cell.getDynamics().hasMoments()) {
                         continue;
                     }
                     for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
@@ -435,10 +431,8 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
                                     for (plint dz = -1; dz <= 1; dz++) {
                                         plint k = iZ + dz;
                                         if (!(dx == 0 && dy == 0 && dz == 0)) {
-                                            int nextDynamicsId = lattice->get(i, j, k).getDynamics().getId();
                                             if (contained(i + absOfs.x, j + absOfs.y, k + absOfs.z, globalDomain) &&
-                                                nextDynamicsId != bounceBackId && nextDynamicsId != noDynamicsId  &&
-                                                nextDynamicsId != mEBounceBackId) {
+                                                lattice->get(i, j, k).getDynamics().hasMoments()) {
                                                 RhoBar += rhoBar->get(i + ofsRB.x, j + ofsRB.y, k +ofsRB.z);
                                                 n++;
                                             }
@@ -458,8 +452,25 @@ void VirtualOutlet<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector
                             RhoBar = 0.5 * (RhoBar + rhoBar->get(iX + ofsRB.x, iY + ofsRB.y, iZ +ofsRB.z));
 
                             T feq_i = cell.computeEquilibrium(iPop, RhoBar, J, Jsqr);
-                            T feq_opp_i = cell.computeEquilibrium(opp, RhoBar, J, Jsqr);
-                            cell[iPop] = feq_i + feq_opp_i - savedPop;
+                            if (type==1) {
+                                T feq_opp_i = cell.computeEquilibrium(opp, RhoBar, J, Jsqr);
+                                cell[iPop] = feq_i + feq_opp_i - savedPop;
+                            }
+                            else if (type==2) {
+                                plint nextX = iX + Descriptor<T>::c[iPop][0];
+                                plint nextY = iY + Descriptor<T>::c[iPop][1];
+                                plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                                Cell<T,Descriptor> const& nextCell = lattice->get(nextX,nextY,nextZ);
+                                T nextRhoBar;
+                                Array<T,3> nextJ;
+                                nextCell.getDynamics().computeRhoBarJ(nextCell, nextRhoBar, nextJ);
+                                T nextJsqr = normSqr(nextJ);
+                                T next_eq_i = nextCell.computeEquilibrium(iPop, nextRhoBar, nextJ, nextJsqr);
+                                cell[iPop] = feq_i + nextCell[iPop]  - next_eq_i;
+                            }
+                            else {
+                                PLB_ASSERT( false );
+                            }
                         }
                     }
                 }
@@ -488,7 +499,7 @@ VirtualOutletDynamics<T,Descriptor,direction,orientation>::
     VirtualOutletDynamics(HierarchicUnserializer& unserializer)
         : BoundaryCompositeDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -502,6 +513,7 @@ template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 void VirtualOutletDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
     int numPop = (int)savedFneq.size();
     serializer.addValue(numPop);
     serializer.addValues(savedFneq);
@@ -509,13 +521,13 @@ void VirtualOutletDynamics<T,Descriptor,direction,orientation>::serialize(Hierar
         serializer.addValue(savedJ[i]);
     }
     serializer.addValue(savedRhoBar);
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
 void VirtualOutletDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
 {
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
     int numPop = unserializer.readValue<int>();
     savedFneq.resize(numPop);
     unserializer.readValues(savedFneq);
@@ -523,7 +535,6 @@ void VirtualOutletDynamics<T,Descriptor,direction,orientation>::unserialize(Hier
         savedJ[i] = unserializer.readValue<T>();
     }
     unserializer.readValue(savedRhoBar);
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
  
@@ -548,13 +559,7 @@ void VirtualOutletDynamics<T,Descriptor,direction,orientation>::saveData(Cell<T,
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
 void VirtualOutletDynamics<T,Descriptor,direction,orientation>::completePopulations(Cell<T,Descriptor>& cell) const
 {
-    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-    static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-    static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
-    static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
-
-    int dynamicsId = this->getBaseDynamics().getId();
-    if (dynamicsId == bounceBackId || dynamicsId == noDynamicsId || dynamicsId == mEBounceBackId) {
+    if (!this->getBaseDynamics().hasMoments()) {
         return;
     }
     std::vector<plint> unknownInd = indexTemplates::subIndexOutgoing<Descriptor<T>, direction, orientation>();

@@ -35,6 +35,8 @@ SMPparallel  = false
 #   emulated (such as with Cygwin).
 usePOSIX     = true
 
+# Path to external source files (other than Palabos)
+srcPaths =
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
@@ -47,7 +49,7 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor -Wno-deprecated-declarations
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
@@ -80,6 +82,7 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
             profileFlags="$(profileFlags)" \
+            srcPaths="$(srcPaths)" \
             libraryPaths="$(libraryPaths)" \
             includePaths="$(includePaths)" \
             libraries="$(libraries)"

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -186,6 +186,29 @@ plint MultiBlockManagement2D::getRefinementLevel() const {
 
 void MultiBlockManagement2D::setRefinementLevel(plint newLevel) {
     refinementLevel = newLevel;
+}
+
+void MultiBlockManagement2D::changeEnvelopeWidth(plint newEnvelopeWidth) {
+    envelopeWidth = newEnvelopeWidth;
+    localInfo = LocalMultiBlockInfo2D(sparseBlock, getThreadAttribution(), envelopeWidth);
+}
+
+bool MultiBlockManagement2D::equivalentTo(MultiBlockManagement2D const& rhs) const {
+    std::map<plint,Box2D> const& bulks = sparseBlock.getBulks();
+    std::map<plint,Box2D>::const_iterator it = bulks.begin();
+    bool equalThreadAttribution = true;
+    for (; it != bulks.end(); ++it) {
+        plint blockId = it->first;
+        if (threadAttribution->getMpiProcess(blockId) != rhs.threadAttribution->getMpiProcess(blockId) ||
+            threadAttribution->getLocalThreadId(blockId) != rhs.threadAttribution->getLocalThreadId(blockId))
+        {
+            equalThreadAttribution =false;
+            break;
+        }
+    }
+    return sparseBlock.equals(rhs.sparseBlock) &&
+           equalThreadAttribution &&
+           refinementLevel == rhs.refinementLevel;
 }
 
 

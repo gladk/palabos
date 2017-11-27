@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -162,8 +162,10 @@ void setBoundaryTemperature(BlockLattice2D<T,Descriptor>& lattice, Box2D domain,
 }
 
 template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, T rho, Array<T,2> velocity, T temperature) {
-    applyProcessingFunctional(new IniConstEquilibriumFunctional2D<T,Descriptor>(rho, velocity, temperature), domain, lattice);
+void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, T rho, Array<T,2> velocity, T temperature)
+{
+    applyProcessingFunctional(new IniConstEquilibriumFunctional2D<T,Descriptor>(rho, velocity, temperature),
+            domain, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
@@ -212,6 +214,23 @@ template<typename T, template<class U> class Descriptor>
 void applyIndexed(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, OneCellIndexedFunctional2D<T,Descriptor>* f) {
     applyProcessingFunctional(new GenericIndexedLatticeFunctional2D<T,Descriptor>(f), domain, lattice);
 }
+
+template<typename T, template<class U> class Descriptor>
+void applyIndexed( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
+                   OneCellIndexedWithRandFunctional2D<T,Descriptor>* f, sitmo::prng_engine eng)
+{
+    applyProcessingFunctional(new GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>(f, domain, eng), domain, lattice);
+}
+
+template<typename T, template<class U> class Descriptor>
+void applyIndexed( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
+                   OneCellIndexedWithRandFunctional2D<T,Descriptor>* f, uint32_t seed)
+{
+    sitmo::prng_engine eng;
+    eng.seed(seed);
+    applyProcessingFunctional(new GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>(f, domain, eng), domain, lattice);
+}
+
 
 template<typename T, template<class U> class Descriptor>
 void defineDynamics(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, Dynamics<T,Descriptor>* dynamics) {
@@ -302,6 +321,11 @@ void setOmega(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, T omega)
     applyProcessingFunctional(new AssignOmegaFunctional2D<T,Descriptor>(omega), domain, lattice);
 }
 
+template<typename T, template<class U> class Descriptor, class Function>
+void setOmega(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, Function f) {
+    applyIndexed(lattice, domain, new SetCustomOmegaFunctional2D<T,Descriptor,Function>(f) );
+}
+
 template<typename T, template<class U> class Descriptor>
 void setBoundaryVelocity(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, Array<T,2> velocity) {
     applyProcessingFunctional(new SetConstBoundaryVelocityFunctional2D<T,Descriptor>(velocity), domain, lattice);
@@ -318,8 +342,11 @@ void setBoundaryTemperature(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D do
 }
 
 template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, T rho, Array<T,2> velocity, T temperature) {
-    applyProcessingFunctional(new IniConstEquilibriumFunctional2D<T,Descriptor>(rho, velocity, temperature), domain, lattice);
+void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, T rho, Array<T,2> velocity,
+        T temperature)
+{
+    applyProcessingFunctional(new IniConstEquilibriumFunctional2D<T,Descriptor>(rho, velocity, temperature),
+            domain, lattice);
 }
 
 template<typename T, template<class U> class Descriptor>
@@ -487,12 +514,38 @@ void setToCoordinates(MultiTensorField2D<T,2>& field, Box2D domain) {
     applyProcessingFunctional(new SetToCoordinatesFunctional2D<T>, domain, field);
 }
 
+template<typename T>
+void setToRandom(MultiScalarField2D<T>& field, Box2D domain, sitmo::prng_engine eng) {
+    applyProcessingFunctional(new SetToRandomFunctional2D<T>(domain, eng), domain, field);
+}
+
+template<typename T>
+void setToRandom(MultiScalarField2D<T>& field, Box2D domain, uint32_t seed) {
+    sitmo::prng_engine eng;
+    eng.seed(seed);
+    setToRandom(field, domain, eng);
+}
+
 template<typename T, int nDim>
 void assignComponent(MultiTensorField2D<T,nDim>& tensorField, int whichComponent,
                      MultiScalarField2D<T>& scalarField, Box2D domain)
 {
     applyProcessingFunctional(new SetTensorComponentFunctional2D<T,nDim>(whichComponent),
                               domain, scalarField, tensorField);
+}
+
+
+template<typename T>
+void growDomain(MultiScalarField2D<T>& field, T flag, int nCells, Box2D domain) {
+    for (int i=0; i<nCells; ++i) {
+        applyProcessingFunctional( new GrowDomainFunctional2D<T>(flag),
+                                   domain, field );
+    }
+}
+
+template<typename T>
+void growDomain(MultiScalarField2D<T>& field, T flag, int nCells) {
+    growDomain(field, flag, nCells, field.getBoundingBox());
 }
 
 }  // namespace plb

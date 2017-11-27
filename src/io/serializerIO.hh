@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -101,15 +101,15 @@ void AsciiReader<T>::readData(char* dataBuffer, pluint bufferSize) const
 
 
 template<typename T>
-void serializerToAsciiStream(DataSerializer const* serializer, std::ostream* ostr, plint numDigits)
+void serializerToAsciiStream(DataSerializer const* serializer, std::ostream* ostr, plint numDigits, bool mainProcOnly)
 {
-    serializerToSink(serializer, new AsciiWriter<T>(ostr, numDigits));
+    serializerToSink(serializer, new AsciiWriter<T>(ostr, numDigits), mainProcOnly);
 }
 
 template<typename T>
-void asciiStreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer)
+void asciiStreamToUnSerializer(std::istream* istr, DataUnSerializer* unSerializer, bool mainProcOnly)
 {
-    sourceToUnSerializer(new AsciiReader<T>(istr), unSerializer);
+    sourceToUnSerializer(new AsciiReader<T>(istr), unSerializer, mainProcOnly);
 }
 
 } // namespace plb

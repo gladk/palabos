@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,6 +32,7 @@
 #include "multiBlock/multiBlockOperations3D.h"
 #include "multiBlock/multiBlockSerializer3D.h"
 #include "multiBlock/defaultMultiBlockPolicy3D.h"
+#include "atomicBlock/atomicBlock3D.h"
 #include <cmath>
 #include <algorithm>
 
@@ -267,7 +268,7 @@ MultiBlock3D::MultiBlock3D(plint nx, plint ny, plint nz, plint envelopeWidth)
       statisticsOn(true),
       periodicitySwitch(*this),
       internalModifT(modif::staticVariables)
-{ 
+{
     id = multiBlockRegistration3D().announce(*this);
 }
 
@@ -284,7 +285,7 @@ MultiBlock3D::MultiBlock3D(MultiBlock3D const& rhs)
       statisticsOn(rhs.statisticsOn),
       periodicitySwitch(*this, rhs.periodicitySwitch),
       internalModifT(rhs.internalModifT)
-{ 
+{
     id = multiBlockRegistration3D().announce(*this);
 }
 
@@ -299,7 +300,7 @@ MultiBlock3D::MultiBlock3D(MultiBlock3D const& rhs, Box3D subDomain, bool crop)
       statisticsOn(true),
       periodicitySwitch(*this),
       internalModifT(rhs.internalModifT)
-{ 
+{
     id = multiBlockRegistration3D().announce(*this);
 }
 
@@ -475,6 +476,16 @@ void MultiBlock3D::setRefinementLevel(plint newLevel)
     multiBlockManagement.setRefinementLevel(newLevel);
 }
 
+void MultiBlock3D::setDataTransfer(BlockDataTransfer3D* newDataTransfer) {
+    std::vector<plint> const& blocks = getLocalInfo().getBlocks();
+    for (pluint iBlock=0; iBlock<blocks.size(); ++iBlock) {
+        plint blockId = blocks[iBlock];
+        getComponent(blockId).setDataTransfer(newDataTransfer->clone());
+    }
+    delete newDataTransfer;
+}
+
+
 void MultiBlock3D::executeInternalProcessors() {
     global::profiler().start("dataProcessor");
     // Execute all automatic internal processors.
@@ -491,13 +502,23 @@ void MultiBlock3D::executeInternalProcessors() {
 }
 
 void MultiBlock3D::executeInternalProcessors(plint level, bool communicate) {
+    if (level < 0) {
+      global::timer("execute_dp").start();
+    }
     std::vector<plint> const& blocks = getLocalInfo().getBlocks();
     for (pluint iBlock=0; iBlock<blocks.size(); ++iBlock) {
         plint blockId = blocks[iBlock];
         getComponent(blockId).executeInternalProcessors(level);
     }
+    if (level < 0) {
+        global::timer("execute_dp").stop();
+        global::timer("communicate_dp").start();
+    }
     if (communicate) {
         duplicateOverlapsInModifiedMultiBlocks(level);
+    }
+    if (level < 0) {
+       global::timer("communicate_dp").stop();
     }
 }
 

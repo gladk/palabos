@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,7 +44,10 @@ template<typename T> class ScalarField3D;
 template<typename T>
 class ScalarFieldDataTransfer3D : public BlockDataTransfer3D {
 public:
-    ScalarFieldDataTransfer3D(ScalarField3D<T>& field_);
+    ScalarFieldDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual ScalarFieldDataTransfer3D<T>* clone() const;
     virtual plint staticCellSize() const;
     /// Send data from the block into a byte-stream.
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
@@ -67,7 +70,8 @@ public:
         attribute(toDomain, deltaX, deltaY, deltaZ, from, kind);
     }
 private:
-    ScalarField3D<T>& field;
+    ScalarField3D<T>* field;
+    ScalarField3D<T> const* constField;
 };
 
 
@@ -77,6 +81,7 @@ public:
     ScalarField3D(plint nx_, plint ny_, plint nz_, T iniVal=T());
     ~ScalarField3D();
     ScalarField3D(ScalarField3D<T> const& rhs);
+    ScalarField3D(NTensorField3D<T>& rhs);
     ScalarField3D<T>& operator=(ScalarField3D<T> const& rhs);
     void swap(ScalarField3D<T>& rhs);
 public:
@@ -102,25 +107,26 @@ public:
         PLB_PRECONDITION(ind>=0 && ind<this->getNx()*this->getNy()*this->getNz());
         return rawData[ind];
     }
-    /// Get access to data transfer between blocks
-    virtual ScalarFieldDataTransfer3D<T>& getDataTransfer();
-    /// Get access to data transfer between blocks (const version)
-    virtual ScalarFieldDataTransfer3D<T> const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();
+    plint allocatedMemory() const;
 private:
+    bool ownsMemory;
     T   *rawData;
     T   ***field;
-    ScalarFieldDataTransfer3D<T> dataTransfer;
+public:
+    template<typename U> friend class NTensorField3D;
 };
-
 template<typename T, int nDim> class TensorField3D;
 
 template<typename T, int nDim>
 class TensorFieldDataTransfer3D : public BlockDataTransfer3D {
 public:
-    TensorFieldDataTransfer3D(TensorField3D<T,nDim>& field_);
+    TensorFieldDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual TensorFieldDataTransfer3D<T,nDim>* clone() const;
     virtual plint staticCellSize() const;
     /// Send data from the block into a byte-stream.
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
@@ -143,7 +149,8 @@ public:
         attribute(toDomain, deltaX, deltaY, deltaZ, from, kind);
     }
 private:
-    TensorField3D<T,nDim>& field;
+    TensorField3D<T,nDim>* field;
+    TensorField3D<T,nDim> const* constField;
 };
 
 
@@ -154,6 +161,7 @@ public:
     TensorField3D(plint nx_, plint ny_, plint nz_, Array<T,nDim> const& iniVal);
     ~TensorField3D();
     TensorField3D(TensorField3D<T,nDim> const& rhs);
+    TensorField3D(NTensorField3D<T>& rhs);
     TensorField3D<T,nDim>& operator=(TensorField3D<T,nDim> const& rhs);
     void swap(TensorField3D<T,nDim>& rhs);
 public:
@@ -178,17 +186,16 @@ public:
         PLB_PRECONDITION(ind>=0 && ind<this->getNx()*this->getNy()*this->getNz());
         return rawData[ind];
     }
-    /// Get access to data transfer between blocks
-    virtual TensorFieldDataTransfer3D<T,nDim>& getDataTransfer();
-    /// Get access to data transfer between blocks (const version)
-    virtual TensorFieldDataTransfer3D<T,nDim> const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();
+    plint allocatedMemory() const;
 private:
+    bool ownsMemory;
     Array<T,nDim> *rawData;
     Array<T,nDim> ***field;
-    TensorFieldDataTransfer3D<T,nDim> dataTransfer;
+public:
+    template<typename U> friend class NTensorField3D;
 };
 
 
@@ -197,7 +204,10 @@ template<typename T> class NTensorField3D;
 template<typename T>
 class NTensorFieldDataTransfer3D : public BlockDataTransfer3D {
 public:
-    NTensorFieldDataTransfer3D(NTensorField3D<T>& field_);
+    NTensorFieldDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual NTensorFieldDataTransfer3D<T>* clone() const;
     virtual plint staticCellSize() const;
     /// Send data from the block into a byte-stream.
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
@@ -220,7 +230,8 @@ public:
         attribute(toDomain, deltaX, deltaY, deltaZ, from, kind);
     }
 private:
-    NTensorField3D<T>& field;
+    NTensorField3D<T>* field;
+    NTensorField3D<T> const* constField;
 };
 
 template<typename T>
@@ -230,6 +241,8 @@ public:
     NTensorField3D(plint nx_, plint ny_, plint nz_, plint ndim_, T const* iniVal);
     ~NTensorField3D();
     NTensorField3D(NTensorField3D<T> const& rhs);
+    NTensorField3D(ScalarField3D<T>& rhs);
+    template<int nDim> NTensorField3D(TensorField3D<T,nDim>& rhs);
     NTensorField3D<T>& operator=(NTensorField3D<T> const& rhs);
     void swap(NTensorField3D<T>& rhs);
 public:
@@ -254,17 +267,17 @@ public:
         PLB_PRECONDITION(ind>=0 && ind<this->getNx()*this->getNy()*this->getNz()*this->getNdim());
         return rawData[ind];
     }
-    /// Get access to data transfer between blocks
-    virtual NTensorFieldDataTransfer3D<T>& getDataTransfer();
-    /// Get access to data transfer between blocks (const version)
-    virtual NTensorFieldDataTransfer3D<T> const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();
+    plint allocatedMemory() const;
 private:
+    bool ownsMemory;
     T *rawData;
     T ****field;
-    NTensorFieldDataTransfer3D<T> dataTransfer;
+public:
+    template<typename U> friend class ScalarField3D;
+    template<typename U, int nDim> friend class TensorField3D;
 };
 
 }  // namespace plb

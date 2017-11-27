@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,12 +50,13 @@ struct Lid {
     //   value to numAddedVertices, and (2) replace centerVertex
     //   by something else and change all codes which access
     //   centerVertex.
-    Lid() : numAddedVertices(1) { }
+    Lid() : numAddedVertices(1), tag(0) { }
     plint firstTriangle;
     plint numTriangles;
     std::vector<plint> boundaryVertices;
     plint centerVertex;
     plint numAddedVertices;
+    plint tag;
 };
 
 /// Represent a surface mesh, made up of adjacent triangles,
@@ -173,8 +174,9 @@ public:
     std::vector<plint> getAdjacentTriangleIds(plint iVertex, plint jVertex) const;
 
     /// Compute the normal vector for a given triangle. If "isAreaWeighted" is false,
-    ///   then the normal has length equal to one. If "isAreaWeighted" is true, then
-    ///   the normal has length equal to twice the area of the triangle.
+    ///   then the normal has length equal to one, or equal to zero if the triangle
+    ///   has zero area. If "isAreaWeighted" is true, then the normal has length equal
+    ///   to twice the area of the triangle.
     Array<T,3> computeTriangleNormal(plint iTriangle, bool isAreaWeighted = false) const;
     Array<T,3> computeTriangleNormal(
             plint iVertex, plint jVertex, plint kVertex, bool isAreaWeighted = false) const;
@@ -226,10 +228,11 @@ public:
 
     /// Export the surface mesh as a TriangleSet.
     TriangleSet<T> toTriangleSet(Precision precision) const;
+    TriangleSet<T> toTriangleSet(T eps) const;
 
     /// Export the surface mesh as an ASCII STL file.
-    void writeAsciiSTL(std::string fname, T dx = 1.0) const;
-    void writeAsciiSTL(std::string fname, T dx, Array<T,3> location) const;
+    void writeAsciiSTL(std::string fname, T dx = 1.0, int numDecimalDigits = 10) const;
+    void writeAsciiSTL(std::string fname, T dx, Array<T,3> location, int numDecimalDigits = 10) const;
     /// Export the surface mesh as an binary STL file.
     void writeBinarySTL(std::string fname, T dx = 1.0) const;
     void writeBinarySTL(std::string fname, T dx, Array<T,3> location) const;
@@ -381,7 +384,7 @@ private:
     std::vector<Edge>* edgeList;
     plint numTriangles, numVertices;
 public:
-    static const T eps0, eps1;
+    static const T eps1;
 };
 
 template<typename T>
@@ -418,9 +421,10 @@ private:
 
 /// Returns the scaling factor.
 template<typename T>
-T toLatticeUnits (
+void toLatticeUnits (
         TriangularSurfaceMesh<T>& mesh,
-        plint resolution, plint referenceDirection );
+        plint resolution, plint referenceDirection,
+        Array<T,3>& location, T& dx );
 
 
 

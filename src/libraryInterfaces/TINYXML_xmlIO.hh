@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,7 @@
 #include "io/parallelIO.h"
 #include <typeinfo>
 #include <cctype>
+#include <iomanip>
 
 namespace plb {
 
@@ -131,6 +132,29 @@ void XMLreaderProxy::read(std::vector<T>& values) const {
     values.swap(tmp);
 }
 
+template <>
+inline void XMLreaderProxy::read<bool>(std::vector<bool>& values) const {
+    if (!reader) return;
+    std::stringstream multiValueStr(reader->getText(id));
+    std::string word;
+    std::vector<bool> tmp(values);
+    while (multiValueStr>>word) {
+        bool value = false;
+        word = util::tolower(word);
+        if (word=="true") {
+            value = true;
+        }
+        else if (word=="false") {
+            value=false;
+        }
+        else {
+            plbIOError(std::string("Cannot read boolean value from XML element ") + reader->getName());
+        }
+        tmp.push_back(value);
+    }
+    values.swap(tmp);
+}
+
 template <typename T>
 bool XMLreaderProxy::readNoThrow(std::vector<T>& values) const {
     if (!reader) return false;
@@ -185,16 +209,22 @@ bool XMLreaderProxy::readNoThrow(Array<T,N>& values) const {
     return true;
 }
 
-template<typename T> void XMLwriter::set(T const& value)
+template<typename T> void XMLwriter::set(T const& value, plint precision)
 {
     std::stringstream valuestr;
+    if (precision >= 0) {
+        valuestr << std::setprecision(precision);
+    }
     valuestr << value;
     valuestr >> data_map[currentId].text;
 }
 
-template<typename T> void XMLwriter::set(std::vector<T> const& values)
+template<typename T> void XMLwriter::set(std::vector<T> const& values, plint precision)
 {
     std::stringstream valuestr;
+    if (precision >= 0) {
+        valuestr << std::setprecision(precision);
+    }
     for (pluint i=0; i<values.size(); ++i) {
         if (i != 0) {
             valuestr << " ";
@@ -204,9 +234,12 @@ template<typename T> void XMLwriter::set(std::vector<T> const& values)
     data_map[currentId].text = valuestr.str();
 }
 
-template<typename T, int N> void XMLwriter::set(Array<T,N> const& values)
+template<typename T, int N> void XMLwriter::set(Array<T,N> const& values, plint precision)
 {
     std::stringstream valuestr;
+    if (precision >= 0) {
+        valuestr << std::setprecision(precision);
+    }
     for (pluint i=0; i<N; ++i) {
         if (i != 0) {
             valuestr << " ";
@@ -216,7 +249,7 @@ template<typename T, int N> void XMLwriter::set(Array<T,N> const& values)
     data_map[currentId].text = valuestr.str();
 }
 
-template<> inline void XMLwriter::set<bool>(bool const& value)
+template<> inline void XMLwriter::set<bool>(bool const& value, plint precision)
 {
     if (value) {
         data_map[currentId].text = "True";

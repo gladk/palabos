@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define FREE_SURFACE_MODEL_3D_HH
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "core/block3D.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "atomicBlock/dataProcessor3D.h"
@@ -33,17 +34,18 @@
 #include "atomicBlock/atomicContainerBlock3D.h"
 #include "multiPhysics/freeSurfaceModel3D.h"
 #include "multiPhysics/freeSurfaceTemplates.h"
+
 #include <limits>
 
 namespace plb {
 
-/* *************** Class TwoPhaseComputeNormals3D ******************************************* */
+/* *************** Class FreeSurfaceComputeNormals3D ******************************************* */
 
 template< typename T,template<typename U> class Descriptor>
-void TwoPhaseComputeNormals3D<T,Descriptor>::processGenericBlocks (
+void FreeSurfaceComputeNormals3D<T,Descriptor>::processGenericBlocks (
         Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks )
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // Smooth the volume fraction twice. (At the end include also a 1-cell layer around "domain".)
@@ -51,13 +53,21 @@ void TwoPhaseComputeNormals3D<T,Descriptor>::processGenericBlocks (
     plint ny = domain.getNy() + 4;
     plint nz = domain.getNz() + 4;
     ScalarField3D<T> smoothVolumeFractionTmp(nx, ny, nz);
+    Dot3D ofsSVFT(-domain.x0 + 2, -domain.y0 + 2, -domain.z0 + 2);
     for (plint iX=domain.x0-2; iX<=domain.x1+2; ++iX) {
-        plint i = iX - domain.x0 + 2;
+        plint i = iX + ofsSVFT.x;
         for (plint iY=domain.y0-2; iY<=domain.y1+2; ++iY) {
-            plint j = iY - domain.y0 + 2;
+            plint j = iY + ofsSVFT.y;
             for (plint iZ=domain.z0-2; iZ<=domain.z1+2; ++iZ) {
-                plint k = iZ - domain.z0 + 2;
-                smoothVolumeFractionTmp.get(i, j, k) = param.smoothVolumeFraction(iX, iY, iZ);
+                plint k = iZ + ofsSVFT.z;
+                //smoothVolumeFractionTmp.get(i, j, k) = param.smooth(*param.volumeFractionP(),
+                //        param.volumeFractionOffset(), iX, iY, iZ);
+                //smoothVolumeFractionTmp.get(i, j, k) =
+                //    param.template lbmSmooth<T, Descriptor>(
+                //            *param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ);
+                smoothVolumeFractionTmp.get(i, j, k) =
+                    param.template lbmSmooth<T, descriptors::AdvectionDiffusionD3Q7Descriptor>(
+                            *param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ);
             }
         }
     }
@@ -66,160 +76,67 @@ void TwoPhaseComputeNormals3D<T,Descriptor>::processGenericBlocks (
     ny = domain.getNy() + 2;
     nz = domain.getNz() + 2;
     ScalarField3D<T> smoothVolumeFraction(nx, ny, nz);
+    Dot3D ofsSVF(-domain.x0 + 1, -domain.y0 + 1, -domain.z0 + 1);
     for (plint iX=domain.x0-1; iX<=domain.x1+1; ++iX) {
-        plint i    = iX - domain.x0 + 1;
-        plint iTmp = iX - domain.x0 + 2;
+        plint i = iX + ofsSVF.x;
         for (plint iY=domain.y0-1; iY<=domain.y1+1; ++iY) {
-            plint j    = iY - domain.y0 + 1;
-            plint jTmp = iY - domain.y0 + 2;
+            plint j = iY + ofsSVF.y;
             for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {
-                plint k    = iZ - domain.z0 + 1;
-                plint kTmp = iZ - domain.z0 + 2;
-
-                if (param.flag(iX, iY, iZ) == wall) {
-                    smoothVolumeFraction.get(i, j, k) = smoothVolumeFractionTmp.get(iTmp, jTmp, kTmp);
-                    continue;
-                }
-
-                T val = 0.0;
-                int n = 0;
-                for (int dx = -1; dx < 2; dx++) {
-                    plint nextX    = iX   + dx;
-                    plint nextXTmp = iTmp + dx;
-                    for (int dy = -1; dy < 2; dy++) {
-                        plint nextY    = iY   + dy;
-                        plint nextYTmp = jTmp + dy;
-                        for (int dz = -1; dz < 2; dz++) {
-                            plint nextZ    = iZ   + dz;
-                            plint nextZTmp = kTmp + dz;
-                            if (!(dx == 0 && dy == 0 && dz == 0) && param.flag(nextX, nextY, nextZ) != wall) {
-                                n++;
-                                val += smoothVolumeFractionTmp.get(nextXTmp, nextYTmp, nextZTmp);
-                            }
-                        }
-                    }
-                }
-                if (n != 0) {
-                    val /= (T) n;
-                } else {
-                    val = smoothVolumeFractionTmp.get(iTmp, jTmp, kTmp);
-                }
-
-                smoothVolumeFraction.get(i, j, k) = val;
+                plint k = iZ + ofsSVF.z;
+                //smoothVolumeFraction.get(i, j, k) = param.smooth(smoothVolumeFractionTmp, ofsSVFT, iX, iY, iZ);
+                //smoothVolumeFraction.get(i, j, k) =
+                //    param.template lbmSmooth<T, Descriptor>(
+                //            smoothVolumeFractionTmp, ofsSVFT, iX, iY, iZ);
+                smoothVolumeFraction.get(i, j, k) =
+                    param.template lbmSmooth<T, descriptors::AdvectionDiffusionD3Q7Descriptor>(
+                            smoothVolumeFractionTmp, ofsSVFT, iX, iY, iZ);
             }
         }
     }
 
-    T eps = getEpsilon<T>(precision);
-
     // The outward pointing unit normal is: n = - grad(VOF) / ||grad(VOF)||.
 
-    typedef Descriptor<T> D;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                Array<T,3> normal((T) 0.0, (T) 0.0, (T) 0.0);
+                Array<T,3> normal((T) 0, (T) 0, (T) 0);
 
-                if (param.flag(iX, iY, iZ) == wall) {
+                if (isAnyWall(param.flag(iX, iY, iZ))) {
                     param.setNormal(iX, iY, iZ, normal);
                     continue;
                 }
 
+                /*
                 int useLB = 1;
-                for (plint iPop = 1; iPop < D::q; ++iPop) {
-                    plint nextX = iX + D::c[iPop][0];
-                    plint nextY = iY + D::c[iPop][1];
-                    plint nextZ = iZ + D::c[iPop][2];
-                    if (param.flag(nextX, nextY, nextZ) == wall) {
+                for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
+                    plint nextX = iX + Descriptor<T>::c[iPop][0];
+                    plint nextY = iY + Descriptor<T>::c[iPop][1];
+                    plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                    if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                         useLB = 0;
                         break;
                     }
                 }
 
                 if (useLB) {
+                */
                     // Compute the gradient of the smoothed volume fraction "the lattice Boltzmann way".
-                    // With this method wall cells with a not well defined volume fraction cannot exist
-                    // at the neighborhood of the point under consideration. This is because wall
-                    // cells have to be excluded, and there exists no asymmetric lattice-Boltzmann
-                    // differencing scheme. One-sided first order finite differences have to be used
-                    // instead.
-                    for (plint iPop = 1; iPop < D::q; ++iPop) {
-                        plint nextX = iX + D::c[iPop][0];
-                        plint nextY = iY + D::c[iPop][1];
-                        plint nextZ = iZ + D::c[iPop][2];
-
-                        plint i = nextX - domain.x0 + 1;
-                        plint j = nextY - domain.y0 + 1;
-                        plint k = nextZ - domain.z0 + 1;
-
-                        T svf = smoothVolumeFraction.get(i, j, k);
-
-                        normal[0] += D::t[iPop]*D::c[iPop][0]*svf;
-                        normal[1] += D::t[iPop]*D::c[iPop][1]*svf;
-                        normal[2] += D::t[iPop]*D::c[iPop][2]*svf;
-                    }
-                    normal *= D::invCs2;
-                    T nn = norm(normal);
-                    if (nn <= eps) {
-                        normal = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
-                    } else {
-                        normal /= -nn;
-                    }
+                    normal = param.template lbmComputeGradient<T, Descriptor>(smoothVolumeFraction, ofsSVF, iX, iY, iZ);
+                /*
                 } else {
                     // Compute the gradient of the smoothed volume fraction with finite differences
                     // excluding the wall cells.
-                    int fx1 = param.flag(iX - 1, iY, iZ);
-                    int fx2 = param.flag(iX + 1, iY, iZ);
-
-                    int fy1 = param.flag(iX, iY - 1, iZ);
-                    int fy2 = param.flag(iX, iY + 1, iZ);
-
-                    int fz1 = param.flag(iX, iY, iZ - 1);
-                    int fz2 = param.flag(iX, iY, iZ + 1);
-
-                    plint i, j, k;
-                    T h;
-                    T v1, v2;
-
-                    i = iX - domain.x0 + 1;
-                    j = iY - domain.y0 + 1;
-                    k = iZ - domain.z0 + 1;
-
-                    h = (fx1 == wall || fx2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fx1 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i - 1, j, k);
-                    v2 = (fx2 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i + 1, j, k);
-
-                    normal[0] = (v2 - v1) / h;
-
-                    h = (fy1 == wall || fy2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fy1 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i, j - 1, k);
-                    v2 = (fy2 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i, j + 1, k);
-
-                    normal[1] = (v2 - v1) / h;
-
-                    h = (fz1 == wall || fz2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fz1 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i, j, k - 1);
-                    v2 = (fz2 == wall) ? smoothVolumeFraction.get(i, j, k) :
-                        smoothVolumeFraction.get(i, j, k + 1);
-
-                    normal[2] = (v2 - v1) / h;
-
-                    T nn = norm(normal);
-                    if (nn <= eps) {
-                        normal = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
-                    } else {
-                        normal /= -nn;
-                    }
+                    plint h = 1;    // This must be 1 because above we included only a 1-cell layer around "domain".
+                    normal = param.computeGradient(smoothVolumeFraction, ofsSVF, h, iX, iY, iZ);
                 }
+                */
 
+                T nn = norm(normal);
+                if (util::isZero(nn)) {
+                    normal.resetToZero();
+                } else {
+                    normal /= -nn;
+                }
                 param.setNormal(iX, iY, iZ, normal);
             }
         }
@@ -232,7 +149,7 @@ template<typename T,template<typename U> class Descriptor>
 ScalarField3D<int> *FreeSurfaceGeometry3D<T,Descriptor>::getInterfaceFlags(Box3D domain,
         FreeSurfaceProcessorParam3D<T,Descriptor>& param)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     // Define a temporary scalar field for local use in this function. This scalar field will contain 1 extra
     // layer of cells around "domain".
@@ -265,7 +182,7 @@ ScalarField3D<int> *FreeSurfaceGeometry3D<T,Descriptor>::getInterfaceFlags(Box3D
                         for (int dz = -1; dz < 2; dz++) {
                             plint k = iZ + dz;
                             if (!(dx == 0 && dy == 0 && dz == 0)) {
-                                if (param.flag(i, j, k) == wall) {
+                                if (isAnyWall(param.flag(i, j, k))) {
                                     numWallNeighbors++;
                                     wallNeighborIndex.push_back(Array<plint,3>(i, j, k));
                                 }
@@ -295,7 +212,7 @@ ScalarField3D<int> *FreeSurfaceGeometry3D<T,Descriptor>::getInterfaceFlags(Box3D
                                             for (int dzz = -1; dzz < 2; dzz++) {
                                                 plint kk = k + dzz;
                                                 if (!(dxx == 0 && dyy == 0 && dzz == 0)) {
-                                                    if (param.flag(ii, jj, kk) == wall) {
+                                                    if (isAnyWall(param.flag(ii, jj, kk))) {
                                                         for (int iWall = 0; iWall < numWallNeighbors; iWall++) {
                                                             if (ii == wallNeighborIndex[iWall][0] &&
                                                                 jj == wallNeighborIndex[iWall][1] &&
@@ -385,7 +302,7 @@ template<typename T,template<typename U> class Descriptor>
 void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights3D(FreeSurfaceProcessorParam3D<T,Descriptor>& param,
         int integrationDirection, plint iX, plint iY, plint iZ, T h[3][3])
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     // Compute the vector parallel to the integration direction.
     Array<int,3> integrationVector;
@@ -412,14 +329,14 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights3D(FreeSurfaceProcessorP
             plint posX = iX + d0 * tangent0[0] + d1 * tangent1[0];
             plint posY = iY + d0 * tangent0[1] + d1 * tangent1[1];
             plint posZ = iZ + d0 * tangent0[2] + d1 * tangent1[2];
-            if (param.flag(posX, posY, posZ) == wall) {
+            if (isAnyWall(param.flag(posX, posY, posZ))) {
                 continue;
             }
             for (int d = 1; d <= maxLim; d++) {
                 plint nextX = posX + d * integrationVector[0];
                 plint nextY = posY + d * integrationVector[1];
                 plint nextZ = posZ + d * integrationVector[2];
-                if (param.flag(nextX, nextY, nextZ) == wall) {
+                if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                     maxLim = std::min(maxLim, d - 1);
                     break;
                 }
@@ -433,14 +350,14 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights3D(FreeSurfaceProcessorP
             plint posX = iX + d0 * tangent0[0] + d1 * tangent1[0];
             plint posY = iY + d0 * tangent0[1] + d1 * tangent1[1];
             plint posZ = iZ + d0 * tangent0[2] + d1 * tangent1[2];
-            if (param.flag(posX, posY, posZ) == wall) {
+            if (isAnyWall(param.flag(posX, posY, posZ))) {
                 continue;
             }
             for (int d = 1; d <= minLim; d++) {
                 plint nextX = posX - d * integrationVector[0];
                 plint nextY = posY - d * integrationVector[1];
                 plint nextZ = posZ - d * integrationVector[2];
-                if (param.flag(nextX, nextY, nextZ) == wall) {
+                if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                     minLim = std::min(minLim, d - 1);
                     break;
                 }
@@ -464,7 +381,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights3D(FreeSurfaceProcessorP
             plint posX = iX + d0 * tangent0[0] + d1 * tangent1[0];
             plint posY = iY + d0 * tangent0[1] + d1 * tangent1[1];
             plint posZ = iZ + d0 * tangent0[2] + d1 * tangent1[2];
-            if (param.flag(posX, posY, posZ) == wall) {
+            if (isAnyWall(param.flag(posX, posY, posZ))) {
                 continue;
             }
             h[i][j] = 0.0;
@@ -480,7 +397,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights3D(FreeSurfaceProcessorP
     // Extrapolate on walls. (No contact angle algorithm).
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
-            if (std::fabs(h[i][j] + 1.0) <= eps) {
+            if (util::isZero(h[i][j] + (T) 1)) {
                 h[i][j] = h[1][1];
             }
         }
@@ -492,7 +409,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
         Array<int,3>& wallTangent0, Array<int,3>& wallTangent1, int integrationDirection, plint iX, plint iY,
         plint iZ, T h[3])
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     // Compute the vector parallel to the integration direction.
     Array<int,3> integrationVector;
@@ -512,14 +429,14 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
         plint posX = iX + d0 * tangent[0];
         plint posY = iY + d0 * tangent[1];
         plint posZ = iZ + d0 * tangent[2];
-        if (param.flag(posX, posY, posZ) == wall) {
+        if (isAnyWall(param.flag(posX, posY, posZ))) {
             continue;
         }
         for (int d = 1; d <= maxLim; d++) {
             plint nextX = posX + d * integrationVector[0];
             plint nextY = posY + d * integrationVector[1];
             plint nextZ = posZ + d * integrationVector[2];
-            if (param.flag(nextX, nextY, nextZ) == wall) {
+            if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                 maxLim = std::min(maxLim, d - 1);
                 break;
             }
@@ -531,14 +448,14 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
         plint posX = iX + d0 * tangent[0];
         plint posY = iY + d0 * tangent[1];
         plint posZ = iZ + d0 * tangent[2];
-        if (param.flag(posX, posY, posZ) == wall) {
+        if (isAnyWall(param.flag(posX, posY, posZ))) {
             continue;
         }
         for (int d = 1; d <= minLim; d++) {
             plint nextX = posX - d * integrationVector[0];
             plint nextY = posY - d * integrationVector[1];
             plint nextZ = posZ - d * integrationVector[2];
-            if (param.flag(nextX, nextY, nextZ) == wall) {
+            if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                 minLim = std::min(minLim, d - 1);
                 break;
             }
@@ -554,7 +471,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
         plint posX = iX + d0 * tangent[0];
         plint posY = iY + d0 * tangent[1];
         plint posZ = iZ + d0 * tangent[2];
-        if (param.flag(posX, posY, posZ) == wall) {
+        if (isAnyWall(param.flag(posX, posY, posZ))) {
             continue;
         }
         h[i] = 0.0;
@@ -568,7 +485,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
 
     // Extrapolate on walls. (No contact angle algorithm).
     for (int i = 0; i < 3; i++) {
-        if (std::fabs(h[i] + 1.0) <= eps) {
+        if (util::isZero(h[i] + (T) 1)) {
             h[i] = h[1];
         }
     }
@@ -577,7 +494,9 @@ void FreeSurfaceGeometry3D<T,Descriptor>::computeHeights2D(FreeSurfaceProcessorP
 template<typename T,template<typename U> class Descriptor>
 void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    static T degToRad = (T) 3.14159265358979323844L / (T) 180;
+
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Array<T,3> zeroVector((T) 0, (T) 0, (T) 0);
@@ -593,13 +512,19 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                             continue;
                         }
                         // Locally smooth the volume fraction to compute an estimate of the normal.
-                        T svfcp = param.smoothVolumeFraction(iX, iY, iZ);
-                        T svfx0 = param.flag(iX - 1, iY, iZ) != wall ? param.smoothVolumeFraction(iX - 1, iY, iZ) : svfcp;
-                        T svfx1 = param.flag(iX + 1, iY, iZ) != wall ? param.smoothVolumeFraction(iX + 1, iY, iZ) : svfcp;
-                        T svfy0 = param.flag(iX, iY - 1, iZ) != wall ? param.smoothVolumeFraction(iX, iY - 1, iZ) : svfcp;
-                        T svfy1 = param.flag(iX, iY + 1, iZ) != wall ? param.smoothVolumeFraction(iX, iY + 1, iZ) : svfcp;
-                        T svfz0 = param.flag(iX, iY, iZ - 1) != wall ? param.smoothVolumeFraction(iX, iY, iZ - 1) : svfcp;
-                        T svfz1 = param.flag(iX, iY, iZ + 1) != wall ? param.smoothVolumeFraction(iX, iY, iZ + 1) : svfcp;
+                        T svfcp = param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ);
+                        T svfx0 = !isAnyWall(param.flag(iX - 1, iY, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX - 1, iY, iZ) : svfcp;
+                        T svfx1 = !isAnyWall(param.flag(iX + 1, iY, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX + 1, iY, iZ) : svfcp;
+                        T svfy0 = !isAnyWall(param.flag(iX, iY - 1, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY - 1, iZ) : svfcp;
+                        T svfy1 = !isAnyWall(param.flag(iX, iY + 1, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY + 1, iZ) : svfcp;
+                        T svfz0 = !isAnyWall(param.flag(iX, iY, iZ - 1)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ - 1) : svfcp;
+                        T svfz1 = !isAnyWall(param.flag(iX, iY, iZ + 1)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ + 1) : svfcp;
 
                         // Compute a normalized grad(VF) (inward-pointing normal).
                         Array<T,3> gradVF;
@@ -607,7 +532,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                         gradVF[1] = 0.5 * (svfy1 - svfy0);
                         gradVF[2] = 0.5 * (svfz1 - svfz0);
                         T norm_gradVF = norm(gradVF);
-                        if (norm_gradVF <= eps) {
+                        if (util::isZero(norm_gradVF)) {
                             param.curvature(iX, iY, iZ) = 0.0;
                             param.setNormal(iX, iY, iZ, zeroVector);
                             continue;
@@ -666,7 +591,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                             normal = Array<T,3>(-dh0, -dh1, sgn);
                         }
                         T norm_normal = norm(normal);
-                        if (norm_normal <= eps) {
+                        if (util::isZero(norm_normal)) {
                             param.setNormal(iX, iY, iZ, zeroVector);
                         } else {
                             param.setNormal(iX, iY, iZ, normal / norm_normal);
@@ -682,7 +607,8 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
         // First compute the flags.
         ScalarField3D<int> *interfaceFlag = getInterfaceFlags(domain, param);
 
-        /* New contact angle algorithm. This algorithm still does not properly treat the adjacent cells. */
+        /* New contact angle algorithm. This algorithm does not treat properly either the adjacent cells
+         *                              or the free-slip wall cells. */
 
         // First loop over all the regular and adjacent interface cells and calculate the curvature and the normal vectors.
         // When the appropriate algorithm for the adjacent cells is implemented, they must be removed from these loops.
@@ -699,13 +625,19 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                             continue;
                         }
                         // Locally smooth the volume fraction to compute an estimate of the normal.
-                        T svfcp = param.smoothVolumeFraction(iX, iY, iZ);
-                        T svfx0 = param.flag(iX - 1, iY, iZ) != wall ? param.smoothVolumeFraction(iX - 1, iY, iZ) : svfcp;
-                        T svfx1 = param.flag(iX + 1, iY, iZ) != wall ? param.smoothVolumeFraction(iX + 1, iY, iZ) : svfcp;
-                        T svfy0 = param.flag(iX, iY - 1, iZ) != wall ? param.smoothVolumeFraction(iX, iY - 1, iZ) : svfcp;
-                        T svfy1 = param.flag(iX, iY + 1, iZ) != wall ? param.smoothVolumeFraction(iX, iY + 1, iZ) : svfcp;
-                        T svfz0 = param.flag(iX, iY, iZ - 1) != wall ? param.smoothVolumeFraction(iX, iY, iZ - 1) : svfcp;
-                        T svfz1 = param.flag(iX, iY, iZ + 1) != wall ? param.smoothVolumeFraction(iX, iY, iZ + 1) : svfcp;
+                        T svfcp = param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ);
+                        T svfx0 = !isAnyWall(param.flag(iX - 1, iY, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX - 1, iY, iZ) : svfcp;
+                        T svfx1 = !isAnyWall(param.flag(iX + 1, iY, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX + 1, iY, iZ) : svfcp;
+                        T svfy0 = !isAnyWall(param.flag(iX, iY - 1, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY - 1, iZ) : svfcp;
+                        T svfy1 = !isAnyWall(param.flag(iX, iY + 1, iZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY + 1, iZ) : svfcp;
+                        T svfz0 = !isAnyWall(param.flag(iX, iY, iZ - 1)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ - 1) : svfcp;
+                        T svfz1 = !isAnyWall(param.flag(iX, iY, iZ + 1)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ + 1) : svfcp;
 
                         // Compute a normalized grad(VF) (inward-pointing normal).
                         Array<T,3> gradVF;
@@ -713,7 +645,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                         gradVF[1] = 0.5 * (svfy1 - svfy0);
                         gradVF[2] = 0.5 * (svfz1 - svfz0);
                         T norm_gradVF = norm(gradVF);
-                        if (norm_gradVF <= eps) {
+                        if (util::isZero(norm_gradVF)) {
                             param.curvature(iX, iY, iZ) = 0.0;
                             param.setNormal(iX, iY, iZ, zeroVector);
                             continue;
@@ -772,7 +704,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                             normal = Array<T,3>(-dh0, -dh1, sgn);
                         }
                         T norm_normal = norm(normal);
-                        if (norm_normal <= eps) {
+                        if (util::isZero(norm_normal)) {
                             param.setNormal(iX, iY, iZ, zeroVector);
                         } else {
                             param.setNormal(iX, iY, iZ, normal / norm_normal);
@@ -787,8 +719,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
 
         // Then loop over all the contact-line interface cells and calculate the curvature and the
         // normal vectors according to the specified contact angle.
-        T pi = std::acos((T) -1.0);
-        T contactAngleRad = contactAngle * pi / (T) 180.0;
+        T contactAngleRad = contactAngle * degToRad;
         T tanContactAngle = std::tan(contactAngleRad);
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -811,7 +742,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                         for (int dx = -1; dx < 2; dx++) {
                             for (int dy = -1; dy < 2; dy++) {
                                 for (int dz = -1; dz < 2; dz++) {
-                                        if (param.flag(iX + dx, iY + dy, iZ + dz) == wall) {
+                                        if (isAnyWall(param.flag(iX + dx, iY + dy, iZ + dz))) {
                                             inwardWallNormal += Array<int,3>(-dx, -dy, -dz);
                                             numWallCells++;
                                     }
@@ -856,7 +787,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                                         plint posX = iX + d * sumDirection[iSum][0];
                                         plint posY = iY + d * sumDirection[iSum][1];
                                         plint posZ = iZ + d * sumDirection[iSum][2];
-                                        if (param.flag(posX, posY, posZ) != wall) {
+                                        if (!isAnyWall(param.flag(posX, posY, posZ))) {
                                             sum[iSum] += param.volumeFraction(posX, posY, posZ);
                                         }
                                     }
@@ -909,31 +840,35 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                         wallTangent1[2] = iWallTangentDirection1 == 2 ? 1 : 0;
 
                         // Locally smooth the volume fraction to compute an estimate of the 2D normal.
-                        T svfcp = param.smoothVolumeFraction(iX, iY, iZ);
+                        T svfcp = param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), iX, iY, iZ);
                         plint posX, posY, posZ;
                         posX = iX - wallTangent0[0];
                         posY = iY - wallTangent0[1];
                         posZ = iZ - wallTangent0[2];
-                        T svf00 = param.flag(posX, posY, posZ) != wall ? param.smoothVolumeFraction(posX, posY, posZ) : svfcp;
+                        T svf00 = !isAnyWall(param.flag(posX, posY, posZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), posX, posY, posZ) : svfcp;
                         posX = iX + wallTangent0[0];
                         posY = iY + wallTangent0[1];
                         posZ = iZ + wallTangent0[2];
-                        T svf01 = param.flag(posX, posY, posZ) != wall ? param.smoothVolumeFraction(posX, posY, posZ) : svfcp;
+                        T svf01 = !isAnyWall(param.flag(posX, posY, posZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), posX, posY, posZ) : svfcp;
                         posX = iX - wallTangent1[0];
                         posY = iY - wallTangent1[1];
                         posZ = iZ - wallTangent1[2];
-                        T svf10 = param.flag(posX, posY, posZ) != wall ? param.smoothVolumeFraction(posX, posY, posZ) : svfcp;
+                        T svf10 = !isAnyWall(param.flag(posX, posY, posZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), posX, posY, posZ) : svfcp;
                         posX = iX + wallTangent1[0];
                         posY = iY + wallTangent1[1];
                         posZ = iZ + wallTangent1[2];
-                        T svf11 = param.flag(posX, posY, posZ) != wall ? param.smoothVolumeFraction(posX, posY, posZ) : svfcp;
+                        T svf11 = !isAnyWall(param.flag(posX, posY, posZ)) ?
+                            param.smooth(*param.volumeFractionP(), param.volumeFractionOffset(), posX, posY, posZ) : svfcp;
 
                         // Compute a normalized 2D grad(VF) (inward-pointing 2D normal).
                         Array<T,2> gradVF2D;
                         gradVF2D[0] = 0.5 * (svf01 - svf00);
                         gradVF2D[1] = 0.5 * (svf11 - svf10);
                         T norm_gradVF2D = norm(gradVF2D);
-                        if (norm_gradVF2D <= eps) {
+                        if (util::isZero(norm_gradVF2D)) {
                             param.curvature(iX, iY, iZ) = 0.0;
                             param.setNormal(iX, iY, iZ, zeroVector);
                             continue;
@@ -961,7 +896,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                             normal2D = Array<T,2>(-dh2D, sgn2D);
                         }
                         T norm_normal2D = norm(normal2D);
-                        if (norm_normal2D <= eps) {
+                        if (util::isZero(norm_normal2D)) {
                             param.curvature(iX, iY, iZ) = 0.0;
                             param.setNormal(iX, iY, iZ, zeroVector);
                             continue;
@@ -973,7 +908,7 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
                         normal[1] = normal2D[0] * wallTangent0[1] + normal2D[1] * wallTangent1[1] + wallNormalComponent * wallNormal[1];
                         normal[2] = normal2D[0] * wallTangent0[2] + normal2D[1] * wallTangent1[2] + wallNormalComponent * wallNormal[2];
                         T norm_normal = norm(normal);
-                        if (norm_normal <= eps) {
+                        if (util::isZero(norm_normal)) {
                             param.setNormal(iX, iY, iZ, zeroVector);
                         } else {
                             param.setNormal(iX, iY, iZ, normal / norm_normal);
@@ -1073,175 +1008,225 @@ void FreeSurfaceGeometry3D<T,Descriptor>::processGenericBlocks(Box3D domain, std
     }
 }
 
-/* *************** Class TwoPhaseComputeCurvature3D ******************************** */
+/* *************** Class FreeSurfaceComputeCurvature3D ******************************** */
 
 template<typename T,template<typename U> class Descriptor>
-void TwoPhaseComputeCurvature3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
+void FreeSurfaceComputeCurvature3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    static T degToRad = (T) 3.14159265358979323844L / (T) 180;
+
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
-    // Tensor field to hold a temporary vector field of unit normals. (Include also a 1-cell layer around "domain".)
-    plint nx = domain.getNx() + 2;
-    plint ny = domain.getNy() + 2;
-    plint nz = domain.getNz() + 2;
-    TensorField3D<T,3> tmpNormal(nx, ny, nz);
-    for (plint iX=domain.x0-1; iX<=domain.x1+1; ++iX) {
-        plint i = iX - domain.x0 + 1;
-        for (plint iY=domain.y0-1; iY<=domain.y1+1; ++iY) {
-            plint j = iY - domain.y0 + 1;
-            for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {
-                plint k = iZ - domain.z0 + 1;
+    Dot3D location = param.absOffset();
 
-                tmpNormal.get(i, j, k) = param.getNormal(iX, iY, iZ);
+    int smooth = 0; // 0 for no normal vector field smoothing.
+                    // 1 for smoothing the normal vector field once before imposing the contact angle.
+                    // 2 for smoothing the normal vector field once after imposing the contact angle.
+
+    TensorField3D<T,3> *normalForContactAngle = 0;
+    Dot3D ofsNCA(0, 0, 0);
+    plint w = 0;
+
+    if (smooth == 0 || smooth == 2) {
+        // Tensor field to hold a temporary vector field of unit normals. (Include also a w-cell layer around "domain".)
+        w = smooth == 0 ? 1 : 2;
+        plint nx = domain.getNx() + 2 * w;
+        plint ny = domain.getNy() + 2 * w;
+        plint nz = domain.getNz() + 2 * w;
+        normalForContactAngle = new TensorField3D<T,3>(nx, ny, nz);
+        ofsNCA = Dot3D(-domain.x0 + w, -domain.y0 + w, -domain.z0 + w);
+        for (plint iX=domain.x0-w; iX<=domain.x1+w; ++iX) {
+            plint i = iX + ofsNCA.x;
+            for (plint iY=domain.y0-w; iY<=domain.y1+w; ++iY) {
+                plint j = iY + ofsNCA.y;
+                for (plint iZ=domain.z0-w; iZ<=domain.z1+w; ++iZ) {
+                    plint k = iZ + ofsNCA.z;
+                    normalForContactAngle->get(i, j, k) = param.getNormal(iX, iY, iZ);
+
+                    param.curvature(iX, iY, iZ) = 0.0;
+                }
+            }
+        }
+    } else {
+        // Tensor field to hold a temporary vector field of unit normals. (Include also a w-cell layer around "domain".)
+        // This normal field is smoothed once (early tests show that if the normal field is smoothed twice, then
+        // the results are pretty bad).
+        w = 1;
+        plint nx = domain.getNx() + 2 * w;
+        plint ny = domain.getNy() + 2 * w;
+        plint nz = domain.getNz() + 2 * w;
+        normalForContactAngle = new TensorField3D<T,3>(nx, ny, nz);
+        ofsNCA = Dot3D(-domain.x0 + w, -domain.y0 + w, -domain.z0 + w);
+        for (plint iX=domain.x0-w; iX<=domain.x1+w; ++iX) {
+            plint i = iX + ofsNCA.x;
+            for (plint iY=domain.y0-w; iY<=domain.y1+w; ++iY) {
+                plint j = iY + ofsNCA.y;
+                for (plint iZ=domain.z0-w; iZ<=domain.z1+w; ++iZ) {
+                    plint k = iZ + ofsNCA.z;
+                    normalForContactAngle->get(i, j, k) =
+                        param.template lbmSmooth<T, descriptors::AdvectionDiffusionD3Q7Descriptor>(
+                                *param.normalP(), param.normalOffset(), iX, iY, iZ);
+
+                    param.curvature(iX, iY, iZ) = 0.0;
+                }
             }
         }
     }
 
     // Enforce contact angles.
     if (useContactAngle) {
-        Dot3D absOffset = param.absOffset();
-#ifdef PLB_DEBUG
-        T eps = getEpsilon<T>(precision);
-#endif
+        for (plint iX=domain.x0-w; iX<=domain.x1+w; ++iX) {
+            plint i = iX + ofsNCA.x;
+            for (plint iY=domain.y0-w; iY<=domain.y1+w; ++iY) {
+                plint j = iY + ofsNCA.y;
+                for (plint iZ=domain.z0-w; iZ<=domain.z1+w; ++iZ) {
+                    plint k = iZ + ofsNCA.z;
 
-        for (plint iX=domain.x0-1; iX<=domain.x1+1; ++iX) {
-            for (plint iY=domain.y0-1; iY<=domain.y1+1; ++iY) {
-                for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {
-                    if (contained(iX+absOffset.x, iY+absOffset.y, iZ+absOffset.z, globalBoundingBox)) {
-                        if (param.flag(iX, iY, iZ) == interface) {
-                            int isaContactAngleCell = 0;
-                            int numWallCells = 0;
-                            int numEmptyCells = 0;
-                            // Computation of the inward-pointing wall normal.
-                            Array<int,3> tmpWallNormal(0, 0, 0);
-                            for (int i = -1; i < 2; i++) {
-                                for (int j = -1; j < 2; j++) {
-                                    for (int k = -1; k < 2; k++) {
-                                        if (contained(iX+i+absOffset.x, iY+j+absOffset.y, iZ+k+absOffset.z,
-                                                    globalBoundingBox)) {
-                                            int flg = param.flag(iX+i, iY+j, iZ+k);
-                                            if (flg == wall) {
-                                                tmpWallNormal += Array<int,3>(-i, -j, -k);
-                                                numWallCells++;
-                                            } else if (isEmpty(flg)) {
-                                                numEmptyCells++;
-                                            }
-                                        }
+                    T curv = 0.0;
+
+                    // If we want to operate on the "sharp free surface", which is defined by the lattice
+                    // cells with the "interface" flag, then the next clause must be used.
+                    //if (param.flag(iX, iY, iZ) == interface) {
+                    // If we want a "diffuse interface view", then instead of the above clause, we need to
+                    // have one of the following, which operate on a "thick free surface" that is an outcome
+                    // of the smoothing proceedure (diffusion) performed when computing the field of unit
+                    // normals. There are two ways to do this: one is to use the original normal ("getNormal"),
+                    // which is already "thick", and the other way is to use the "normalForContactAngle" which
+                    // is localy smoothed one more time if "smooth = 1".
+                    if (!isAnyWall(param.flag(iX, iY, iZ)) && !util::isZero(normSqr(param.getNormal(iX, iY, iZ)))) {
+                    //if (!isAnyWall(param.flag(iX, iY, iZ)) && !util::isZero(normSqr(normalForContactAngle->get(i, j, k)))) {
+                        int isaContactAngleCell = 0;
+                        int numWallCells = 0;
+                        // Computation of the inward-pointing wall normal (towards the fluid).
+                        Array<int,3> tmpWallNormal(0, 0, 0);
+                        plint h = 1;  // This cannot be greater than 1 when w = 2!
+                        for (plint dx = -h; dx <= h; dx++) {
+                            for (plint dy = -h; dy <= h; dy++) {
+                                for (plint dz = -h; dz <= h; dz++) {
+                                    int flg = param.flag(iX + dx, iY + dy, iZ + dz);
+                                    if (isWall(flg)) { // Here we want only the no-slip walls, not the free-slip ones.
+                                        tmpWallNormal += Array<int,3>(-dx, -dy, -dz);
+                                        numWallCells++;
                                     }
                                 }
-                            }
-                            Array<T,3> wallNormal;
-                            if (numWallCells != 0 && numEmptyCells != 0) {
-                                int norm2tmpWallNormal = tmpWallNormal[0] * tmpWallNormal[0] + 
-                                                         tmpWallNormal[1] * tmpWallNormal[1] + 
-                                                         tmpWallNormal[2] * tmpWallNormal[2];
-                                if (norm2tmpWallNormal != 0) {
-                                    T tmpNormWallNormal = std::sqrt((T) norm2tmpWallNormal);
-                                    wallNormal[0] = (T) tmpWallNormal[0] / tmpNormWallNormal;
-                                    wallNormal[1] = (T) tmpWallNormal[1] / tmpNormWallNormal;
-                                    wallNormal[2] = (T) tmpWallNormal[2] / tmpNormWallNormal;
-                                    isaContactAngleCell = 1;
-                                }
-                            }
-                            if (isaContactAngleCell) {
-                                // Construction of a new orthonormal basis.
-                                Array<T,3> wallTangent0((T) 0.0, (T) 0.0, (T) 0.0);
-                                Array<T,3> wallTangent1((T) 0.0, (T) 0.0, (T) 0.0);
-                                gramSchmidt(wallNormal, wallTangent0, wallTangent1);
-
-                                // Transformation matrix from the standard Euclidean basis to the basis
-                                // (wallTangent0, wallTangent1, wallNormal).
-                                T a[3][3];
-                                a[0][0] = wallTangent0[0];
-                                a[0][1] = wallTangent0[1];
-                                a[0][2] = wallTangent0[2];
-                                a[1][0] = wallTangent1[0];
-                                a[1][1] = wallTangent1[1];
-                                a[1][2] = wallTangent1[2];
-                                a[2][0] = wallNormal[0];
-                                a[2][1] = wallNormal[1];
-                                a[2][2] = wallNormal[2];
-
-                                T det = a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
-                                        a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
-                                        a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
-                                PLB_ASSERT(std::fabs(det) > eps);
-
-                                // Make sure that the new basis is counter-clockwise oriented.
-                                if (det < (T) 0.0) {
-                                    Array<T,3> tmp(wallTangent0);
-                                    wallTangent0 = wallTangent1;
-                                    wallTangent1 = tmp;
-
-                                    a[0][0] = wallTangent0[0];
-                                    a[0][1] = wallTangent0[1];
-                                    a[0][2] = wallTangent0[2];
-                                    a[1][0] = wallTangent1[0];
-                                    a[1][1] = wallTangent1[1];
-                                    a[1][2] = wallTangent1[2];
-
-                                    det = -det;
-                                }
-                                T inv_det = 1.0 / std::fabs(det);
-
-                                // Inverse of the transformation matrix.
-                                T inv[3][3];
-                                inv[0][0] = inv_det * (a[1][1] * a[2][2] - a[1][2] * a[2][1]);
-                                inv[0][1] = inv_det * (a[0][2] * a[2][1] - a[0][1] * a[2][2]);
-                                inv[0][2] = inv_det * (a[0][1] * a[1][2] - a[0][2] * a[1][1]);
-                                inv[1][0] = inv_det * (a[1][2] * a[2][0] - a[1][0] * a[2][2]);
-                                inv[1][1] = inv_det * (a[0][0] * a[2][2] - a[0][2] * a[2][0]);
-                                inv[1][2] = inv_det * (a[0][2] * a[1][0] - a[0][0] * a[1][2]);
-                                inv[2][0] = inv_det * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
-                                inv[2][1] = inv_det * (a[0][1] * a[2][0] - a[0][0] * a[2][1]);
-                                inv[2][2] = inv_det * (a[0][0] * a[1][1] - a[0][1] * a[1][0]);
-
-                                // Express the outward pointing unit normal of the free surface
-                                // in the new basis.
-                                Array<T,3> normal = param.getNormal(iX, iY, iZ);
-                                Array<T,3> newNormal((T) 0.0, (T) 0.0, (T) 0.0);
-                                for (int i = 0; i < 3; i++) {
-                                    for (int j = 0; j < 3; j++) {
-                                        newNormal[i] += normal[j] * inv[j][i];
-                                    }
-                                }
-
-                                // Spherical coordinates.
-                                // The contact angle is the angle between the free surface normal vector,
-                                // and the wall normal.
-                                T phi = std::atan2(newNormal[1], newNormal[0]);
-                                T theta = contactAngle; // In radians.
-
-                                newNormal[0] = std::cos(phi) * std::sin(theta);
-                                newNormal[1] = std::sin(phi) * std::sin(theta);
-                                newNormal[2] = std::cos(theta);
-                                
-                                normal.resetToZero();
-                                for (int i = 0; i < 3; i++) {
-                                    for (int j = 0; j < 3; j++) {
-                                        normal[i] += newNormal[j] * a[j][i];
-                                    }
-                                }
-
-                                // Enforce the required free surface normal at the interface cell under
-                                // consideration, so that the correct contact angle is implicitly imposed.
-
-                                plint i = iX - domain.x0 + 1;
-                                plint j = iY - domain.y0 + 1;
-                                plint k = iZ - domain.z0 + 1;
-
-                                tmpNormal.get(i, j, k) = normal;
                             }
                         }
+                        Array<T,3> wallNormal;
+                        if (numWallCells != 0) {
+                            int norm2tmpWallNormal = tmpWallNormal[0] * tmpWallNormal[0] + 
+                                                     tmpWallNormal[1] * tmpWallNormal[1] + 
+                                                     tmpWallNormal[2] * tmpWallNormal[2];
+                            if (norm2tmpWallNormal != 0) {
+                                T tmpNormWallNormal = std::sqrt((T) norm2tmpWallNormal);
+                                wallNormal[0] = (T) tmpWallNormal[0] / tmpNormWallNormal;
+                                wallNormal[1] = (T) tmpWallNormal[1] / tmpNormWallNormal;
+                                wallNormal[2] = (T) tmpWallNormal[2] / tmpNormWallNormal;
+                                isaContactAngleCell = 1;
+                            }
+                        }
+                        if (isaContactAngleCell) {
+                            // Here again, there are two possible normals one can use: the original normal ("getNormal"),
+                            // which is already "thick", and the "normalForContactAngle" which is localy smoothed
+                            // one more time if "smooth = 1".
+                            Array<T,3> normal = param.getNormal(iX, iY, iZ);
+                            //Array<T,3> normal = normalForContactAngle->get(i, j, k);
+                            T cosPhi = dot(normal, wallNormal);
+                            Array<T,3> wallTangent = normal - cosPhi * wallNormal;
+                            T normWallTangent = norm(wallTangent);
+                            if (!util::isZero(normWallTangent)) {
+                                wallTangent /= normWallTangent;
+                            } else {
+                                // This option to not enforce a contact angle when the interface normal
+                                // is parallel to the wall normal must be revised in the framework of long
+                                // thin films.
+                                continue;
+                            }
+
+                            // Enforce the contact angle by taking at most two actions:
+                            //
+                            // 1) Add a penalty-like contribution to the curvature, to implicitly correct
+                            //    towards the equilibrium contact angle. For the form of the penalty-like
+                            //    term, see: Attar et al, "Lattice Boltzmann method for dynamic wetting
+                            //    problems", Journal of Colloid and Interface Science, 335 (2009) 84-93.
+                            //
+                            //    When operating in very low resolution, one should consider not using
+                            //    this penalty term, for better accuracy.
+                            //
+                            // 2) Modify the free surface normal at the local interface cell, so that
+                            //    the next time the curvature is computed, the equilibrium contact angle
+                            //    is considered.
+                            //
+                            // Both of these actions impose the contact angle indirectly, through Young's
+                            // law which relates the curvature, the surface tension and the pressure drop
+                            // on the free surface.
+
+                            T thetaEq = (contactAngleFunction == 0 ? contactAngle :
+                                    contactAngleFunction(iX+location.x, iY+location.y, iZ+location.z) *
+                                    degToRad); // Equilibrium contact angle in radians.
+
+                            //curv = cosPhi - std::cos(thetaEq); // At convergence, this term is zero.
+                            normal = std::cos(thetaEq) * wallNormal + std::sin(thetaEq) * wallTangent;
+
+                            // This is yet another way, that does not try to impose the equilibrium contact
+                            // angle, but an extrapolation of it, taking under consideration the current value
+                            // of the dynamic contact angle (phi): theta = (T) 2 * thetaEq - phi.
+                            // After convergence is achieved, then: phi = thetaEq, and theta = thetaEq.
+                            //
+                            // Another way is that one can impose the curvature as:
+                            // curv = cosPhi - std::cos(thetaEq), but the normal as:
+                            // normal = std::cos(theta) * wallNormal + std::sin(theta) * wallTangent,
+                            // with: theta = (T) 2 * thetaEq - phi. This is a mixture of the two previously
+                            // discussed methods. Sometimes it gives nice results (it enforces the contact angle
+                            // more strongly). 
+
+                            //T phi = angleBetweenVectors(normal, wallNormal);
+                            //T theta = (T) 2 * thetaEq - phi;
+
+                            //curv = std::cos(theta) - std::cos(thetaEq); // At convergence, this term is zero.
+                            //normal = std::cos(theta) * wallNormal + std::sin(theta) * wallTangent;
+
+                            normalForContactAngle->get(i, j, k) = normal;
+                        }
                     }
+
+                    param.curvature(iX, iY, iZ) = curv;
                 }
             }
         }
     }
 
+    TensorField3D<T,3> *normalForCurvature = 0;
+    Dot3D ofsNC(0, 0, 0);
+
+    if (smooth == 2) {
+        // Tensor field to hold a temporary vector field of unit normals. (Include also a t-cell layer around "domain".)
+        // This normal field is smoothed once (early tests show that if the normal field is smoothed twice, then
+        // the results are pretty bad).
+        plint t = 1;
+        plint nx = domain.getNx() + 2 * t;
+        plint ny = domain.getNy() + 2 * t;
+        plint nz = domain.getNz() + 2 * t;
+        normalForCurvature = new TensorField3D<T,3>(nx, ny, nz);
+        ofsNC = Dot3D(-domain.x0 + t, -domain.y0 + t, -domain.z0 + t);
+        for (plint iX=domain.x0-t; iX<=domain.x1+t; ++iX) {
+            plint i = iX + ofsNC.x;
+            for (plint iY=domain.y0-t; iY<=domain.y1+t; ++iY) {
+                plint j = iY + ofsNC.y;
+                for (plint iZ=domain.z0-t; iZ<=domain.z1+t; ++iZ) {
+                    plint k = iZ + ofsNC.z;
+                    normalForCurvature->get(i, j, k) =
+                        param.template lbmSmooth<T, descriptors::AdvectionDiffusionD3Q7Descriptor>(
+                                *normalForContactAngle, ofsNCA, iX, iY, iZ);
+                }
+            }
+        }
+    } else {
+        normalForCurvature = normalForContactAngle;
+        ofsNC = ofsNCA;
+    }
+
     // Compute the curvature as the divergence of the vector field of unit normals.
-    typedef Descriptor<T> D;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -1252,92 +1237,51 @@ void TwoPhaseComputeCurvature3D<T,Descriptor>::processGenericBlocks(Box3D domain
                     continue;
                 }
 
+                /*
                 int useLB = 1;
-                for (plint iPop = 1; iPop < D::q; ++iPop) {
-                    plint nextX = iX + D::c[iPop][0];
-                    plint nextY = iY + D::c[iPop][1];
-                    plint nextZ = iZ + D::c[iPop][2];
-                    if (param.flag(nextX, nextY, nextZ) == wall) {
+                for (plint iPop = 1; iPop < Descriptor<T>::q; ++iPop) {
+                    plint nextX = iX + Descriptor<T>::c[iPop][0];
+                    plint nextY = iY + Descriptor<T>::c[iPop][1];
+                    plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                    if (isAnyWall(param.flag(nextX, nextY, nextZ))) {
                         useLB = 0;
                         break;
                     }
                 }
 
                 if (useLB) {
+                */
                     // Compute the divergence of the normal vector field "the lattice Boltzmann way".
-                    curv = 0.0;
-                    for (plint iPop=1; iPop < D::q; ++iPop ) {
-                        plint nextX = iX + D::c[iPop][0];
-                        plint nextY = iY + D::c[iPop][1];
-                        plint nextZ = iZ + D::c[iPop][2];
-
-                        plint i = nextX - domain.x0 + 1;
-                        plint j = nextY - domain.y0 + 1;
-                        plint k = nextZ - domain.z0 + 1;
-
-                        Array<T,3>& normal = tmpNormal.get(i, j, k);
-
-                        curv += D::t[iPop]*(D::c[iPop][0]*normal[0] + D::c[iPop][1]*normal[1] + D::c[iPop][2]*normal[2]);
-                    }
-                    curv *= D::invCs2;                     
+                    curv = param.template lbmComputeDivergence<T,Descriptor>(*normalForCurvature, ofsNC, iX, iY, iZ);
+                /*
                 } else {
-                    // Compute the divergence with finite differences on the interface cells excluding wall cells.
-                    int fx1 = param.flag(iX - 1, iY, iZ);
-                    int fx2 = param.flag(iX + 1, iY, iZ);
-
-                    int fy1 = param.flag(iX, iY - 1, iZ);
-                    int fy2 = param.flag(iX, iY + 1, iZ);
-
-                    int fz1 = param.flag(iX, iY, iZ - 1);
-                    int fz2 = param.flag(iX, iY, iZ + 1);
-
-                    plint i, j, k;
-                    T h;
-                    T dnx_dx, dny_dy, dnz_dz;
-                    T v1, v2;
-
-                    i = iX - domain.x0 + 1;
-                    j = iY - domain.y0 + 1;
-                    k = iZ - domain.z0 + 1;
-
-                    h = (fx1 == wall || fx2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fx1 == wall) ? tmpNormal.get(i, j, k)[0] : tmpNormal.get(i - 1, j, k)[0];
-                    v2 = (fx2 == wall) ? tmpNormal.get(i, j, k)[0] : tmpNormal.get(i + 1, j, k)[0];
-
-                    dnx_dx = (v2 - v1) / h;
-
-                    h = (fy1 == wall || fy2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fy1 == wall) ? tmpNormal.get(i, j, k)[1] : tmpNormal.get(i, j - 1, k)[1];
-                    v2 = (fy2 == wall) ? tmpNormal.get(i, j, k)[1] : tmpNormal.get(i, j + 1, k)[1];
-
-                    dny_dy = (v2 - v1) / h;
-
-                    h = (fz1 == wall || fz2 == wall) ? (T) 1.0 : (T) 2.0;
-
-                    v1 = (fz1 == wall) ? tmpNormal.get(i, j, k)[2] : tmpNormal.get(i, j, k - 1)[2];
-                    v2 = (fz2 == wall) ? tmpNormal.get(i, j, k)[2] : tmpNormal.get(i, j, k + 1)[2];
-
-                    dnz_dz = (v2 - v1) / h;
-
-                    curv = dnx_dx + dny_dy + dnz_dz;
+                    // Compute the divergence of the normal vector field with finite differences on the interface cells
+                    // excluding wall cells.
+                    plint h = 1;    // This must be 1 because above we included only a 1-cell layer around "domain".
+                    curv = param.computeDivergence(*normalForCurvature, ofsNC, h, iX, iY, iZ);
                 }
+                */
 
-                // We restrict the radius of curvature to be more always >=0.5, in lattice units.
+                // We restrict the radius of curvature to be more always >= 0.5, in lattice units.
                 // A smaller radius makes no sense anyway, numerically speaking, and in this way
                 // we avoid problems of the "division by zero" kind. (radius = 2/curvature)
-                if (std::fabs(curv)>4.0) {
-                    if (curv < 0.) {
-                        curv = -4.0;
-                    }
-                    else {
-                        curv = 4.0;
-                    }
-                }
-                param.curvature(iX, iY, iZ) = curv;
+                //if (std::fabs(curv) > (T) 4) {
+                //    if (curv < (T) 0) {
+                //        curv = -4.0;
+                //    }
+                //    else {
+                //        curv = 4.0;
+                //    }
+                //}
+
+                param.curvature(iX, iY, iZ) += curv; // We add in order to include the "penalty-like" term if any.
             }
         }
+    }
+
+    delete normalForContactAngle;
+    if (smooth == 2) {
+        delete normalForCurvature;
     }
 }
 
@@ -1348,7 +1292,7 @@ void FreeSurfaceMassChange3D<T,Descriptor>::processGenericBlocks (
         Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks )
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // This loop updates the mass, summarizing  Eq. 6/7, and Eq.8, in
@@ -1393,7 +1337,7 @@ void FreeSurfaceCompletion3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
 
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
@@ -1451,7 +1395,7 @@ void FreeSurfaceCompletion3D<T,Descriptor>
 
                         // If the f_i[iPop] would be streamed from an empty cell, or whenever the scalar product is positive.
                         if ( scalarProduct > 0 || param.flag(prevX,prevY,prevZ) == empty ||
-                             param.flag(prevX,prevY,prevZ) == wall )
+                             isAnyWall(param.flag(prevX,prevY,prevZ)) )
                         {
                             savedPop[iPop] = param.cell(prevX,prevY,prevZ)[opp];
                             needsModification = true;
@@ -1494,7 +1438,7 @@ void FreeSurfaceCompletion3D<T,Descriptor>
 
                         // If the f_i[iPop] would be streamed from an empty cell
                         if ( isEmpty(param.flag(prevX,prevY,prevZ)) ||
-                             param.flag(prevX,prevY,prevZ) == wall )
+                             isAnyWall(param.flag(prevX,prevY,prevZ)) )
                         {
                             savedPop[iPop] = param.cell(prevX,prevY,prevZ)[opp];
                             needsModification = true;
@@ -1543,7 +1487,7 @@ template< typename T,template<typename U> class Descriptor>
 void FreeSurfaceMacroscopic3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     T lostMass = param.getSumLostMass();
@@ -1553,7 +1497,7 @@ void FreeSurfaceMacroscopic3D<T,Descriptor>
         massPerCell = lostMass / (T)numInterfaceCells;
     }
 
-    // Save macroscopic fields in external scalars and update the mass-fraction.
+    // Save macroscopic fields in external scalars and update the mass and the volume-fraction.
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
@@ -1570,21 +1514,14 @@ void FreeSurfaceMacroscopic3D<T,Descriptor>
                         param.volumeFraction(iX,iY,iZ) = param.mass(iX,iY,iZ)/newDensity;
                         // On interface cells, adjust the pressure to the ambient pressure.
                         param.setDensity(iX,iY,iZ, newDensity);
-                        j *= newDensity/density;
+                        if (!incompressibleModel) {
+                            j *= newDensity/density;
+                        }
                     }
                     else if(isFullWet(param.flag(iX,iY,iZ))) {
                         param.volumeFraction(iX,iY,iZ) = T(1);
                     }
                     
-                    Array<T,3> force = param.getForce(iX,iY,iZ);
-                    T tau = T(1)/param.cell(iX,iY,iZ).getDynamics().getOmega();
-                    // Two comments:
-                    // - Here the force is multiplied by rho0 and not rho so that, under
-                    //   gravity, a linear pressure profile is obtained.
-                    // - The force is not multiplied by the volume fraction (some authors
-                    //   do multiply it by the volumeFraction), because there is a 
-                    //   point-wise interpretation of quantities like momentum.
-                    j += rhoDefault*tau*force;
                     param.setMomentum(iX,iY,iZ, j);
                 }
             }
@@ -1592,14 +1529,14 @@ void FreeSurfaceMacroscopic3D<T,Descriptor>
     }   
 }
 
-/* *************** Class TwoPhaseAddSurfaceTension3D ******************************** */
+/* *************** Class FreeSurfaceAddSurfaceTension3D ******************************** */
 
 template< typename T,template<typename U> class Descriptor>
-void TwoPhaseAddSurfaceTension3D<T,Descriptor>
+void FreeSurfaceAddSurfaceTension3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
     typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // Save macroscopic fields in external scalars and add the surface tension effect.
@@ -1607,58 +1544,102 @@ void TwoPhaseAddSurfaceTension3D<T,Descriptor>
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
                 if (param.flag(iX,iY,iZ)==interface) {
-                    // This time I do not compute density and momentum from the populations...
-                    //T rhoBar; 
-                    //Array<T,3> j;
-                    //momentTemplates<T,Descriptor>::get_rhoBar_j(param.cell(iX,iY,iZ), rhoBar, j);
-                    //T density = Descriptor<T>::fullRho(rhoBar);
-                    //param.setDensity(iX,iY,iZ, density);
-
-                    // ... I just read them from their matrices.
                     T density = param.getDensity(iX,iY,iZ);
-                    Array<T,3> j = param.getMomentum(iX,iY,iZ);
-
-                    // Subtract the external force from momentum.
-                    Array<T,3> force = param.getForce(iX,iY,iZ);
-                    T tau = T(1)/param.cell(iX,iY,iZ).getDynamics().getOmega();
-                    j -= rhoDefault*tau*force;
-
                     T newDensity = density;
                     // Stored curvature is computed to be twice the mean curvature.
                     newDensity += surfaceTension * param.curvature(iX,iY,iZ) * D::invCs2;
                     param.volumeFraction(iX,iY,iZ) = param.mass(iX,iY,iZ) / newDensity;
                     // On interface cells, adjust the pressure to incorporate surface tension.
                     param.setDensity(iX,iY,iZ, newDensity);
-                    Array<T,3> newJ = j*newDensity/density;
-                    param.setMomentum(iX,iY,iZ, newJ);
-
-                    // TODO Are the following lines really necessary? To be tested.
-                    Cell<T,Descriptor>& cell = param.cell(iX,iY,iZ);
-                    T oldRhoBar;
-                    Array<T,3> oldJ;
-                    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, oldRhoBar, oldJ);
-                    T oldJsqr = normSqr(oldJ);
-                    T newRhoBar = Descriptor<T>::rhoBar(newDensity);
-                    T newJsqr = normSqr(newJ);
-                    for (int iPop=0; iPop<Descriptor<T>::q; ++iPop) {
-                        T oldEq = cell.getDynamics().computeEquilibrium(iPop, oldRhoBar, oldJ, oldJsqr);
-                        T newEq = cell.getDynamics().computeEquilibrium(iPop, newRhoBar, newJ, newJsqr);
-                        cell[iPop] += newEq - oldEq;
+                    if (!incompressibleModel) {
+                        Array<T,3> j = param.getMomentum(iX,iY,iZ);
+                        Array<T,3> newJ = j*newDensity/density;
+                        param.setMomentum(iX,iY,iZ, newJ);
                     }
-
-                    // Add the external force to momentum.
-                    newJ += rhoDefault*tau*force;
-                    param.setMomentum(iX,iY,iZ, newJ);
                 }
             }
         }
     }   
 }
 
+/* *************** Class FreeSurfaceAddSurfaceTensionFromScalarField3D ******************************** */
+
+template< typename T,template<typename U> class Descriptor>
+void FreeSurfaceAddSurfaceTensionFromScalarField3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    typedef Descriptor<T> D;
+    using namespace freeSurfaceFlag;
+
+    std::vector<AtomicBlock3D*> freeSurfaceBlocks(atomicBlocks.begin(), atomicBlocks.end() - 1);
+    FreeSurfaceProcessorParam3D<T,Descriptor> param(freeSurfaceBlocks);
+
+    ScalarField3D<T>* surfaceTensionField = dynamic_cast<ScalarField3D<T>*>(*(atomicBlocks.end() - 1));
+    PLB_ASSERT(surfaceTensionField);
+
+    Dot3D ofsSTF = computeRelativeDisplacement(*atomicBlocks[0], *surfaceTensionField);
+
+    // Save macroscopic fields in external scalars and add the surface tension effect.
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (param.flag(iX,iY,iZ)==interface) {
+                    T density = param.getDensity(iX,iY,iZ);
+                    T newDensity = density;
+                    T surfaceTension = surfaceTensionField->get(iX+ofsSTF.x, iY+ofsSTF.y, iZ+ofsSTF.z);
+                    // Stored curvature is computed to be twice the mean curvature.
+                    newDensity += surfaceTension * param.curvature(iX,iY,iZ) * D::invCs2;
+                    param.volumeFraction(iX,iY,iZ) = param.mass(iX,iY,iZ) / newDensity;
+                    // On interface cells, adjust the pressure to incorporate surface tension.
+                    param.setDensity(iX,iY,iZ, newDensity);
+                    if (!incompressibleModel) {
+                        Array<T,3> j = param.getMomentum(iX,iY,iZ);
+                        Array<T,3> newJ = j*newDensity/density;
+                        param.setMomentum(iX,iY,iZ, newJ);
+                    }
+                }
+            }
+        }
+    }   
+}
+
+/* *************** Class FreeSurfaceStabilize3D ******************************** */
+
+template< typename T,template<typename U> class Descriptor>
+void FreeSurfaceStabilize3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace freeSurfaceFlag;
+    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (param.flag(iX,iY,iZ) == interface) {
+                    Cell<T,Descriptor>& cell = param.cell(iX,iY,iZ);
+                    T oldRhoBar;
+                    Array<T,3> oldJ;
+                    momentTemplates<T,Descriptor>::get_rhoBar_j(cell, oldRhoBar, oldJ);
+                    T oldJsqr = normSqr(oldJ);
+                    T newDensity = param.getDensity(iX,iY,iZ);
+                    T newRhoBar = Descriptor<T>::rhoBar(newDensity);
+                    Array<T,3> newJ = param.getMomentum(iX,iY,iZ);
+                    T newJsqr = normSqr(newJ);
+                    for (int iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                        T oldEq = cell.getDynamics().computeEquilibrium(iPop, oldRhoBar, oldJ, oldJsqr);
+                        T newEq = cell.getDynamics().computeEquilibrium(iPop, newRhoBar, newJ, newJsqr);
+                        cell[iPop] += newEq - oldEq;
+                    }
+                }
+            }
+        }
+    }
+}
+
 /* *************** Class FreeSurfaceComputeInterfaceLists3D ******************************************* */
     
 template< typename T, template<typename> class Descriptor>
-T FreeSurfaceComputeInterfaceLists3D<T,Descriptor>::kappa = -1.e-3;
+T FreeSurfaceComputeInterfaceLists3D<T,Descriptor>::kappa = 1.e-3;
 
 template< typename T,template<typename U> class Descriptor>
 void FreeSurfaceComputeInterfaceLists3D<T,Descriptor>
@@ -1667,10 +1648,9 @@ void FreeSurfaceComputeInterfaceLists3D<T,Descriptor>
     typedef Descriptor<T> D;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
-    param.emptiedMassExcess().clear();
-    param.filledMassExcess().clear();
+    param.massExcess().clear();
     param.interfaceToFluid().clear();
     param.interfaceToEmpty().clear();
     param.emptyToInterface().clear();
@@ -1740,7 +1720,7 @@ void FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>
 {
     typedef Descriptor<T> D;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
@@ -1761,7 +1741,7 @@ void FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>
             param.flag(iX,iY,iZ) = fluid;
 
             T massExcess = saveMass - param.getDensity(iX,iY,iZ);
-            param.filledMassExcess().insert(std::pair<Node,T>(node,massExcess));
+            param.massExcess().insert(std::pair<Node,T>(node,massExcess));
         }
     }
     
@@ -1783,7 +1763,7 @@ void FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>
                 plint nextX = iX+D::c[iPop][0];
                 plint nextY = iY+D::c[iPop][1];
                 plint nextZ = iZ+D::c[iPop][2];
-                if (param.flag(nextX,nextY,nextZ)==protect) {
+                if (isProtected(param.flag(nextX,nextY,nextZ))) {
                     isAdjacentToProtected = true;
                     break;
                 }
@@ -1793,12 +1773,12 @@ void FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>
                 param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoDefault));
 
                 T massExcess = param.mass(iX,iY,iZ);
-                param.emptiedMassExcess().insert(std::pair<Node,T>(node,massExcess));
+                param.massExcess().insert(std::pair<Node,T>(node,massExcess));
 
                 param.mass(iX,iY,iZ) = T();
                 param.volumeFraction(iX,iY,iZ) = T();
                 param.setDensity(iX,iY,iZ, rhoDefault);
-                //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                 param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                 for(plint iPop=1; iPop < D::q; ++iPop) {
                     plint nextX = iX+D::c[iPop][0];
@@ -1824,7 +1804,7 @@ void FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>
 {
     typedef Descriptor<T> D;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     // In this data processor, density and momentum are potentially read and written
@@ -1899,7 +1879,7 @@ void FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>
                     iX,iY,iZ, dynamicsTemplate->clone() );
             
             iniCellAtEquilibrium(param.cell(iX,iY,iZ), averageDensity, averageMomentum/averageDensity);
-            //param.setForce(iX,iY,iZ, force);
+            param.setForce(iX,iY,iZ, force);
             // Change density, but leave mass and volumeFraction at 0, as they are later
             //   recomputed (Warning: this is probably correct, but there remains a small doubt).
             param.setMomentum(iX,iY,iZ, averageMomentum);
@@ -1919,7 +1899,7 @@ void FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>
 {
     typedef Descriptor<T> D;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
@@ -1934,6 +1914,7 @@ void FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>
             for (plint iZ=domain.z0-1; iZ<=domain.z1+1; ++iZ) {
                 Node node(iX,iY,iZ);
                 if (param.flag(iX,iY,iZ) == interface) {
+                    bool noEmptyNeighbor = true;
                     bool noFluidNeighbor = true;
                     
                     for(plint iPop=1;iPop<D::q; iPop++) {
@@ -1941,52 +1922,34 @@ void FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>
                         plint nextY = iY+D::c[iPop][1];
                         plint nextZ = iZ+D::c[iPop][2];
                 
+                        if (isEmpty(param.flag(nextX,nextY,nextZ))) noEmptyNeighbor = false;
                         if (isFullWet(param.flag(nextX,nextY,nextZ))) noFluidNeighbor = false;
                     }
-                    if (noFluidNeighbor) {
-                        bool allInterface = true;
-                        for(plint iPop=1;iPop<D::q; iPop++) {
-                            plint nextX = iX+D::c[iPop][0];
-                            plint nextY = iY+D::c[iPop][1];
-                            plint nextZ = iZ+D::c[iPop][2];
-                            int fl = param.flag(nextX,nextY,nextZ);
-                            if (fl!=interface && fl!=wall) {
-                                allInterface = false;
-                            }
-                        }
-                        // By default (if it's not the case that all
-                        // neighbors are interface), the interface cell is
-                        // converted to empty (because it has no fluid neighbor).
-                        bool convertToFluid = false;
-                        if (allInterface) {
-                            convertToFluid = param.volumeFraction(iX,iY,iZ)>=0.5;
-                        }
-                        if (convertToFluid) {
-                            interfaceToFluidNodes.push_back(Node(iX,iY,iZ));
-                            // Store the coordinates, so flag on this node
-                            // can be changed in a loop outside the current one.
-                            
-                            T massExcess = param.mass(iX,iY,iZ) - param.getDensity(iX,iY,iZ);
-                            param.filledMassExcess().insert(std::pair<Node,T>(node,massExcess));
-                            param.mass(iX,iY,iZ) = param.getDensity(iX,iY,iZ);
-                            param.volumeFraction(iX,iY,iZ) = T(1);
-                        }
-                        else { // convert to empty
-                            interfaceToEmptyNodes.push_back(Node(iX,iY,iZ));
-                            // Store the coordinates, so flag on this node
-                            // can be changed in a loop outside the current one.
+                    
+                    if (noEmptyNeighbor) {
+                        interfaceToFluidNodes.push_back(Node(iX,iY,iZ));
+                        // Store the coordinates, so flag on this node
+                        // can be changed in a loop outside the current one.
+                        
+                        T massExcess = param.mass(iX,iY,iZ) - param.getDensity(iX,iY,iZ);
+                        param.massExcess().insert(std::pair<Node,T>(node,massExcess));
+                        param.mass(iX,iY,iZ) = param.getDensity(iX,iY,iZ);
+                        param.volumeFraction(iX,iY,iZ) = T(1);
+                    }
+                    else if (noFluidNeighbor) {
+                        interfaceToEmptyNodes.push_back(Node(iX,iY,iZ));
+                        // Store the coordinates, so flag on this node
+                        // can be changed in a loop outside the current one.
 
-                            T massExcess = param.mass(iX,iY,iZ);
-                            param.emptiedMassExcess().insert(std::pair<Node,T>(node,massExcess));
-                            
-                            param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
-                            param.mass(iX,iY,iZ) = T();
-                            param.volumeFraction(iX,iY,iZ) = T();
-                            //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                            // Don't modify density and momentum, because they are needed by the second phase.
-                            param.setDensity(iX,iY,iZ, rhoDefault);
-                            param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
-                        }
+                        T massExcess = param.mass(iX,iY,iZ);
+                        param.massExcess().insert(std::pair<Node,T>(node,massExcess));
+                        
+                        param.attributeDynamics(iX,iY,iZ,new NoDynamics<T,Descriptor>(rhoDefault));
+                        param.mass(iX,iY,iZ) = T();
+                        param.setDensity(iX,iY,iZ, rhoDefault);
+                        param.volumeFraction(iX,iY,iZ) = T();
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
+                        param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                     }
                 }
             }
@@ -2003,265 +1966,76 @@ void FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>
     }
 }
 
-
 /* *************** Class FreeSurfaceEqualMassExcessReDistribution3D ******************************************* */
 
 template< typename T,template<typename U> class Descriptor>
 void FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
+    typedef Descriptor<T> D;
     typedef typename InterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Box3D originalDomain(domain);
         
-    typename std::map<Node,T>::iterator iEle = param.filledMassExcess().begin();
-    for (; iEle != param.filledMassExcess().end(); ++iEle) {
+    typename std::map<Node,T>::iterator iEle = param.massExcess().begin();
+    for (; iEle != param.massExcess().end(); ++iEle) {
         Array<plint,3> node = iEle->first;
         plint iX = node[0];
         plint iY = node[1];
         plint iZ = node[2];
 
-        redistribute(domain, originalDomain, param, iX, iY, iZ, iEle->second);
-    }
+        // Check for valid interface neighbors to re-distribute mass
+        if (contained(iX,iY,iZ,domain.enlarge(1)))  {
+            std::vector<int> indX, indY, indZ;
+            plint numValidNeighbors = 0;
 
-    iEle = param.emptiedMassExcess().begin();
-    for (; iEle != param.emptiedMassExcess().end(); ++iEle) {
-        Array<plint,3> node = iEle->first;
-        plint iX = node[0];
-        plint iY = node[1];
-        plint iZ = node[2];
-
-        redistribute(domain, originalDomain, param, iX, iY, iZ, iEle->second);
-    }
-}
-
-template< typename T,template<typename U> class Descriptor>
-void FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>
-        ::redistribute( Box3D const& domain, Box3D const& originalDomain,
-                        FreeSurfaceProcessorParam3D<T,Descriptor>& param,
-                        plint iX, plint iY, plint iZ, T mass )
-{
-    typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
-        
-    // Check for valid interface neighbors to re-distribute mass
-    if (contained(iX,iY,iZ,domain.enlarge(1)))  {
-        std::vector<int> indX, indY, indZ;
-        plint numValidNeighbors = 0;
-
-        // Check for interface neighbors in the LB directions.
-        for (plint iPop=1; iPop<D::q; iPop++) {
-            plint nextX = iX + D::c[iPop][0];
-            plint nextY = iY + D::c[iPop][1];
-            plint nextZ = iZ + D::c[iPop][2];
-            if (param.flag(nextX,nextY,nextZ) == interface) {
-                if (contained(nextX,nextY,nextZ,domain)) {
-                    indX.push_back(nextX);
-                    indY.push_back(nextY);
-                    indZ.push_back(nextZ);
-                }
-                numValidNeighbors++;
-            }
-        }
-
-        // Mass re-distribution
-        if (numValidNeighbors != 0) {
-            int indSize = (int) indX.size();
-            T massToRedistribute = mass/(T)numValidNeighbors;
-
-            for (int i = 0; i < indSize; i++) {
-                int nextX = indX[i];
-                int nextY = indY[i];
-                int nextZ = indZ[i];
-
-                param.mass(nextX,nextY,nextZ) += massToRedistribute;
-                param.volumeFraction(nextX,nextY,nextZ) = 
-                    param.mass(nextX,nextY,nextZ) / param.getDensity(nextX,nextY,nextZ);
-            }
-        } else {
-            if (contained(iX,iY,iZ,originalDomain))  {
-                param.addToLostMass(mass);
-            }
-        }
-    }
-}
-
-
-/* *************** Class FreeSurfaceWeightedMassExcessReDistribution3D ******************************************* */
-
-template< typename T,template<typename U> class Descriptor>
-void FreeSurfaceWeightedMassExcessReDistribution3D<T,Descriptor>
-        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
-{
-    typedef typename InterfaceLists<T,Descriptor>::Node Node;
-    using namespace twoPhaseFlag;
-    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-
-    Box3D originalDomain(domain);
-        
-    typename std::map<Node,T>::iterator iEle = param.filledMassExcess().begin();
-    for (; iEle != param.filledMassExcess().end(); ++iEle) {
-        Array<plint,3> node = iEle->first;
-        plint iX = node[0];
-        plint iY = node[1];
-        plint iZ = node[2];
-
-        redistribute(domain, originalDomain, param, iX, iY, iZ, iEle->second, +1.0);
-    }
-
-    iEle = param.emptiedMassExcess().begin();
-    for (; iEle != param.emptiedMassExcess().end(); ++iEle) {
-        Array<plint,3> node = iEle->first;
-        plint iX = node[0];
-        plint iY = node[1];
-        plint iZ = node[2];
-
-        redistribute(domain, originalDomain, param, iX, iY, iZ, iEle->second, -1.0);
-    }
-}
-
-template< typename T,template<typename U> class Descriptor>
-void FreeSurfaceWeightedMassExcessReDistribution3D<T,Descriptor>
-        ::redistribute( Box3D const& domain, Box3D const& originalDomain,
-                        FreeSurfaceProcessorParam3D<T,Descriptor>& param,
-                        plint iX, plint iY, plint iZ, T mass, T sign )
-{
-    typedef Descriptor<T> D;
-    using namespace twoPhaseFlag;
-        
-    // Check for valid interface neighbors to re-distribute mass
-    if (contained(iX,iY,iZ,domain.enlarge(1)))  {
-        std::vector<int> indX, indY, indZ;
-        std::vector<T> weights;
-        Array<T,3> normal(sign*param.getNormal(iX,iY,iZ));
-        T totalWeight = T();
-        plint numValidNeighbors = 0;
-
-        // Check for interface neighbors in the LB directions.
-        for (plint iPop=1; iPop<D::q; iPop++) {
-            plint nextX = iX + D::c[iPop][0];
-            plint nextY = iY + D::c[iPop][1];
-            plint nextZ = iZ + D::c[iPop][2];
-            if (param.flag(nextX,nextY,nextZ) == interface) {
-                T nextWeight = D::c[iPop][0]*normal[0] + D::c[iPop][1]*normal[1] + D::c[iPop][2]*normal[2];
-                if (nextWeight>T()) {
+            // Check for interface neighbors in the LB directions.
+            for (plint iPop=1; iPop<D::q; iPop++) {
+                plint nextX = iX + D::c[iPop][0];
+                plint nextY = iY + D::c[iPop][1];
+                plint nextZ = iZ + D::c[iPop][2];
+                if (param.flag(nextX,nextY,nextZ) == interface) {
                     if (contained(nextX,nextY,nextZ,domain)) {
                         indX.push_back(nextX);
                         indY.push_back(nextY);
                         indZ.push_back(nextZ);
-                        weights.push_back(nextWeight);
                     }
-                    totalWeight += nextWeight;
                     numValidNeighbors++;
                 }
             }
-        }
 
-        // Mass re-distribution
-        if (numValidNeighbors != 0) {
-            T invTotalWeight = (T)1 / totalWeight;
-            int indSize = (int) indX.size();
+            // Mass re-distribution
+            if (numValidNeighbors != 0) {
+                int indSize = (int) indX.size();
+                T massToRedistribute = iEle->second/(T)numValidNeighbors;
 
-            for (int i = 0; i < indSize; i++) {
-                int nextX = indX[i];
-                int nextY = indY[i];
-                int nextZ = indZ[i];
-                T massToRedistribute = totalWeight > 1.e-8 ? weights[i] * invTotalWeight * mass : mass;
+                for (int i = 0; i < indSize; i++) {
+                    int nextX = indX[i];
+                    int nextY = indY[i];
+                    int nextZ = indZ[i];
 
-                param.mass(nextX,nextY,nextZ) += massToRedistribute;
-                param.volumeFraction(nextX,nextY,nextZ) = 
-                    param.mass(nextX,nextY,nextZ) / param.getDensity(nextX,nextY,nextZ);
-            }
-        } else {
-            if (contained(iX,iY,iZ,originalDomain))  {
-                param.addToLostMass(mass);
+                    param.mass(nextX,nextY,nextZ) += massToRedistribute;
+                    param.volumeFraction(nextX,nextY,nextZ) = 
+                        param.mass(nextX,nextY,nextZ) / param.getDensity(nextX,nextY,nextZ);
+                }
+            } else {
+                if (contained(iX,iY,iZ,originalDomain))  {
+                    param.addToLostMass(iEle->second);
+                }
             }
         }
     }
 }
 
-template< typename T,template<typename U> class Descriptor>
-void FreeSurfaceInterfaceFilter<T,Descriptor>
-        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
-{
-    using namespace twoPhaseFlag;
-    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-
-    std::vector< Array<plint,3> > interfaceNodes;
-
-    // Save macroscopic fields in external scalars and update the mass-fraction.
-    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
-        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                if (param.flag(iX,iY,iZ)==interface) {
-                    if (contained(iX,iY,iZ, domain)) {
-                        interfaceNodes.push_back(Array<plint,3>(iX,iY,iZ));
-                    }
-                }
-            }
-        }
-    }
-
-    std::vector<T> newRho;
-    std::vector<Array<T,3> > newJ;
-    for (pluint i=0; i<interfaceNodes.size(); ++i) {
-        Array<plint,3> node = interfaceNodes[i];
-        plint iX=node[0];
-        plint iY=node[1];
-        plint iZ=node[2];
-        T rho = T();
-        Array<T,3> j;
-        j.resetToZero();
-        plint numNodes=0;
-        T weight = 0.;
-        for (plint dx=-2; dx<=2; ++dx) {
-            for (plint dy=-2; dy<=2; ++dy) {
-                for (plint dz=-2; dz<=2; ++dz) {
-                    plint px = iX+dx;
-                    plint py = iY+dy;
-                    plint pz = iZ+dz;
-                    if (param.flag(px,py,pz)==interface) {
-                        T newWeight = T();
-                        if (dx==0 && dy==0 && dz==0) {
-                            newWeight = 2.0;
-                        }
-                        else {
-                            newWeight = 1./norm(Array<T,3>(dx,dy,dz));
-                        }
-                        rho += newWeight*param.getDensity(px,py,pz);
-                        j += newWeight*param.getMomentum(px,py,pz);
-                        weight += newWeight;
-                        ++numNodes;
-                    }
-                }
-            }
-        }
-        PLB_ASSERT(numNodes>0);
-        rho /= weight;
-        j /= weight;
-        newRho.push_back(rho);
-        newJ.push_back(j);
-    }
-    for (pluint i=0; i<interfaceNodes.size(); ++i) {
-        Array<plint,3> node = interfaceNodes[i];
-        plint iX=node[0];
-        plint iY=node[1];
-        plint iZ=node[2];
-
-        param.setDensity(iX,iY,iZ, newRho[i]);
-        param.setMomentum(iX,iY,iZ, newJ[i]);
-    }
-}
-
-/* *************** Class TwoPhaseComputeStatistics3D ******************************************* */
+/* *************** Class FreeSurfaceComputeStatistics3D ******************************************* */
 
 template< typename T,template<typename U> class Descriptor>
-void TwoPhaseComputeStatistics3D<T,Descriptor>
+void FreeSurfaceComputeStatistics3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
@@ -2273,6 +2047,268 @@ void TwoPhaseComputeStatistics3D<T,Descriptor>
                     if (param.flag(iX,iY,iZ)==interface) {
                         param.addToInterfaceCells(1);
                     }
+                }
+            }
+        }
+    }
+}
+
+/* *************** Class FreeSurfaceAddExternalForce3D ******************************** */
+
+template< typename T,template<typename U> class Descriptor>
+void FreeSurfaceAddExternalForce3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain,std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    using namespace freeSurfaceFlag;
+    FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
+
+    if (Descriptor<T>::ExternalField::sizeOfForce == 0) {
+        return;
+    }
+    PLB_ASSERT(Descriptor<T>::ExternalField::sizeOfForce == 3);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (isWet(param.flag(iX,iY,iZ))) {
+                    Array<T,3> newJ = param.getMomentum(iX,iY,iZ);
+                    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force = param.getForce(iX,iY,iZ);
+
+                    T dynamicOmega = param.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau = 0.0;
+                    if (!util::isZero(dynamicOmega)) {
+                        tau = (T) 1 / dynamicOmega;
+                    } else {
+                        tau = (T) 1 / param.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
+                    // Two comments:
+                    // - Here the force is multiplied by rho0 and not rho so that, under
+                    //   gravity, a linear pressure profile is obtained.
+                    // - The force is not multiplied by the volume fraction (some authors
+                    //   do multiply it by the volumeFraction), because there is a 
+                    //   point-wise interpretation of quantities like momentum.
+                    for (plint i = 0; i < Descriptor<T>::ExternalField::sizeOfForce; i++) {
+                        newJ[i] += rhoDefault*tau*force[i];
+                    }
+                    param.setMomentum(iX,iY,iZ, newJ);
+                }
+            }
+        }
+    }   
+}
+
+/* *************** Class RepelInterfaceFromImmersedWalls3D ******************************** */
+
+template<typename T, class VelFunction>
+void RepelInterfaceFromImmersedWalls3D<T,VelFunction>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    using namespace freeSurfaceFlag;
+
+    PLB_PRECONDITION( atomicBlocks.size()==4 );
+    ScalarField3D<T>* rhoBar = dynamic_cast<ScalarField3D<T>*>(atomicBlocks[0]);
+    TensorField3D<T,3>* j = dynamic_cast<TensorField3D<T,3>*>(atomicBlocks[1]);
+    ScalarField3D<int>* flag = dynamic_cast<ScalarField3D<int>*>(atomicBlocks[2]);
+    AtomicContainerBlock3D* container = dynamic_cast<AtomicContainerBlock3D*>(atomicBlocks[3]);
+    PLB_ASSERT( rhoBar );
+    PLB_ASSERT( j );
+    PLB_ASSERT( flag );
+    PLB_ASSERT( container );
+
+    Dot3D ofsJ = computeRelativeDisplacement(*rhoBar, *j);
+    Dot3D ofsF = computeRelativeDisplacement(*rhoBar, *flag);
+
+    ImmersedWallData3D<T>* wallData = 
+        dynamic_cast<ImmersedWallData3D<T>*>( container->getData() );
+    PLB_ASSERT(wallData);
+
+    std::vector< Array<T,3> > const& vertices = wallData->vertices;
+    std::vector<pluint> const& globalVertexIds = wallData->globalVertexIds;
+    PLB_ASSERT( vertices.size()==globalVertexIds.size() );
+
+    if (strongRepelling) {
+        // Define temporary matrices to facilitate the computation of the
+        // mean position and velocity of the immersed boundary vertices
+        // in a vicinity of each interface node.
+        plint nx = domain.getNx();
+        plint ny = domain.getNy();
+        plint nz = domain.getNz();
+        TensorField3D<T,3> sumVelocity(nx, ny, nz);
+        ScalarField3D<plint> numVertices(nx, ny, nz);
+        Dot3D ofs(-domain.x0, -domain.y0, -domain.z0);
+
+        for (pluint i=0; i<vertices.size(); ++i) {
+            Array<T,3> const& vertex = vertices[i];
+            Array<plint,3> intPos (
+                    (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+            // x   x . x   x
+            for (plint dx=-1; dx<=+2; ++dx) {
+                for (plint dy=-1; dy<=+2; ++dy) {
+                    for (plint dz=-1; dz<=+2; ++dz) {
+                        Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                        if (contained(pos[0], pos[1], pos[2], domain)) {
+                            if (flag->get(pos[0]+ofsF.x, pos[1]+ofsF.y, pos[2]+ofsF.z) == interface) {
+                                sumVelocity.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z) += velFunction(globalVertexIds[i]);
+                                numVertices.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z) += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+            for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+                for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                    if (flag->get(iX+ofsF.x, iY+ofsF.y, iZ+ofsF.z) == interface &&
+                        numVertices.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z) != 0) {
+                        Array<T,3> meanVelocityWall = sumVelocity.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z) /
+                                (T) numVertices.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z);
+
+                        rhoBar->get(iX, iY, iZ) = rhoDefault - (T) 1.0;
+                        j->get(iX+ofsJ.x, iY+ofsJ.y, iZ+ofsJ.z) = rhoDefault * meanVelocityWall;
+                    }
+                }
+            }
+        }
+    } else {
+        // Define temporary matrices to facilitate the computation of the
+        // mean position and velocity of the immersed boundary vertices
+        // in a vicinity of each interface node.
+        plint nx = domain.getNx();
+        plint ny = domain.getNy();
+        plint nz = domain.getNz();
+        TensorField3D<T,3> sumPosition(nx, ny, nz);
+        TensorField3D<T,3> sumVelocity(nx, ny, nz);
+        ScalarField3D<plint> numVertices(nx, ny, nz);
+        Dot3D ofs(-domain.x0, -domain.y0, -domain.z0);
+
+        for (pluint i=0; i<vertices.size(); ++i) {
+            Array<T,3> const& vertex = vertices[i];
+            Array<plint,3> intPos (
+                    (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+            // x   x . x   x
+            for (plint dx=-1; dx<=+2; ++dx) {
+                for (plint dy=-1; dy<=+2; ++dy) {
+                    for (plint dz=-1; dz<=+2; ++dz) {
+                        Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                        if (contained(pos[0], pos[1], pos[2], domain)) {
+                            if (flag->get(pos[0]+ofsF.x, pos[1]+ofsF.y, pos[2]+ofsF.z) == interface) {
+                                sumPosition.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z) += vertex;
+                                sumVelocity.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z) += velFunction(globalVertexIds[i]);
+                                numVertices.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z) += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+            for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+                for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                    if (flag->get(iX+ofsF.x, iY+ofsF.y, iZ+ofsF.z) == interface &&
+                        numVertices.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z) != 0) {
+                        // For each interface node which is close to an immersed boundary,
+                        // compute the mean position vector of its neighbor empty nodes.
+                        // This way we can calculate on which side of the immersed wall
+                        // the specific bubble (or droplet) is situated.
+                        Array<T,3> meanPositionEmpty((T) 0, (T) 0, (T) 0);
+                        plint numEmpty = 0;
+                        for (plint dx=-2; dx<=+2; ++dx) {
+                            plint x = iX + dx;
+                            for (plint dy=-2; dy<=+2; ++dy) {
+                                plint y = iY + dy;
+                                for (plint dz=-2; dz<=+2; ++dz) {
+                                    plint z = iZ + dz;
+                                    if (isEmpty(flag->get(x+ofsF.x, y+ofsF.y, z+ofsF.z))) {
+                                        meanPositionEmpty += Array<T,3>((T) x, (T) y, (T) z);
+                                        numEmpty++;
+                                    }
+                                }
+                            }
+                        }
+                        PLB_ASSERT(numEmpty);
+                        meanPositionEmpty /= (T) numEmpty;
+
+                        // Decide if the immersed boundary and the bubble (or droplet) are approaching one another.
+                        // In such a case change the density and the momentum of the bubble (or droplet) interface nodes.
+                        Array<T,3> meanPositionWall = sumPosition.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z) /
+                                (T) numVertices.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z);
+                        Array<T,3> meanVelocityWall = sumVelocity.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z) /
+                                (T) numVertices.get(iX+ofs.x, iY+ofs.y, iZ+ofs.z);
+                        T dotProd = dot(meanVelocityWall, meanPositionEmpty - meanPositionWall);
+
+                        if (util::greaterEqual(dotProd, (T) 0)) {
+                            rhoBar->get(iX, iY, iZ) = rhoDefault - (T) 1.0;
+                            j->get(iX+ofsJ.x, iY+ofsJ.y, iZ+ofsJ.z) = rhoDefault * meanVelocityWall;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* *************** Class TemporarilyProtectImmersedWalls3D ******************************** */
+
+template<typename T>
+void TemporarilyProtectImmersedWalls3D<T>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    using namespace freeSurfaceFlag;
+
+    PLB_PRECONDITION( atomicBlocks.size()==2 );
+    ScalarField3D<int>* flag = dynamic_cast<ScalarField3D<int>*>(atomicBlocks[0]);
+    AtomicContainerBlock3D* container = dynamic_cast<AtomicContainerBlock3D*>(atomicBlocks[1]);
+    PLB_ASSERT( flag );
+    PLB_ASSERT( container );
+
+    ImmersedWallData3D<T>* wallData = 
+        dynamic_cast<ImmersedWallData3D<T>*>( container->getData() );
+    PLB_ASSERT(wallData);
+
+    std::vector< Array<T,3> > const& vertices = wallData->vertices;
+
+    for (pluint i=0; i<vertices.size(); ++i) {
+        Array<T,3> const& vertex = vertices[i];
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        // x   x . x   x
+        for (plint dx=-1; dx<=+2; ++dx) {
+            for (plint dy=-1; dy<=+2; ++dy) {
+                for (plint dz=-1; dz<=+2; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    if (contained(pos[0], pos[1], pos[2], domain)) {
+                        if (flag->get(pos[0], pos[1], pos[2]) == fluid) {
+                            flag->get(pos[0], pos[1], pos[2]) = temporarilyProtect;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* *************** Class RemoveProtectionFromImmersedWalls3D ******************************** */
+
+template<typename T>
+void RemoveProtectionFromImmersedWalls3D<T>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    using namespace freeSurfaceFlag;
+
+    PLB_PRECONDITION( atomicBlocks.size()==1 );
+    ScalarField3D<int>* flag = dynamic_cast<ScalarField3D<int>*>(atomicBlocks[0]);
+    PLB_ASSERT( flag );
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {         
+                if (flag->get(iX, iY, iZ) == temporarilyProtect) {
+                    flag->get(iX, iY, iZ) = fluid;
                 }
             }
         }

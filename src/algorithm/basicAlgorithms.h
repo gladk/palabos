@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,6 +37,41 @@ std::vector<plint> primeFactor(plint value);
 std::vector<plint> evenRepartition(plint value, plint d);
 
 } // namespace algorithm
+
+template<typename T>
+class PIDController {
+public: 
+    PIDController();
+    // Kp: proportional coefficient.
+    // Ki: integral coefficient.
+    // Kd: derivative coefficient.
+    T operator()(T target, T current, T Kp = 0.8, T Ki = 0.2, T Kd = 0.2);
+    void saveState(std::string baseFileName, plint fileNamePadding, plint iIter);
+    void loadState(std::string baseFileName, plint fileNamePadding, plint iIter);
+private: 
+    T error;
+    T sumErrors;
+    T deltaError;
+    T oldError;
+};
+
+template<typename T>
+class Relaxation {
+public: 
+    Relaxation();
+    Relaxation(T omega_, T equilibrium_ = (T) 0, T initialValue_ = (T) 0);
+    void setOmega(T omega_);
+    void setEquilibrium(T equilibrium_);
+    void setInitialValue(T initialValue_);
+    T iterate();
+    void saveState(std::string baseFileName, plint fileNamePadding, plint iIter);
+    void loadState(std::string baseFileName, plint fileNamePadding, plint iIter);
+private: 
+    T omega;
+    T equilibrium;
+    T previous;
+    T next;
+};
 
 } // namespace plb
 

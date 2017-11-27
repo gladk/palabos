@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -262,11 +262,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
                 domain, lattice );
     }
 
-    DataProcessorGenerator3D* generator
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
         = BoundaryManager::template getTemperatureBoundaryProcessor<direction,orientation>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -285,11 +284,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
             lattice, domain,
             BoundaryManager::template getTemperatureEdgeDynamics<plane,normal1,normal2>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator3D* generator
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
         = BoundaryManager::template getTemperatureEdgeProcessor<plane,normal1,normal2>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -303,11 +301,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
             lattice, Box3D(x,x, y,y, z,z),
             BoundaryManager::template  getTemperatureCornerDynamics<xNormal,yNormal,zNormal>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator3D* generator
-        = BoundaryManager::template getTemperatureCornerProcessor<xNormal,yNormal,zNormal>(x, y, z);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
+        = BoundaryManager::template getTemperatureCornerProcessor<xNormal,yNormal,zNormal>(x,y,z);
+    if (functional) {
+        integrateProcessingFunctional(functional, Box3D(x,x,y,y,z,z), lattice);
     }
 }
 
@@ -534,11 +531,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
             lattice, domain,
             BoundaryManager::template getTemperatureBoundaryDynamics<direction,orientation>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator3D* generator
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
         = BoundaryManager::template getTemperatureBoundaryProcessor<direction,orientation>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -557,11 +553,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
             lattice, domain,
             BoundaryManager::template getTemperatureEdgeDynamics<plane,normal1,normal2>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator3D* generator
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
         = BoundaryManager::template getTemperatureEdgeProcessor<plane,normal1,normal2>(domain);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    if (functional) {
+        integrateProcessingFunctional(functional, domain, lattice);
     }
 }
 
@@ -575,11 +570,10 @@ void AdvectionDiffusionBoundaryConditionInstantiator3D<T,Descriptor,BoundaryMana
             lattice, Box3D(x,x, y,y, z,z),
             BoundaryManager::template  getTemperatureCornerDynamics<xNormal,yNormal,zNormal>(new NoDynamics<T,Descriptor>) );
 
-    DataProcessorGenerator3D* generator
-        = BoundaryManager::template getTemperatureCornerProcessor<xNormal,yNormal,zNormal>(x, y, z);
-    if (generator) {
-        addInternalProcessor(*generator, lattice);
-        delete generator;
+    BoxProcessingFunctional3D_L<T,Descriptor>* functional
+        = BoundaryManager::template getTemperatureCornerProcessor<xNormal,yNormal,zNormal>(x,y,z);
+    if (functional) {
+        integrateProcessingFunctional(functional, Box3D(x,x,y,y,z,z), lattice);
     }
 }
 

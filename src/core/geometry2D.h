@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -105,7 +105,7 @@ struct Box2D {
         y0 = array[2]; y1 = array[3];
     }
 
-    bool operator==(Box2D const& rhs) {
+    bool operator==(Box2D const& rhs) const {
         return x0 == rhs.x0 && y0 == rhs.y0 &&
                x1 == rhs.x1 && y1 == rhs.y1;
     }

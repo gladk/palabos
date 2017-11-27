@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -71,7 +71,7 @@ void N_BoxDensityFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<m
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxDensityFunctional2D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -111,7 +111,7 @@ void Masked_N_BoxDensityFunctional2D<T,Descriptor>::getTypeOfModification(std::v
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxDensityFunctional2D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -145,7 +145,7 @@ void N_BoxKineticEnergyFunctional2D<T,Descriptor>::getTypeOfModification(std::ve
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxKineticEnergyFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -186,7 +186,7 @@ void Masked_N_BoxKineticEnergyFunctional2D<T,Descriptor>::getTypeOfModification(
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxKineticEnergyFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -220,7 +220,7 @@ void N_BoxVelocityNormFunctional2D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityNormFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -262,7 +262,7 @@ void Masked_N_BoxVelocityNormFunctional2D<T,Descriptor>::getTypeOfModification(s
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityNormFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -306,7 +306,7 @@ void N_BoxVelocityComponentFunctional2D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityComponentFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -354,7 +354,7 @@ void Masked_N_BoxVelocityComponentFunctional2D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityComponentFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -388,7 +388,7 @@ void N_BoxVelocityFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -428,7 +428,7 @@ void Masked_N_BoxVelocityFunctional2D<T,Descriptor>::getTypeOfModification(std::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -462,7 +462,7 @@ void N_BoxPiNeqFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<mod
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPiNeqFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -502,7 +502,7 @@ void Masked_N_BoxPiNeqFunctional2D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPiNeqFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor> 
@@ -535,7 +535,7 @@ void N_BoxShearStressFunctional2D<T,Descriptor>::getTypeOfModification(std::vect
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxShearStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -575,7 +575,7 @@ void Masked_N_BoxShearStressFunctional2D<T,Descriptor>::getTypeOfModification(st
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxShearStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -621,7 +621,7 @@ void N_BoxStrainRateFromStressFunctional2D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxStrainRateFromStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -672,7 +672,7 @@ void Masked_N_BoxStrainRateFromStressFunctional2D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxStrainRateFromStressFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -709,7 +709,7 @@ void N_BoxPopulationFunctional2D<T,Descriptor>::getTypeOfModification(std::vecto
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPopulationFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -752,7 +752,7 @@ void Masked_N_BoxPopulationFunctional2D<T,Descriptor>::getTypeOfModification(std
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPopulationFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -788,7 +788,7 @@ void N_BoxPopulationsFunctional2D<T,Descriptor>::getTypeOfModification(std::vect
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPopulationsFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -829,7 +829,7 @@ void Masked_N_BoxPopulationsFunctional2D<T,Descriptor>::getTypeOfModification(st
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPopulationsFunctional2D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 }  // namespace plb

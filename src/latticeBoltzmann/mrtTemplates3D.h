@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -645,31 +645,19 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
         T jSqr = mrtCollision( f, rhoBar, j, omega );
         addHeForce( f, force, rhoBar, u, omega, amplitude );
-        
+		
         return jSqr;
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     /// Smagorinsky MRT collision step
     static T smagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                                        const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                                       T invM_S[Descriptor::q][Descriptor::q], 
-                                                       const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n > &strain, T cSmago, 
+                                                       const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n > &strain, T omega, T cSmago, 
                                                        const Array<T,Descriptor::d> &force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = smagorinskyMrtCollision( f, rhoBar, j, invM_S, strain, cSmago );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = smagorinskyMrtCollision( f, rhoBar, j, strain, omega, cSmago );
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
@@ -677,12 +665,12 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     /// MRT collision step
     static T incMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                     const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                    T invM_S[Descriptor::q][Descriptor::q], 
+                                    T omega, 
                                     const Array<T,Descriptor::d> &force, T amplitude) 
     {
         Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = incMrtCollision( f, rhoBar, j, invM_S );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = incMrtCollision(f,rhoBar,j,omega );
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
@@ -690,13 +678,11 @@ template<typename T> struct mrtTemplatesImpl<T, descriptors::MRTD3Q19DescriptorB
     /// Smagorinsky MRT collision step
     static T incSmagorinskyMrtCollisionWithForce( Array<T,Descriptor::q>& f,
                                                        const T &rhoBar, const Array<T,Descriptor::d> & u,
-                                                       T invM_S[Descriptor::q][Descriptor::q], 
-                                                       const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n > &strain, T cSmago, 
+                                                       const Array<T,SymmetricTensorImpl<T,Descriptor::d>::n > &strain, T omega, T cSmago, 
                                                        const Array<T,Descriptor::d> &force, T amplitude) 
     {
-        Array<T,Descriptor::d> j = Descriptor::fullRho(rhoBar)*u;
-        T jSqr = incSmagorinskyMrtCollision( f, rhoBar, j, invM_S, strain, cSmago );
-        addGuoForce( f, force, u, invM_S, amplitude );
+        T jSqr = incSmagorinskyMrtCollision( f, omega, strain, cSmago );
+        addGuoForce( f, force, u, omega, amplitude );
         
         return jSqr;
     }
