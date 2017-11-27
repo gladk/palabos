@@ -40,5 +40,5 @@
 #include <offLattice/headers2D.h>
 #include <particles/headers2D.h>
 #include <libraryInterfaces/headers2D.h>
-#include <tinyxml/tinyxml.h>
+#include <tinyxml.h>
 
