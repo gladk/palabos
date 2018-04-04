@@ -79,7 +79,7 @@ void TRTdynamics<T,Descriptor>::collide (
     // for convenience.
     Array<T,Descriptor<T>::q/2+1> eq_plus, eq_minus, f_plus, f_minus;
 
-    Array<T,3> j;
+    Array<T,Descriptor<T>::d> j;
     T rhoBar;
     momentTemplates<T,Descriptor>::get_rhoBar_j(cell, rhoBar, j);
     T jSqr = normSqr(j);
