@@ -142,7 +142,7 @@ public:
     ~GridLevelContainer3D();
     
     MultiContainerBlock3D& getDataProcessors() {
-        return dataProcessors;
+        return *dataProcessors;
     }
     MultiBlockLattice3D<T,Descriptor> &getLattice() const {
         return *lattice;
