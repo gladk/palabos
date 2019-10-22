@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,6 +45,10 @@ Array<T,nDim> linearInterpolateTensorField (
 template<typename T, plint nDim>
 Array<T,nDim> predictorCorrectorTensorField (
         TensorField2D<T,nDim>& tensorField, Array<T,2> const& position, T scaling );
+
+template<typename T>
+Array<T,2> predictorCorrectorNTensorField (
+        NTensorField2D<T>& tensorField, Array<T,2> const& position, T scaling );
 
         
 template<typename T>

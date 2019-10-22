@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -48,7 +48,8 @@ class BubbleHistory3D {
 public:
     BubbleHistory3D(MultiBlock3D& templ);
     ~BubbleHistory3D();
-    void transition(BubbleMatch3D& bubbleMatch, plint iterationStep, T newBubbleVolumeCorrection);
+    void transition(BubbleMatch3D& bubbleMatch, plint iterationStep, T newBubbleVolumeCorrection = (T)1.,
+            bool entrapBubbles = false, plint numRememberedVolumes = 1);
     // Based on the bubble information (original volume, current volume), update the pressure field
     // for all bubbles.
     void updateBubblePressure(MultiScalarField3D<T>& outsideDensity, T rhoEmpty, T alpha = (T) -1, T beta = (T) -1, T gamma = (T) 1);
@@ -57,14 +58,14 @@ public:
     void timeHistoryLog(std::string fName);
     void fullBubbleLog(std::string fName);
     std::map<plint,BubbleInfo3D> const& getBubbles() const { return bubbles; }
-    std::map<plint,BubbleInfo3D>& getBubbles() { return bubbles; }
 private:
     // Implement the time evolution of the bubbles:
     // - Reassign an ID to the new bubbles, compatible with the old ID.
     // - Create a data structure for the new bubbles.
     // - Print a message if bubbles are created/deleted.
     void matchAndRemapBubbles( BubbleMatch3D& bubbleMatch, MultiScalarField3D<plint>& tagMatrix1,
-                               MultiScalarField3D<plint>& tagMatrix2, T newBubbleVolumeCorrection, plint iterationStep);
+                               MultiScalarField3D<plint>& tagMatrix2, T newBubbleVolumeCorrection,
+                               plint iterationStep, bool entrapBubbles, plint numRememberedVolumes );
     // Create the map "newToAllOldMap" which maps the temporary new IDs (continuously
     // numbered) to the "old" IDs (either existing ones or newly attributed).
     void correlateBubbleIds (
@@ -73,12 +74,14 @@ private:
     // Updates the (non-parallel) data structure which holds the overview of the currently
     // available bubbles.
     void updateBubbleInformation (
-            std::vector<BubbleTransition3D>& bubbleTransitions, std::vector<double> const& bubbleVolume,
-            std::vector<Array<double,3> > const& bubbleCenter, T newBubbleVolumeCorrection, plint iterationStep );
+            std::vector<BubbleTransition3D>& bubbleTransitions,
+            std::vector<double> const& bubbleVolume, T newBubbleVolumeCorrection, plint iterationStep,
+            bool entrapBubbles, plint numRememberedVolumes );
     void computeNewBubbles (
             std::set<plint>& oldIDs, std::set<plint>& newIDs,
-            std::vector<double> const& bubbleVolume, std::vector<Array<double,3> > const& bubbleCenter,
-            T newBubbleVolumeCorrection, std::map<plint,BubbleInfo3D>& newBubbles, std::map<plint,plint>& newToFinal );
+            std::vector<double> const& bubbleVolume, T newBubbleVolumeCorrection,
+            std::map<plint,BubbleInfo3D>& newBubbles, std::map<plint,plint>& newToFinal,
+            bool entrapBubbles, plint numRememberedVolumes );
     void updateBubbleLog (
             BubbleTransition3D& bubbleTransition, std::vector<double> const& bubbleVolume, plint iterationStep,
             std::map<plint,BubbleInfo3D>& newBubbles, std::map<plint,plint>& newToFinal );
@@ -124,24 +127,54 @@ public:
         : referenceVolume(0.),
           currentVolume(0.),
           frozen(false)
-    { }
-    BubbleInfo3D(double volume, Array<double,3> const& center_)
+    {
+        numRememberedVolumes = 0;
+        rememberedVolumes.clear();
+        invNumRememberedVolumes = 0.0;
+        numRegisteredVolumes = 0;
+        meanVolume = 0.0;
+    }
+    BubbleInfo3D(double volume, plint numRememberedVolumes_)
         : referenceVolume(volume),
           currentVolume(volume),
-          center(center_),
-          frozen(false)
-    { }
+          frozen(false),
+          numRememberedVolumes(numRememberedVolumes_)
+    {
+        PLB_ASSERT(numRememberedVolumes > 0);
+
+        if (numRememberedVolumes != 1) {
+            rememberedVolumes.resize(numRememberedVolumes, referenceVolume);
+            invNumRememberedVolumes = 1.0 / numRememberedVolumes;
+            numRegisteredVolumes = 0;
+            meanVolume = referenceVolume;
+        } else {
+            rememberedVolumes.clear();
+            invNumRememberedVolumes = 0.0;
+            numRegisteredVolumes = 0;
+            meanVolume = referenceVolume;
+        }
+    }
     void freeze() { frozen=true; }
-    void setVolume(double newVolume) {
-        currentVolume = newVolume;
+    void setVolume(double newVolume)
+    {
+        if (!frozen) {
+            currentVolume = newVolume;
+
+            if (numRememberedVolumes != 1) {
+                plint i = numRegisteredVolumes % numRememberedVolumes;
+                numRegisteredVolumes++;
+                meanVolume += invNumRememberedVolumes * (currentVolume - rememberedVolumes[i]);
+                rememberedVolumes[i] = currentVolume;
+            } else {
+                meanVolume = currentVolume;
+            }
+        }
     }
-    void setReferenceVolume(double newReferenceVolume) {
-        referenceVolume = newReferenceVolume;
-    }
-    double getVolumeRatio() const {
+    double getVolumeRatio() const
+    {
         static const double epsilon = std::numeric_limits<double>::epsilon()*1.e4;
-        if (std::fabs(currentVolume)>epsilon) {
-            return referenceVolume/currentVolume;
+        if (std::fabs(meanVolume)>epsilon) {
+            return referenceVolume/meanVolume;
         }
         else {
             return 1.0;
@@ -149,13 +182,18 @@ public:
     }
     double getReferenceVolume() const { return referenceVolume; }
     double getVolume() const { return currentVolume; }
-    Array<double,3> const& getCenter() const { return center; }
     bool isFrozen() const { return frozen; }
 private:
     double referenceVolume;
     double currentVolume;
-    Array<double,3> center;
     bool frozen;
+
+    // The following variables relate to the hysteresis mechanism.
+    plint numRememberedVolumes;
+    std::vector<double> rememberedVolumes;
+    double invNumRememberedVolumes;
+    plint numRegisteredVolumes;
+    double meanVolume;
 };
 
 struct BubbleTransition3D {
@@ -272,6 +310,9 @@ public:
         modified[0] = modif::nothing;          // tags.
         modified[1] = modif::staticVariables;  // density.
     }
+private:
+    static T getCutoffDensityRatio() { return 2.0; }
+    //static T getCutoffDensityRatio() { return 1.01; }
 private:
     std::map<plint,BubbleInfo3D> bubbles;
     T rho0;

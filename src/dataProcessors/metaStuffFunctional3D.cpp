@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -67,7 +67,9 @@ void IterateDynamicsFunctional3D::processGenericBlocks (
         }
     }
     for (pluint i=0; i<nextIDs.size(); ++i) {
-        this->getStatistics().gatherMax(maxIds[i], (double)nextIDs[i]);
+        if(i>0 && this->getStatistics().getMax(maxIds[i-1])>=(double)nextIDs[i-1]){
+            this->getStatistics().gatherMax(maxIds[i], (double)nextIDs[i]);
+        }
     }
 }
 

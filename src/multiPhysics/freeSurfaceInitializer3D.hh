@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,7 +42,7 @@ template< typename T,template<typename U> class Descriptor>
 void DefaultInitializeFreeSurface3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
@@ -76,13 +76,26 @@ void DefaultInitializeFreeSurface3D<T,Descriptor>
                     rho = param.getDensity(iX,iY,iZ);
                 }
                 Array<T,3> j((T)0.,(T)0.,(T)0.);
-                iniCellAtEquilibrium(param.cell(iX,iY,iZ), rho, j/rho);
+                if (!useZeroMomentum) {
+                    j = param.getMomentum(iX,iY,iZ);
+                }
+
+                if (initializeCell) {
+                    T rhoBar = Descriptor<T>::rhoBar(rho);
+                    T jSqr = normSqr(j);
+                    T thetaBar = 0.;
+                    param.cell(iX,iY,iZ).getDynamics().computeEquilibria(
+                            param.cell(iX,iY,iZ).getRawPopulations(), rhoBar, j, jSqr, thetaBar);
+                }
+
                 param.setDensity(iX,iY,iZ, rho);
                 param.setMomentum(iX,iY,iZ, j);
-                //param.setForce(iX,iY,iZ, g);
+                param.setForce(iX,iY,iZ, force);
+                param.outsideDensity(iX,iY,iZ) = rhoIni;
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
+                    case temporarilyProtect:
                         param.attributeDynamics(iX,iY,iZ, dynamicsTemplate->clone());
                         param.mass(iX,iY,iZ) = rho;
                         param.volumeFraction(iX,iY,iZ) = (T)1.;
@@ -95,12 +108,18 @@ void DefaultInitializeFreeSurface3D<T,Descriptor>
                     case empty:
                     case protectEmpty:
                         param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                        //param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
                         param.attributeDynamics(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                        param.mass(iX,iY,iZ) = (T)0.;
+                        param.volumeFraction(iX,iY,iZ) = (T)0.;
+                        break;
+                    case slipWall:
+                        // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                        param.attributeDynamics(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                         param.mass(iX,iY,iZ) = (T)0.;
                         param.volumeFraction(iX,iY,iZ) = (T)0.;
                         break;
@@ -116,15 +135,16 @@ void DefaultInitializeFreeSurface3D<T,Descriptor>
 
 /* *************** Class PartiallyDefaultInitializeFreeSurface3D ******************************************* */
 
-template<typename T,template<typename U> class Descriptor>
+template< typename T,template<typename U> class Descriptor>
 void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
-    // In the following, spot the interface cells and tag them. This time set the volume fraction to 0.
+    // In the following, spot the interface cells and tag them.
+    // This time set the volume fraction to 0.
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -135,7 +155,7 @@ void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
                         plint nextZ = iZ + D::c[iPop][2];
                         // Note: there is no conflict of concurrent read/write on param.flag, because
                         // read tests is a cell is fluid, and write only converts empty cells to interface.
-                        if(isFullWet(param.flag(nextX,nextY,nextZ))) {
+                        if (isFullWet(param.flag(nextX,nextY,nextZ))) {
                             param.flag(iX,iY,iZ) = interface;
                             param.volumeFraction(iX,iY,iZ) = (T) 0;
                         }
@@ -147,15 +167,34 @@ void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
-                T rho = rhoIni;
+                T rho = 0.;
+                if (useRhoIni) {
+                    rho = rhoIni;
+                }
+                else {
+                    rho = param.getDensity(iX,iY,iZ);
+                }
                 Array<T,3> j((T)0.,(T)0.,(T)0.);
-                iniCellAtEquilibrium(param.cell(iX,iY,iZ), rho, j/rho);
+                if (!useZeroMomentum) {
+                    j = param.getMomentum(iX,iY,iZ);
+                }
+
+                if (initializeCell) {
+                    T rhoBar = Descriptor<T>::rhoBar(rho);
+                    T jSqr = normSqr(j);
+                    T thetaBar = 0.;
+                    param.cell(iX,iY,iZ).getDynamics().computeEquilibria(
+                            param.cell(iX,iY,iZ).getRawPopulations(), rhoBar, j, jSqr, thetaBar);
+                }
+
                 param.setDensity(iX,iY,iZ, rho);
                 param.setMomentum(iX,iY,iZ, j);
-                //param.setForce(iX,iY,iZ, g);
+                param.setForce(iX,iY,iZ, force);
+                param.outsideDensity(iX,iY,iZ) = rhoIni;
                 switch(param.flag(iX,iY,iZ)) {
                     case fluid:
                     case protect:
+                    case temporarilyProtect:
                         param.attributeDynamics(iX,iY,iZ, dynamicsTemplate->clone());
                         param.mass(iX,iY,iZ) = rho;
                         break;
@@ -166,11 +205,16 @@ void PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>
                     case empty:
                     case protectEmpty:
                         param.attributeDynamics(iX,iY,iZ, new NoDynamics<T,Descriptor>(rhoIni));
-                        //param.setForce(iX,iY,iZ, Array<T,3>((T)0.,(T)0.,(T)0.));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     case wall:
                         param.attributeDynamics(iX,iY,iZ, new BounceBack<T,Descriptor>(rhoIni));
+                        param.mass(iX,iY,iZ) = (T)0.;
+                        break;
+                    case slipWall:
+                        // If no reflection plane is given, SpecularReflection behaves like BounceBack.
+                        param.attributeDynamics(iX,iY,iZ, new SpecularReflection<T,Descriptor>(rhoIni));
                         param.mass(iX,iY,iZ) = (T)0.;
                         break;
                     default:
@@ -189,7 +233,7 @@ template< typename T,template<typename U> class Descriptor>
 void ConstantIniVelocityFreeSurface3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
     T rho = rhoIni;
@@ -213,9 +257,9 @@ template< typename T,template<typename U> class Descriptor>
 void InletConstVolumeFraction3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
-    
+
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
@@ -224,6 +268,45 @@ void InletConstVolumeFraction3D<T,Descriptor>
         }
     }
 }
+/* *************** Class MaskedInletConstVolumeFraction3D ******************************************* */
+
+template< typename T,template<typename U> class Descriptor>
+void MaskedInletConstVolumeFraction3D<T,Descriptor>
+        ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
+{
+    PLB_ASSERT(atomicBlocks.size() == 3);
+    ScalarField3D<T>* rhoBar = dynamic_cast<ScalarField3D<T>*>(atomicBlocks[0]);
+    PLB_ASSERT(rhoBar);
+    ScalarField3D<T>* mass = dynamic_cast<ScalarField3D<T>*>(atomicBlocks[1]);
+    PLB_ASSERT(mass);
+    ScalarField3D<int>* mask = dynamic_cast<ScalarField3D<int>*>(atomicBlocks[2]);
+    PLB_ASSERT(mask);
+
+    Dot3D ofsMass = computeRelativeDisplacement(*rhoBar, *mass);
+    Dot3D ofsMask = computeRelativeDisplacement(*rhoBar, *mask);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask->get(iX+ofsMask.x, iY+ofsMask.y, iZ+ofsMask.z) == whichFlag) {
+                    mass->get(iX+ofsMass.x, iY+ofsMass.y, iZ+ofsMass.z) = volumeFraction *
+                        Descriptor<T>::fullRho(rhoBar->get(iX, iY, iZ));
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void maskedInletConstVolumeFraction3D(MultiScalarField3D<T>& rhoBar, MultiScalarField3D<T>& mass,
+        MultiScalarField3D<int>& mask, T volumeFraction, int whichFlag, Box3D domain)
+{
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&rhoBar);
+    args.push_back(&mass);
+    args.push_back(&mask);
+    applyProcessingFunctional(new MaskedInletConstVolumeFraction3D<T,Descriptor>(volumeFraction, whichFlag), domain, args);
+}
 
 /* *************** Class OutletMaximumVolumeFraction3D ******************************************* */
 
@@ -231,7 +314,7 @@ template< typename T,template<typename U> class Descriptor>
 void OutletMaximumVolumeFraction3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -252,7 +335,7 @@ template< typename T,template<typename U> class Descriptor>
 void OutletVolumeFractionInRange3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -277,7 +360,7 @@ template< typename T,template<typename U> class Descriptor>
 void OutletMaximumVolumeFraction2_3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -310,7 +393,7 @@ template< typename T,template<typename U> class Descriptor>
 void NoSlipMaximumVolumeFraction3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -331,7 +414,7 @@ template< typename T,template<typename U> class Descriptor>
 void PunchSphere3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
     typedef Descriptor<T> D;
 
@@ -364,7 +447,7 @@ void PunchSphere3D<T,Descriptor>
                         param.mass(iX,iY,iZ) = T();
                         param.volumeFraction(iX,iY,iZ) = T();
                         param.setDensity(iX,iY,iZ, rho0);
-                        //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                        param.setForce(iX,iY,iZ, Array<T,D::ExternalField::sizeOfForce>::zero());
                         param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                         param.outsideDensity(iX,iY,iZ) = rho0;
                     }
@@ -380,7 +463,7 @@ template< typename T,template<typename U> class Descriptor>
 void AnalyticalPunchSphere3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Dot3D offset = param.absOffset();
@@ -392,7 +475,7 @@ void AnalyticalPunchSphere3D<T,Descriptor>
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 plint globalZ = iZ + offset.z;
 
-                if (param.flag(iX,iY,iZ) == empty || param.flag(iX,iY,iZ) == wall) {
+                if (param.flag(iX,iY,iZ) == empty || isAnyWall(param.flag(iX,iY,iZ))) {
                     continue;
                 }
 
@@ -408,7 +491,7 @@ void AnalyticalPunchSphere3D<T,Descriptor>
                     param.mass(iX,iY,iZ) = T();
                     param.volumeFraction(iX,iY,iZ) = T();
                     param.setDensity(iX,iY,iZ, rho0);
-                    //param.setForce(iX,iY,iZ, Array<T,3>(T(),T(),T()));
+                    //param.setForce(iX,iY,iZ, Array<T,Descriptor<T>::ExternalField::sizeOfForce>::zero());
                     param.setMomentum(iX,iY,iZ, Array<T,3>(T(),T(),T()));
                     param.outsideDensity(iX,iY,iZ) = rho0;
                 } else {
@@ -451,15 +534,15 @@ void AnalyticalPunchSphere3D<T,Descriptor>::subDomainVolumeFraction (
     }
 
     if (numInside==0) {
-        flag = twoPhaseFlag::fluid;
+        flag = freeSurfaceFlag::fluid;
         volumeFraction = (T)1;
     }
     else if (numOutside==0) {
-        flag = twoPhaseFlag::empty;
+        flag = freeSurfaceFlag::empty;
         volumeFraction = (T)0;
     }
     else {
-        flag = twoPhaseFlag::interface;
+        flag = freeSurfaceFlag::interface;
         volumeFraction = (T)numOutside / ((T)numInside+(T)numOutside);
     }
 }
@@ -470,7 +553,7 @@ template< typename T,template<typename U> class Descriptor>
 void CalculateAverageSphereDensity3D<T,Descriptor>
         ::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks)
 {
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
     FreeSurfaceProcessorParam3D<T,Descriptor> param(atomicBlocks);
 
     Dot3D offset = param.absOffset();
@@ -548,15 +631,15 @@ void AnalyticalIniVolumeFraction3D<T,InsideFunction>::subDomainVolumeFraction (
     }
 
     if (numInside==0) {
-        flag = twoPhaseFlag::empty;
+        flag = freeSurfaceFlag::empty;
         volumeFraction = (T)0;
     }
     else if (numOutside==0) {
-        flag = twoPhaseFlag::fluid;
+        flag = freeSurfaceFlag::fluid;
         volumeFraction = (T)1;
     }
     else {
-        flag = twoPhaseFlag::interface;
+        flag = freeSurfaceFlag::interface;
         volumeFraction = (T)numInside / ((T)numInside+(T)numOutside);
     }
 }
@@ -564,14 +647,23 @@ void AnalyticalIniVolumeFraction3D<T,InsideFunction>::subDomainVolumeFraction (
 template<typename T, class InsideFunction>
 void analyticalIniVolumeFraction (
         MultiScalarField3D<T>& volumeFraction, MultiScalarField3D<int>& flagStatus,
-        InsideFunction const& insideFunction, plint subDivision )
+        InsideFunction const& insideFunction, Box3D domain, plint subDivision )
 {
     std::vector<MultiBlock3D*> args;
     args.push_back(&volumeFraction);
     args.push_back(&flagStatus);
     applyProcessingFunctional (
             new AnalyticalIniVolumeFraction3D<T,InsideFunction>(insideFunction, subDivision),
-            volumeFraction.getBoundingBox(), args );
+            domain, args );
+}
+
+template<typename T, class InsideFunction>
+void analyticalIniVolumeFraction (
+        MultiScalarField3D<T>& volumeFraction, MultiScalarField3D<int>& flagStatus,
+        InsideFunction const& insideFunction, plint subDivision )
+{
+    analyticalIniVolumeFraction(volumeFraction, flagStatus, insideFunction,
+            volumeFraction.getBoundingBox(), subDivision);
 }
 
 }  // namespace plb

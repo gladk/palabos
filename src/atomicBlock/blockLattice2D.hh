@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -344,6 +344,17 @@ Dynamics<T,Descriptor> const& BlockLattice2D<T,Descriptor>::getBackgroundDynamic
     return *backgroundDynamics;
 }
 
+template<typename T, template<typename U> class Descriptor>
+void BlockLattice2D<T,Descriptor>::resetDynamics(Dynamics<T,Descriptor> const& dynamics) {
+    plint nx = this->getNx();
+    plint ny = this->getNy();
+    for (plint iX=0; iX<nx; ++iX) {
+        for (plint iY=0; iY<ny; ++iY) {
+            attributeDynamics(iX,iY, dynamics.clone());
+        }
+    }
+}
+
 /** This method is slower than bulkStream(int,int,int,int), because one needs
  * to verify which distribution functions are to be kept from leaving
  * the domain.
@@ -516,12 +527,12 @@ void BlockLattice2D<T,Descriptor>::implementPeriodicity() {
 }
 
 template<typename T, template<typename U> class Descriptor>
-BlockLatticeDataTransfer2D<T,Descriptor>& BlockLattice2D<T,Descriptor>::getDataTransfer() {
+BlockDataTransfer2D& BlockLattice2D<T,Descriptor>::getDataTransfer() {
     return dataTransfer;
 }
 
 template<typename T, template<typename U> class Descriptor>
-BlockLatticeDataTransfer2D<T,Descriptor> const& BlockLattice2D<T,Descriptor>::getDataTransfer() const {
+BlockDataTransfer2D const& BlockLattice2D<T,Descriptor>::getDataTransfer() const {
     return dataTransfer;
 }
 

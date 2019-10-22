@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,9 +22,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/** \file
- * Helper functions for domain initialization -- header file.
- */
 #ifndef NEXT_NEIGHBORS_3D_H
 #define NEXT_NEIGHBORS_3D_H
 
@@ -34,16 +31,16 @@ namespace plb {
 
 template <typename T>
 struct NextNeighbor {
-    static const int numNeighbors=26;
-    static const int c[numNeighbors][3];
+    static const int numNeighbors;
+    static const int c[26][3];
     static const T d1;
     static const T d2;
     static const T d3;
-    static const T d[numNeighbors];
+    static const T d[26];
     static const T id1;
     static const T id2;
     static const T id3;
-    static const T invD[numNeighbors];
+    static const T invD[26];
 };
 
 template<typename T, template<typename U> class Descriptor>

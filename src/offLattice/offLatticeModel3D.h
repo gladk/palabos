@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,9 @@
 #define OFF_LATTICE_MODEL_3D_H
 
 #include "core/globalDefs.h"
+#include "atomicBlock/atomicContainerBlock3D.h"
+#include "multiBlock/multiBlock3D.h"
+#include "offLattice/boundaryShapes3D.h"
 
 namespace plb {
 
@@ -37,6 +40,7 @@ public:
     OffLatticeModel3D<T,SurfaceData>& operator= (
             OffLatticeModel3D<T,SurfaceData> const& rhs );
     virtual ~OffLatticeModel3D();
+    int getFlowType() const { return flowType; }
     void provideShapeArguments(std::vector<AtomicBlock3D*> args);
     plint getTag(plint id) const;
     bool pointOnSurface (
@@ -49,18 +53,30 @@ public:
     bool intersectsSurface (
             Dot3D const& p1, Dot3D const& p2, plint& id ) const;
     bool isFluid(Dot3D const& location) const;
+    bool isSolid(Dot3D const& location) const;
+
     bool velIsJ() const { return velIsJflag; }
     void setVelIsJ(bool velIsJflag_) { velIsJflag = velIsJflag_; }
     bool getPartialReplace() const { return partialReplaceFlag; }
     void setPartialReplace(bool prFlag) { partialReplaceFlag = prFlag; }
+    void selectSecondOrder(bool flag) { secondOrderFlag = flag; }
+    bool usesSecondOrder() const { return secondOrderFlag; }
+    void selectUseRegularizedModel(bool flag) { regularizedModel = flag; }
+    bool usesRegularizedModel() const { return regularizedModel; }
+    void selectComputeStat(bool flag) { computeStat = flag; }
+    bool computesStat() const { return computeStat; }
+    void setDefineVelocity(bool defineVelocity_) { defineVelocity = defineVelocity_; }
+    bool getDefineVelocity() const { return defineVelocity; }
+
     virtual OffLatticeModel3D<T,SurfaceData>* clone() const =0;
     virtual plint getNumNeighbors() const =0;
+    virtual bool isExtrapolated() const =0;
     virtual void prepareCell (
             Dot3D const& cellLocation, AtomicContainerBlock3D& container ) =0;
     virtual void boundaryCompletion (
             AtomicBlock3D& lattice,
             AtomicContainerBlock3D& container,
-            std::vector<AtomicBlock3D const*> const& args ) =0;
+            std::vector<AtomicBlock3D *> const& args ) =0;
     virtual ContainerBlockData* generateOffLatticeInfo() const =0;
     virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const =0;
 private:
@@ -68,6 +84,10 @@ private:
     int flowType;
     bool velIsJflag;
     bool partialReplaceFlag;
+    bool secondOrderFlag;
+    bool regularizedModel;
+    bool computeStat;
+    bool defineVelocity;
 };
 
 /// Precompute a list of nodes which are close to the off-lattice boundary
@@ -90,6 +110,9 @@ public:
     /// First AtomicBlock: OffLatticeInfo.
     ///   If there are more atomic-blocks then they are forwarded to the
     ///   shape function, to provide additional read-only parameters.
+    /// It is very important that the "offLatticePattern" container block
+    /// (the first atomic-block passed) has the same multi-block management
+    /// as the lattice used in the simulation.
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual BlockDomain::DomainT appliesTo() const;
@@ -114,6 +137,10 @@ public:
     ///   lattice info.
     ///   If there are more atomic-blocks then they are forwarded to the
     ///   shape function, to provide additional read-only parameters.
+    ///
+    /// It is very important that the "offLatticePattern" container block
+    /// which is passed as the second atomic-block with the off-lattice info
+    /// has the same multi-block management as the lattice used in the simulation.
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
     virtual OffLatticeCompletionFunctional3D<T,Descriptor,SurfaceData>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
@@ -141,9 +168,14 @@ public:
     virtual BlockDomain::DomainT appliesTo() const;
     Array<T,3> getForce() const;
 private:
-    OffLatticeModel3D<T,Array<T,3> >* offLatticeModel;
+    OffLatticeModel3D<T,SurfaceData>* offLatticeModel;
     Array<plint,3> forceId;
 };
+
+template< typename T, class BoundaryType >
+Array<T,3> getForceOnObject (
+        MultiBlock3D& offLatticePattern, 
+        OffLatticeModel3D<T,BoundaryType> const& offLatticeModel );
 
 }  // namespace plb
 

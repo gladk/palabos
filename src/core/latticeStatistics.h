@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,10 +35,11 @@ namespace LatticeStatistics {
     enum { avRhoBar=0, avUSqr=1, maxUSqr=0 };
 }
 
-inline void gatherStatistics(BlockStatistics& statistics, double rhoBar, double uSqr) {
-    statistics.gatherAverage(LatticeStatistics::avRhoBar, rhoBar);
-    statistics.gatherAverage(LatticeStatistics::avUSqr, uSqr);
-    statistics.gatherMax(LatticeStatistics::maxUSqr, uSqr);
+template<typename T>
+inline void gatherStatistics(BlockStatistics& statistics, const T& rhoBar, const T& uSqr) {
+    statistics.gatherAverage(LatticeStatistics::avRhoBar, static_cast<double>(rhoBar));
+    statistics.gatherAverage(LatticeStatistics::avUSqr, static_cast<double>(uSqr));
+    statistics.gatherMax(LatticeStatistics::maxUSqr, static_cast<double>(uSqr));
     statistics.incrementStats();
 }
 

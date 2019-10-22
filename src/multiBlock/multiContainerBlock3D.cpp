@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -77,7 +77,7 @@ MultiContainerBlock3D::MultiContainerBlock3D(MultiBlock3D const& rhs, Box3D subD
 MultiContainerBlock3D::MultiContainerBlock3D(MultiContainerBlock3D const& rhs)
     : MultiBlock3D(rhs)
 {
-    allocateBlocks();
+    allocateBlocks(rhs);
 }
 
 MultiContainerBlock3D& MultiContainerBlock3D::operator= (
@@ -95,10 +95,11 @@ MultiContainerBlock3D* MultiContainerBlock3D::clone() const {
 MultiContainerBlock3D* MultiContainerBlock3D::clone (
         MultiBlockManagement3D const& multiBlockManagement ) const
 {
-    // By definition, a multi container block cannot be redistributed over
-    //   a different block arrangement.
-    PLB_ASSERT( false );
-    return 0;
+    // By definition, the data of a multi container block cannot be redistributed over
+    //   a different block arrangement. Consequently, this function only creates a
+    //   multi container block with the desired multi block management, but then it
+    //   is the responsibility of the caller to initialize its data appropriately.
+    return new MultiContainerBlock3D(multiBlockManagement, defaultMultiBlockPolicy3D().getCombinedStatistics());
 }
 
 void MultiContainerBlock3D::swap(MultiContainerBlock3D& rhs) {
@@ -117,6 +118,18 @@ void MultiContainerBlock3D::allocateBlocks()
             new AtomicContainerBlock3D (
                     envelope.getNx(), envelope.getNy(), envelope.getNz() );
         newBlock -> setLocation(Dot3D(envelope.x0, envelope.y0, envelope.z0));
+        blocks[blockId] = newBlock;
+    }
+}
+
+void MultiContainerBlock3D::allocateBlocks(MultiContainerBlock3D const& rhs) 
+{
+    for (pluint iBlock=0; iBlock<this->getLocalInfo().getBlocks().size(); ++iBlock)
+    {
+        plint blockId = this->getLocalInfo().getBlocks()[iBlock];
+        BlockMap::const_iterator it(rhs.blocks.find(blockId));
+        PLB_ASSERT( it != rhs.blocks.end() );
+        AtomicContainerBlock3D* newBlock = new AtomicContainerBlock3D( *it->second );
         blocks[blockId] = newBlock;
     }
 }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -261,14 +261,14 @@ void TransientStatistics3D<T,Descriptor>::update()
 }
 
 template<typename T, template<typename U> class Descriptor>
-MultiScalarField3D<T>* TransientStatistics3D<T,Descriptor>::get(std::string field, std::string operation) const
+MultiScalarField3D<T>& TransientStatistics3D<T,Descriptor>::get(std::string field, std::string operation) const
 {
     int iField = fieldToId(field);
     PLB_ASSERT(iField >= 0);
     int iOperation = operationToId(operation);
     PLB_ASSERT(iOperation >= 0);
 
-    return blocks[iField][iOperation];
+    return *blocks[iField][iOperation];
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -294,6 +294,62 @@ void TransientStatistics3D<T,Descriptor>::output(std::string path, std::string d
 }
 
 template<typename T, template<typename U> class Descriptor>
+void TransientStatistics3D<T,Descriptor>::saveState(
+        plint iteration, FileName xmlFileName, FileName baseFileName, plint fileNamePadding)
+{
+    if (!isInitialized) {
+        initialize();
+    }
+
+    std::string fname_base = createFileName(baseFileName.get() + "_", iteration, fileNamePadding);
+
+    bool saveDynamicContent = false;
+    for (int iField = 0; iField < numFields; iField++) {
+        if (fieldIsRegistered[iField]) {
+            std::string field = idToField(iField);
+            for (int iOperation = 0; iOperation < numOperations; iOperation++) {
+                if (fieldOperationIsRegistered[iField][iOperation]) {
+                    std::string operation = idToOperation(iOperation);
+                    std::string fname = fname_base + "_" + field + "_" + operation;
+                    parallelIO::save(*blocks[iField][iOperation], fname, saveDynamicContent);
+                }
+            }
+        }
+    }
+
+    XMLwriter restart;
+    XMLwriter& entry = restart["continue"]["transientStatistics"];
+    entry["name"].setString(FileName(fname_base).defaultPath(global::directories().getOutputDir()));
+    entry["iteration"].set(iteration);
+    entry["n"].set(n);
+    restart.print(xmlFileName);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void TransientStatistics3D<T,Descriptor>::loadState(plint& iteration, FileName xmlFileName)
+{
+    XMLreader restart(xmlFileName.get());
+    std::string fname_base;
+    restart["continue"]["transientStatistics"]["name"].read(fname_base);
+    restart["continue"]["transientStatistics"]["iteration"].read(iteration);
+    restart["continue"]["transientStatistics"]["n"].read(n);
+
+    bool saveDynamicContent = false;
+    for (int iField = 0; iField < numFields; iField++) {
+        if (fieldIsRegistered[iField]) {
+            std::string field = idToField(iField);
+            for (int iOperation = 0; iOperation < numOperations; iOperation++) {
+                if (fieldOperationIsRegistered[iField][iOperation]) {
+                    std::string operation = idToOperation(iOperation);
+                    std::string fname = fname_base + "_" + field + "_" + operation;
+                    parallelIO::load(fname, *blocks[iField][iOperation], saveDynamicContent);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 int TransientStatistics3D<T,Descriptor>::fieldToId(std::string field) const
 {
     if (field == "velocityX") {
@@ -304,6 +360,8 @@ int TransientStatistics3D<T,Descriptor>::fieldToId(std::string field) const
         return velocityZ;
     } else if (field == "velocityNorm") {
         return velocityNorm;
+    } else if (field == "density") {
+        return density;
     } else if (field == "pressure") {
         return pressure;
     } else if (field == "vorticityX") {
@@ -351,6 +409,8 @@ std::string TransientStatistics3D<T,Descriptor>::idToField(int iField) const
         return std::string("velocityZ");
     case velocityNorm:
         return std::string("velocityNorm");
+    case density:
+        return std::string("density");
     case pressure:
         return std::string("pressure");
     case vorticityX:
@@ -397,6 +457,9 @@ T TransientStatistics3D<T,Descriptor>::getScalingFactor(int iField, T dx, T dt, 
     switch (iField) {
     case velocityX: case velocityY: case velocityZ: case velocityNorm:
         scalingFactor = dx / dt;
+        break;
+    case density:
+        scalingFactor = rho;
         break;
     case pressure:
         scalingFactor = rho * dx * dx / (dt * dt) * Descriptor<T>::cs2;
@@ -451,6 +514,7 @@ MultiScalarField3D<T>* TransientStatistics3D<T,Descriptor>::computeField(int iFi
     case velocityNorm:
         field = computeVelocityNorm(lattice, domain).release();
         break;
+    case density:
     case pressure:
         field = computeDensity(lattice, domain).release();
         break;

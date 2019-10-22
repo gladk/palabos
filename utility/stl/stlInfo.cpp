@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,9 @@
 #include "palabos3D.h"
 #include "palabos3D.hh"
 
+#include <algorithm>
+#include <string>
+
 using namespace plb;
 
 typedef double T;
@@ -35,22 +38,48 @@ int main(int argc, char* argv[])
     global::directories().setOutputDir("./");
     global::IOpolicy().activateParallelIO(false);
 
-    std::cout.precision(16);
-    std::scientific(std::cout);
+    //std::cout.precision(16);
+    //std::scientific(std::cout);
 
-    std::string stlFileName;
+    std::string precisionStr;
     try {
-        global::argv(1).read(stlFileName);
+        global::argv(1).read(precisionStr);
     }
     catch (PlbIOException& exception) {
         pcout << "Wrong parameters; the syntax is: " 
-              << (std::string)global::argv(0) << " inputSTL.stl" << std::endl;
+              << (std::string)global::argv(0) << " [FLT | DBL | LDBL | INF] inputSTL.stl" << std::endl;
+        exit(-1);
+    }
+
+    std::transform(precisionStr.begin(), precisionStr.end(), precisionStr.begin(), ::toupper);
+
+    Precision precision;
+    if (precisionStr == "FLT") {
+        precision = FLT;
+    } else if (precisionStr == "DBL") {
+        precision = DBL;
+    } else if (precisionStr == "LDBL") {
+        precision = LDBL;
+    } else if (precisionStr == "INF") {
+        precision = INF;
+    } else {
+        pcout << "Wrong precision command-line argument." << std::endl;
+        exit(-1);
+    }
+
+    std::string stlFileName;
+    try {
+        global::argv(2).read(stlFileName);
+    }
+    catch (PlbIOException& exception) {
+        pcout << "Wrong parameters; the syntax is: " 
+              << (std::string)global::argv(0) << " [FLT | DBL | LDBL | INF] inputSTL.stl" << std::endl;
         exit(-1);
     }
 
     TriangleSet<T>* set = 0;
     try {
-        set = new TriangleSet<T>(stlFileName, DBL);
+        set = new TriangleSet<T>(stlFileName, precision);
     }
     catch (PlbIOException& exception) {
         pcout << "ERROR, could not read STL file " << stlFileName
@@ -61,14 +90,24 @@ int main(int argc, char* argv[])
     plint numTriangles = set->getTriangles().size();
     pcout << "The STL file contains " << numTriangles << " triangles." << std::endl;
 
-    if (set->hasDegenerateTriangles()) {
-        pcout << "The triangle set contains degenerate triangles." << std::endl;
+    plint numZeroAreaTriangles = set->numZeroAreaTriangles();
+    if (numZeroAreaTriangles) {
+        pcout << "The TriangleSet has " << numZeroAreaTriangles << " zero-area triangles!" << std::endl;
     } else {
-        pcout << "The triangle set does not contain degenerate triangles." << std::endl;
+        pcout << "The TriangleSet does not have any zero-area triangles." << std::endl;
+    }
+
+    if (set->hasFloatingPointPrecisionDependence()) {
+        pcout << "The triangle set has a dependence on the floating point precision used." << std::endl;
+    } else {
+        pcout << "The triangle set does not have a dependence on the floating point precision used." << std::endl;
     }
 
     pcout << "The minimum triangle edge length is: " << set->getMinEdgeLength() << std::endl;
     pcout << "The maximum triangle edge length is: " << set->getMaxEdgeLength() << std::endl;
+
+    pcout << "The minimum triangle area is: " << set->getMinTriangleArea() << std::endl;
+    pcout << "The maximum triangle area is: " << set->getMaxTriangleArea() << std::endl;
 
     Cuboid<T> bCuboid = set->getBoundingCuboid();
     Array<T,3> llc = bCuboid.lowerLeftCorner;

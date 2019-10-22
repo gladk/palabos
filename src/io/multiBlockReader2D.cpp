@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -69,7 +69,7 @@ void createDynamicsForeignIds2D(FileName fName, std::map<int,std::string>& forei
     foreignIds.clear();
     std::vector<MultiBlock2D::ProcessorStorage2D> processors;
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     XMLreaderProxy dynReader(0);
     try {
@@ -91,7 +91,7 @@ void createDynamicsForeignIds2D(FileName fName, std::map<int,std::string>& forei
 void readXmlProcessors(FileName fName, MultiBlock2D& block) {
     std::vector<MultiBlock2D::ProcessorStorage2D> processors;
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     XMLreaderProxy procReader(0);
     try {
@@ -139,7 +139,7 @@ void readXmlSpec (
     std::vector<Box2D>& components, bool& dynamicContent, FileName& data_fName )
 {
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     std::string ordering;
     bool forwardOrdering;
@@ -271,7 +271,7 @@ void load(FileName fName, MultiBlock2D& intoBlock, bool dynamicContent )
 SavedFullMultiBlockSerializer2D::SavedFullMultiBlockSerializer2D(FileName fName)
 {
     fName.defaultPath(global::directories().getInputDir());
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     XMLreader reader(fName);
     std::string family, ordering;
     plint numComponents, numberOfBytes;

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -35,6 +35,7 @@
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "finiteDifference/interpolations2D.h"
 #include "offLattice/immersedWalls3D.h"
+#include "offLattice/voxelizer.h"
 #include "core/plbRandom.h"
 #include <algorithm>
 
@@ -1015,6 +1016,109 @@ void computePlaneMappingParticleStatistics3D(
 }
 
 
+/* ******** LinearScalarFieldToParticle3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+LinearScalarFieldToParticle3D<T,Descriptor>::LinearScalarFieldToParticle3D(
+                            int flowType_, plint whichScalar_ )
+    : whichScalar(whichScalar_)
+{ 
+    usableFlowTypes.push_back(flowType_);
+}
+
+template<typename T, template<typename U> class Descriptor>
+LinearScalarFieldToParticle3D<T,Descriptor>::LinearScalarFieldToParticle3D(
+                            std::vector<int> const &usableFlowTypes_, plint whichScalar_ )
+    : usableFlowTypes(usableFlowTypes_),
+      whichScalar(whichScalar_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void LinearScalarFieldToParticle3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==3 );
+    ParticleField3D<T,Descriptor>& particleField =
+        *dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    ScalarField3D<T>& scalarField =
+        *dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    ScalarField3D<int>& voxelMatrix =
+        *dynamic_cast<ScalarField3D<int>*>(blocks[2]);
+
+    Dot3D partLoc = particleField.getLocation();
+    Dot3D ofs = computeRelativeDisplacement(particleField, scalarField);
+    Dot3D ofsV = computeRelativeDisplacement(particleField, voxelMatrix);
+
+    Array<T,3> realLoc((T)partLoc.x,(T)partLoc.y,(T)partLoc.z);
+
+    std::vector<Particle3D<T,Descriptor>*> found;
+    particleField.findParticles(domain, found);
+
+    for (pluint iParticle=0; iParticle<found.size(); ++iParticle) {
+        Particle3D<T,Descriptor>& particle = *found[iParticle];
+        Array<T,3> vertex = particle.getPosition() - realLoc;
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        T averageScalar = T();
+        T totWeight = T();
+        // x   x . x   x
+        for (plint dx=-1; dx<=+2; ++dx) {
+            for (plint dy=-1; dy<=+2; ++dy) {
+                for (plint dz=-1; dz<=+2; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    T nextScalar =
+                        scalarField.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z);
+
+                    T nextFlag =
+                        voxelMatrix.get(pos[0]+ofsV.x, pos[1]+ofsV.y, pos[2]+ofsV.z);
+
+                    std::vector<int>::iterator it = 
+                        std::find (usableFlowTypes.begin(), usableFlowTypes.end(), nextFlag);
+                    if (it != usableFlowTypes.end()) {
+                        Array<T,3> r(pos[0]-vertex[0],pos[1]-vertex[1],pos[2]-vertex[2]);
+                        T W = inamuroDeltaFunction<T>().W(r);
+                        averageScalar += W*nextScalar;
+                        totWeight += W;
+                    }
+                }
+            }
+        }
+        averageScalar /= totWeight;
+
+        if (whichScalar==-1) {
+            std::vector<T> scalars;
+            scalars.push_back(averageScalar);
+            particle.setScalars(scalars);
+        }
+        else {
+            particle.setScalar(whichScalar, averageScalar);
+        }
+    }
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+LinearScalarFieldToParticle3D<T,Descriptor>*
+    LinearScalarFieldToParticle3D<T,Descriptor>::clone() const
+{
+    return new LinearScalarFieldToParticle3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void LinearScalarFieldToParticle3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables; // Particle field.
+    modified[1] = modif::nothing;  // Scalar field.
+    modified[2] = modif::nothing;  // Scalar field.
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT LinearScalarFieldToParticle3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
 /* ******** ScalarFieldToParticle3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1039,9 +1143,6 @@ void ScalarFieldToParticle3D<T,Descriptor>::processGenericBlocks (
     std::vector<Particle3D<T,Descriptor>*> found;
     particleField.findParticles(domain, found);
 
-    std::vector<Dot3D> cellPos(8);
-    std::vector<T> weights(8);
-    std::vector<Cell<T,Descriptor>*> cells(8);
     for (pluint iParticle=0; iParticle<found.size(); ++iParticle) {
         Particle3D<T,Descriptor>& particle = *found[iParticle];
         Array<T,3> vertex = particle.getPosition() - realLoc;
@@ -1087,6 +1188,89 @@ void ScalarFieldToParticle3D<T,Descriptor>::getTypeOfModification (
 {
     modified[0] = modif::dynamicVariables; // Particle field.
     modified[1] = modif::nothing;  // Scalar field.
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT ScalarFieldToParticle3D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulk;
+}
+
+
+/* ******** TensorFieldToParticle3D *********************************** */
+
+template<typename T, int nDim, template<typename U> class Descriptor>
+TensorFieldToParticle3D<T,nDim,Descriptor>::TensorFieldToParticle3D(plint whichScalar_)
+    : whichScalar(whichScalar_)
+{ }
+
+template<typename T, int nDim, template<typename U> class Descriptor>
+void TensorFieldToParticle3D<T,nDim,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==2 );
+    ParticleField3D<T,Descriptor>& particleField =
+        *dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    TensorField3D<T,nDim>& tensorField =
+        *dynamic_cast<TensorField3D<T,nDim>*>(blocks[1]);
+
+    Dot3D partLoc = particleField.getLocation();
+    Dot3D ofs = computeRelativeDisplacement(particleField, tensorField);
+    Array<T,3> realLoc((T)partLoc.x,(T)partLoc.y,(T)partLoc.z);
+
+    std::vector<Particle3D<T,Descriptor>*> found;
+    particleField.findParticles(domain, found);
+
+    std::vector<Dot3D> cellPos(8);
+    std::vector<T> weights(8);
+    std::vector<Cell<T,Descriptor>*> cells(8);
+    for (pluint iParticle=0; iParticle<found.size(); ++iParticle) {
+        Particle3D<T,Descriptor>& particle = *found[iParticle];
+        Array<T,3> vertex = particle.getPosition() - realLoc;
+        Array<plint,3> intPos (
+                (plint)vertex[0], (plint)vertex[1], (plint)vertex[2] );
+        std::vector<T> averageData(nDim, T());
+        // x   x . x   x
+        for (plint dx=-1; dx<=+2; ++dx) {
+            for (plint dy=-1; dy<=+2; ++dy) {
+                for (plint dz=-1; dz<=+2; ++dz) {
+                    Array<plint,3> pos(intPos+Array<plint,3>(dx,dy,dz));
+                    Array<T,nDim> nextData =
+                        tensorField.get(pos[0]+ofs.x, pos[1]+ofs.y, pos[2]+ofs.z);
+                    Array<T,3> r(pos[0]-vertex[0],pos[1]-vertex[1],pos[2]-vertex[2]);
+                    T W = inamuroDeltaFunction<T>().W(r);
+                    for (plint i=0; i<nDim; ++i) {
+                        averageData[i] += W*nextData[i];
+                    }
+                }
+            }
+        }
+
+        if (whichScalar==-1) {
+            particle.setScalars(averageData);
+        }
+        else {
+            for (plint i=0; i<nDim; ++i) {
+                particle.setScalar(whichScalar+i, averageData[i]);
+            }
+        }
+    }
+}
+
+
+template<typename T, int nDim, template<typename U> class Descriptor>
+TensorFieldToParticle3D<T,nDim,Descriptor>*
+    TensorFieldToParticle3D<T,nDim,Descriptor>::clone() const
+{
+    return new TensorFieldToParticle3D<T,nDim,Descriptor>(*this);
+}
+
+template<typename T, int nDim, template<typename U> class Descriptor>
+void TensorFieldToParticle3D<T,nDim,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables; // Particle field.
+    modified[1] = modif::nothing;  // Tensor field.
 }
 
 

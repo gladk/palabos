@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -612,6 +612,55 @@ public:
 };
 
 template<typename T, template<typename U> class Descriptor>
+class WrappedRegularizedConstRhoBoundaryManager3D {
+public:
+    template<int direction, int orientation>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getVelocityBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
+
+    template<int direction, int orientation>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getVelocityBoundaryFunctional();
+
+    template<int direction, int orientation>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getPressureBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics);
+
+    template<int direction, int orientation>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getPressureBoundaryFunctional();
+
+    template<int plane, int normal1, int normal2>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getExternalVelocityEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics);
+
+    template<int plane, int normal1, int normal2>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getExternalVelocityEdgeFunctional();
+
+    template<int plane, int normal1, int normal2>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getInternalVelocityEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int plane, int normal1, int normal2>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getInternalVelocityEdgeFunctional();
+
+    template<int xNormal, int yNormal, int zNormal>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getExternalVelocityCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int xNormal, int yNormal, int zNormal>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getExternalVelocityCornerFunctional();
+
+    template<int xNormal, int yNormal, int zNormal>
+        static BoundaryCompositeDynamics<T,Descriptor>*
+            getInternalVelocityCornerDynamics(Dynamics<T,Descriptor>* baseDynamics);
+    template<int xNormal, int yNormal, int zNormal>
+        static BoxProcessingFunctional3D_L<T,Descriptor>*
+            getInternalVelocityCornerFunctional();
+};
+
+template<typename T, template<typename U> class Descriptor>
 class EquilibriumBoundaryManager3D {
 public:
     template<int direction, int orientation>
@@ -935,6 +984,123 @@ BoxProcessingFunctional3D_L<T,Descriptor>*
 }
 
 
+////////// WrappedRegularizedConstRhoBoundaryManager3D /////////////////////////////////////////
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoundaryCompositeDynamics<T,Descriptor>* WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+    getVelocityBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    bool automaticPrepareCollision = false;
+    return new RegularizedVelocityConstRhoBoundaryDynamics
+                   <T,Descriptor,direction,orientation>(baseDynamics, automaticPrepareCollision);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getVelocityBoundaryFunctional()
+{
+    return new WrappedLocalBoundaryFunctional3D<T,Descriptor>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoundaryCompositeDynamics<T,Descriptor>* WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+    getPressureBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    bool automaticPrepareCollision = false;
+    return new RegularizedDensityBoundaryDynamics
+                   <T,Descriptor,direction,orientation>(baseDynamics, automaticPrepareCollision);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int direction, int orientation>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getPressureBoundaryFunctional()
+{
+    return new WrappedLocalBoundaryFunctional3D<T,Descriptor>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+BoundaryCompositeDynamics<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getExternalVelocityEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new StoreVelocityDynamics<T,Descriptor>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getExternalVelocityEdgeFunctional()
+{
+    return new OuterVelocityEdgeFunctional3D<T,Descriptor, plane,normal1,normal2>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+BoundaryCompositeDynamics<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getInternalVelocityEdgeDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    bool automaticPrepareCollision = false;
+    return new RegularizedVelocityInnerEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>
+                   (baseDynamics, automaticPrepareCollision);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int plane, int normal1, int normal2>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getInternalVelocityEdgeFunctional()
+{
+    return new WrappedLocalBoundaryFunctional3D<T,Descriptor>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+BoundaryCompositeDynamics<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getExternalVelocityCornerDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    return new StoreVelocityDynamics<T,Descriptor>(baseDynamics);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getExternalVelocityCornerFunctional()
+{
+    return new OuterVelocityCornerFunctional3D<T,Descriptor, xNormal,yNormal,zNormal> ();
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+BoundaryCompositeDynamics<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getInternalVelocityCornerDynamics(Dynamics<T,Descriptor>* baseDynamics)
+{
+    bool automaticPrepareCollision = false;
+    return new RegularizedVelocityInnerCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>
+                   (baseDynamics,automaticPrepareCollision);
+}
+
+template<typename T, template<typename U> class Descriptor>
+template<int xNormal, int yNormal, int zNormal>
+BoxProcessingFunctional3D_L<T,Descriptor>*
+    WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor>::
+        getInternalVelocityCornerFunctional()
+{
+    return new WrappedLocalBoundaryFunctional3D<T,Descriptor>();
+}
+
+
 ////////// EquilibriumBoundaryManager3D /////////////////////////////////////////
 
 template<typename T, template<typename U> class Descriptor>
@@ -1164,6 +1330,13 @@ OnLatticeBoundaryCondition3D<T,Descriptor>* createLocalBoundaryCondition3D() {
     return new BoundaryConditionInstantiator3D <
                    T, Descriptor,
                    WrappedRegularizedBoundaryManager3D<T,Descriptor> > ();
+}
+
+template<typename T, template<typename U> class Descriptor>
+OnLatticeBoundaryCondition3D<T,Descriptor>* createLocalConstRhoBoundaryCondition3D() {
+    return new BoundaryConditionInstantiator3D <
+                   T, Descriptor,
+                   WrappedRegularizedConstRhoBoundaryManager3D<T,Descriptor> > ();
 }
 
 template<typename T, template<typename U> class Descriptor>

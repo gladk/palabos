@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,7 +38,8 @@ namespace plb {
 namespace parallelIO {
 
 void writeRawData( FileName fName, std::vector<plint> const& myBlockIds,
-                   std::vector<plint> const& offset, std::vector<std::vector<char> >& data );
+                   std::vector<plint> const& offset, std::vector<std::vector<char> >& data,
+                   bool appendMode=false );
 
 void loadRawData( FileName fName,  std::vector<plint> const& myBlockIds,
                   std::vector<plint> const& offset, std::vector<std::vector<char> >& data );

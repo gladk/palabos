@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,9 +32,12 @@
 #include "mpi.h"
 #endif
 
+#include "core/plbDebug.h"
+
 #include <limits>
 #include <string>
 #include <cstddef>
+#include <algorithm>
 
 namespace plb {
 
@@ -96,15 +99,15 @@ inline Precision floatingPointPrecision()
     } else if (sizeof(T) == sizeof(long double)) {
         return LDBL;
     }
-
     return DBL;
 }
 
 template<typename T>
-inline T getEpsilon(Precision precision)
+inline T getEpsilon(Precision precision, T scale = T(1))
 {
-    T epsilon;
+    PLB_ASSERT(scale > (T) 0);
 
+    T epsilon;
     switch (precision) {
     case FLT:
         epsilon = std::numeric_limits<float>::epsilon();
@@ -116,28 +119,25 @@ inline T getEpsilon(Precision precision)
         epsilon = std::numeric_limits<long double>::epsilon();
         break;
     case INF: default:
-        epsilon = std::numeric_limits<T>::min();
+        epsilon = (T) 0;
         break;
     }
 
-    T coef = 10.0; // hack for better results
-
-    return (coef * epsilon);
+    return scale * epsilon;
 }
 
 // Version that works also for integral types, and always refers to the
 // type defined by the template argument. This means that if T is a floating point
-// type, then "getEpsilon<T>()" is the same as "getEplsilon<T>(floatingPointPrecision<T>())".
-// The function "getEpsilon<T>(Precision)" works for floating point types only, and can
+// type, then "getEpsilon<T>(scale)" is the same as "getEplsilon<T>(floatingPointPrecision<T>(), scale)".
+// The function "getEpsilon<T>(Precision, scale)" works for floating point types only, and can
 // be used with two different precisions (e.g. T is double, but Precision is float). This
-// version works with one type (T) and T can be also integral (in such a case, epsilon is
-// zero).
+// version works with one type (T) and T can be also integral (in such a case, epsilon is zero).
 template<typename T>
-inline T getEpsilon()
+inline T getEpsilon(T scale = T(1))
 {
-    T epsilon = std::numeric_limits<T>::epsilon();
-    T coef = 10.0; // hack for better results
-    return(coef * epsilon);
+    PLB_ASSERT(scale > (T) 0);
+    static T epsilon = std::numeric_limits<T>::epsilon();
+    return scale * epsilon;
 }
 
 /// Enumeration type that sets the file format for the triangular surface meshes.
@@ -187,7 +187,7 @@ namespace modif {
         dynamicVariables =2,  //< Only content of dynamics objects, but no static content.
         allVariables     =3,  //< Both the static and dynamic cell content.
         dataStructure    =4,  //< Recreate dynamics and copy both static and dynamic content.
-        undefined        =5   //< Used for debugging purposes only.
+        undefined        =5   
     };
 
     enum { numConstants=5 };

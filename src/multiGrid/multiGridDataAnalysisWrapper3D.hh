@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -318,11 +318,11 @@ void computeShearStress( MultiGridLattice3D<T,Descriptor>& lattice,
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiGridTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >
-    computestress(MultiGridLattice3D<T,Descriptor>& lattice, Box3D domain)
+    computeShearStress(MultiGridLattice3D<T,Descriptor>& lattice, Box3D domain)
 {
     MultiGridTensorField3D<T,SymmetricTensor<T,Descriptor>::n>* stress
         = new MultiGridTensorField3D<T,SymmetricTensor<T,Descriptor>::n>(lattice, domain);
-    computestress(lattice, *stress, domain);
+    computeShearStress(lattice, *stress, domain);
     return std::auto_ptr<MultiGridTensorField3D<T,SymmetricTensor<T,Descriptor>::n> >(stress);
 }
 
@@ -426,6 +426,32 @@ void copyPopulations(MultiGridLattice3D<T,Descriptor>& latticeFrom, MultiGridLat
     applyProcessingFunctional (
             new CopyPopulationsFunctional3D<T,Descriptor>(), domain, latticeFrom, latticeTo );
 }
+
+/* *************** Omega ******************************************* */
+
+template<typename T, template<typename U> class Descriptor>
+void computeOmega(MultiGridLattice3D<T,Descriptor>& lattice,
+                  MultiGridScalarField3D<T>& omega, Box3D domain)
+{
+    applyProcessingFunctional (
+        new BoxOmegaFunctional3D<T,Descriptor>, domain, lattice, omega,
+                lattice.getReferenceLevel());
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiGridScalarField3D<T> > computeOmega(MultiGridLattice3D<T,Descriptor>& lattice,
+                                                       Box3D domain)
+{
+    MultiGridScalarField3D<T>* omega = new MultiGridScalarField3D<T>(lattice, domain);
+    computeOmega(lattice, *omega, domain);
+    return std::auto_ptr<MultiGridScalarField3D<T> >(omega);
+}
+
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiGridScalarField3D<T> > computeOmega(MultiGridLattice3D<T,Descriptor>& lattice) {
+    return computeOmega(lattice, lattice.getBoundingBox());
+}
+
 
 /* *************** Extract Sub-ScalarField *************************** */
 

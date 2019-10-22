@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,8 +23,9 @@
 */
 
 /** \file
- * Helper functions for domain initialization -- header file.
+ * Helper functions for finite differences -- header file.
  */
+
 #ifndef FINITE_DIFFERENCE_WRAPPER_3D_H
 #define FINITE_DIFFERENCE_WRAPPER_3D_H
 
@@ -34,6 +35,7 @@
 #include "multiBlock/multiBlockLattice3D.h"
 #include "multiBlock/multiDataField3D.h"
 #include "dataProcessors/dataAnalysisFunctional3D.h"
+#include "finiteDifference/fdWeights.h"
 #include <memory>
 
 
@@ -148,6 +150,39 @@ std::auto_ptr<MultiScalarField3D<T> > computePeriodicPoissonRHS(MultiTensorField
 template<typename T>
 void periodicPoissonIterate(MultiScalarField3D<T>& oldPressure, MultiScalarField3D<T>& newPressure,
                            MultiScalarField3D<T>& rhs, T beta, Box3D const& domain);
+
+// General Stencils.
+
+// Compute the X/Y/Z derivative of a data field. The order of the derivative to be approximated
+// is provided by the template parameter "order". The specific stencil is defined by "width"
+// and "position". The value of the argument "width" cannot be greater than that of the template parameter
+// "maxWidth". For best efficiency, one should use these functions with a fixed "maxWidth". This means that
+// if one wants to use many widths, he should fix "maxWidth", and vary "width". The returned derivative
+// value is computed on the local grid point (iX, iY, iZ) of the atomic-block.
+
+template<typename T, int order, int maxWidth>
+T computeScalarXderivative(ScalarField3D<T> const& scalar, int width, int position,
+        plint iX, plint iY, plint iZ);
+
+template<typename T, int order, int maxWidth>
+T computeScalarYderivative(ScalarField3D<T> const& scalar, int width, int position,
+        plint iX, plint iY, plint iZ);
+
+template<typename T, int order, int maxWidth>
+T computeScalarZderivative(ScalarField3D<T> const& scalar, int width, int position,
+        plint iX, plint iY, plint iZ);
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorXderivative(TensorField3D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY, plint iZ);
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorYderivative(TensorField3D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY, plint iZ);
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorZderivative(TensorField3D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY, plint iZ);
 
 }  // namespace plb
 

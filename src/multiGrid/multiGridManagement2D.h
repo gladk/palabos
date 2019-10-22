@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 /** \file
@@ -61,7 +61,7 @@ public:
     /// Add a refinement in level at a given domain
     void refine(plint level, Box2D domain);
     /// Coarsen a given domain in certain level
-    void coarsen(plint level, Box2D domain);
+    void coarsen(plint level, Box2D coarseDomain);
 
     /// Add a refinement patch at a certain level. Leave level unchanged
     void refineMultiGrid(plint level, Box2D domain);
@@ -88,7 +88,8 @@ public:
     /// Eliminate the redundant fine interfaces
     void eliminateUnnecessaryFineInterfaces();
 
-    friend MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D coarsestDomain, bool crop);
+    friend MultiGridManagement2D extractManagement(MultiGridManagement2D management,
+                                                   Box2D coarsestDomain, bool crop);
     
 private:
     void initialize(Box2D const& level0_box);

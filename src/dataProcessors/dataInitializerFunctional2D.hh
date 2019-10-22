@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,6 +33,7 @@
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "atomicBlock/blockLattice2D.h"
 #include "multiGrid/multiGridUtil.h"
+#include <limits>
 
 namespace plb {
 
@@ -78,6 +79,27 @@ void OneCellIndexedFunctional2D<T,Descriptor>::getTypeOfModification(std::vector
 
 template<typename T, template<class U> class Descriptor>
 void OneCellIndexedFunctional2D<T,Descriptor>::setscale(int dxScale, int dtScale)
+{ }
+
+
+
+template<typename T, template<class U> class Descriptor>
+OneCellIndexedWithRandFunctional2D<T,Descriptor>::~OneCellIndexedWithRandFunctional2D()
+{ }
+
+template<typename T, template<class U> class Descriptor>
+BlockDomain::DomainT OneCellIndexedWithRandFunctional2D<T,Descriptor>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+template<typename T, template<class U> class Descriptor>
+void OneCellIndexedWithRandFunctional2D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T, template<class U> class Descriptor>
+void OneCellIndexedWithRandFunctional2D<T,Descriptor>::setscale(int dxScale, int dtScale)
 { }
 
 
@@ -212,6 +234,92 @@ void GenericIndexedLatticeFunctional2D<T,Descriptor>::setscale(int dxScale, int 
 }
 
 
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::GenericIndexedWithRandLatticeFunctional2D (
+        OneCellIndexedWithRandFunctional2D<T,Descriptor>* f_, Box2D boundingBox, sitmo::prng_engine eng_ )
+    : f(f_),
+      nY(boundingBox.getNy()),
+      eng(eng_)
+{ }
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::GenericIndexedWithRandLatticeFunctional2D (
+        GenericIndexedWithRandLatticeFunctional2D<T,Descriptor> const& rhs )
+    : f(rhs.f->clone()),
+      nY(rhs.nY),
+      eng(rhs.eng)
+{ }
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::~GenericIndexedWithRandLatticeFunctional2D() {
+    delete f;
+}
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>&
+    GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::operator= (
+        GenericIndexedWithRandLatticeFunctional2D<T,Descriptor> const& rhs )
+{
+    delete f;
+    f = rhs.f->clone();
+    return *this;
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::process (
+        Box2D domain, BlockLattice2D<T,Descriptor>& lattice )
+{
+    Dot2D relativeOffset = lattice.getLocation();
+    plint rng_index = 0;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint globalX = nY*(iX + relativeOffset.x);
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint globalY = iY + relativeOffset.y + globalX;
+            PLB_ASSERT( globalY >= rng_index );
+            if (globalY > rng_index) {
+                eng.discard(globalY-rng_index);
+                rng_index = globalY;
+            }
+            T rand_val = (T)eng() / ((T)std::numeric_limits<uint32_t>::max()+1.0);
+            ++rng_index;
+            f->execute ( iX+relativeOffset.x,
+                         iY+relativeOffset.y,
+                         rand_val,
+                         lattice.get(iX,iY) );
+        }
+    }
+}
+
+template<typename T, template<class U> class Descriptor>
+GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>*
+    GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::clone() const
+{
+    return new GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>(*this);
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    f->getTypeOfModification(modified);
+}
+
+template<typename T, template<class U> class Descriptor>
+BlockDomain::DomainT GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::appliesTo() const
+{
+    return f->appliesTo();
+}
+
+template<typename T, template<class U> class Descriptor>
+void GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>::setscale(int dxScale, int dtScale)
+{
+    f->setscale(dxScale, dtScale);
+}
+
+
+
+
 /* *************** Class InstantiateDynamicsFunctional2D ************* */
 
 template<typename T, template<typename U> class Descriptor>
@@ -254,15 +362,14 @@ void InstantiateDynamicsFunctional2D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateDynamicsFunctional2D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void InstantiateDynamicsFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -323,15 +430,14 @@ void InstantiateComplexDomainDynamicsFunctional2D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateComplexDomainDynamicsFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void InstantiateComplexDomainDynamicsFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -384,7 +490,6 @@ void InstantiateDotDynamicsFunctional2D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateDotDynamicsFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Dynamics needs to be instantiated everywhere, including envelope.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -392,7 +497,7 @@ template<typename T, template<typename U> class Descriptor>
 void InstantiateDotDynamicsFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -451,15 +556,14 @@ void DynamicsFromMaskFunctional2D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT DynamicsFromMaskFunctional2D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void DynamicsFromMaskFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
     modified[1] = modif::nothing;
 }
 
@@ -519,15 +623,14 @@ void DynamicsFromIntMaskFunctional2D<T,Descriptor>::process (
 
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT DynamicsFromIntMaskFunctional2D<T,Descriptor>::appliesTo() const {
-    // Dynamics needs to be instantiated everywhere, including envelope.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void DynamicsFromIntMaskFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dataStructure;
     modified[1] = modif::nothing;
 }
 
@@ -650,8 +753,6 @@ AssignOmegaFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT AssignOmegaFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Omega needs to be set on envelope nodes as well, because the dynamics object
-    //   is being modified.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -659,7 +760,7 @@ template<typename T, template<typename U> class Descriptor>
 void AssignOmegaFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::dynamicVariables;
 }
 
 
@@ -697,8 +798,6 @@ SetConstBoundaryVelocityFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetConstBoundaryVelocityFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Boundary condition needs to be set on envelope nodes as well to ensure
-    //   proper behavior.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -706,7 +805,7 @@ template<typename T, template<typename U> class Descriptor>
 void SetConstBoundaryVelocityFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::allVariables;
 }
 
 
@@ -738,8 +837,6 @@ SetConstBoundaryDensityFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetConstBoundaryDensityFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Boundary condition needs to be set on envelope nodes as well to ensure
-    //   proper behavior.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -747,7 +844,7 @@ template<typename T, template<typename U> class Descriptor>
 void SetConstBoundaryDensityFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::allVariables;
 }
 
 /* ************* Class SetConstBoundaryTemperatureFunctional2D ******************* */
@@ -778,8 +875,6 @@ SetConstBoundaryTemperatureFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetConstBoundaryTemperatureFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Boundary condition needs to be set on envelope nodes as well to ensure
-    //   proper behavior.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -787,7 +882,7 @@ template<typename T, template<typename U> class Descriptor>
 void SetConstBoundaryTemperatureFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
-    modified[0] = modif::staticVariables;
+    modified[0] = modif::allVariables;
 }
 
 
@@ -795,11 +890,11 @@ void SetConstBoundaryTemperatureFunctional2D<T,Descriptor>::getTypeOfModificatio
 
 template<typename T, template<typename U> class Descriptor>
 IniConstEquilibriumFunctional2D<T,Descriptor>::IniConstEquilibriumFunctional2D (
-        T density_, Array<T,Descriptor<T>::d> velocity, T temperature )
-    : rhoBar(Descriptor<T>::rhoBar(density_)),
-      j     (density_*velocity[0], density_*velocity[1]),
-      jSqr  (VectorTemplate<T,Descriptor>::normSqr(j)),
-      thetaBar(temperature-(T)1)
+        T density, Array<T,Descriptor<T>::d> velocity, T temperature )
+    : rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1)
 { }
 
 template<typename T, template<typename U> class Descriptor>
@@ -810,11 +905,15 @@ void IniConstEquilibriumFunctional2D<T,Descriptor>::process (
     int dimDt = -1;
     T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
                                        this->getDtScale(), dimDt);
-    Array<T,2> scaledJ = j;
-    for (plint iA = 0; iA < Descriptor<T>::d; ++iA) scaledJ[iA] *= (T)scaleFactor;
-    T scaledJsqr = jSqr*scaleFactor*scaleFactor;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            Array<T,Descriptor<T>::d> f;
+            f[0] = getExternalForceComponent(lattice.get(iX,iY), 0);
+            f[1] = getExternalForceComponent(lattice.get(iX,iY), 1);
+            Array<T,Descriptor<T>::d> scaledJ;
+            scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+            scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+            T scaledJsqr = normSqr(scaledJ);
             for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
                 lattice.get(iX,iY)[iPop] =
                     lattice.get(iX,iY).computeEquilibrium(iPop, rhoBar, scaledJ, scaledJsqr, thetaBar);
@@ -833,12 +932,71 @@ IniConstEquilibriumFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT IniConstEquilibriumFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
 template<typename T, template<typename U> class Descriptor>
 void IniConstEquilibriumFunctional2D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+/* ************* Class IniConstEquilibriumComplexDomainFunctional2D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>::IniConstEquilibriumComplexDomainFunctional2D (
+        DomainFunctional2D* domain_, T density, Array<T,Descriptor<T>::d> velocity, T temperature )
+    : domain(domain_),
+      rho(density),
+      rhoBar(Descriptor<T>::rhoBar(density)),
+      u(velocity),
+      thetaBar(temperature - (T) 1)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>::process (
+        Box2D box, BlockLattice2D<T,Descriptor>& lattice )
+{
+    int dimDx = 1;
+    int dimDt = -1;
+    T scaleFactor = scaleFromReference(this->getDxScale(), dimDx,
+                                       this->getDtScale(), dimDt);
+    Dot2D relativeOffset = lattice.getLocation();
+    for (plint iX=box.x0; iX<=box.x1; ++iX) {
+        for (plint iY=box.y0; iY<=box.y1; ++iY) {
+            if ((*domain)(iX+relativeOffset.x,iY+relativeOffset.y)) {
+                Array<T,Descriptor<T>::d> f;
+                f[0] = getExternalForceComponent(lattice.get(iX,iY), 0);
+                f[1] = getExternalForceComponent(lattice.get(iX,iY), 1);
+                Array<T,Descriptor<T>::d> scaledJ;
+                scaledJ[0] = scaleFactor * rho * (u[0] - (T) 0.5 * f[0]);
+                scaledJ[1] = scaleFactor * rho * (u[1] - (T) 0.5 * f[1]);
+                T scaledJsqr = normSqr(scaledJ);
+                for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                    lattice.get(iX,iY)[iPop] =
+                        lattice.get(iX,iY).computeEquilibrium(iPop, rhoBar, scaledJ, scaledJsqr, thetaBar);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>*
+    IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>::clone() const
+{
+    return new IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+BlockDomain::DomainT IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>::appliesTo() const
+{
+    return BlockDomain::bulkAndEnvelope;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::staticVariables;
@@ -880,7 +1038,6 @@ StripeOffDensityOffsetFunctional2D<T,Descriptor>*
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT StripeOffDensityOffsetFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -940,7 +1097,6 @@ void InstantiateCompositeDynamicsFunctional2D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT InstantiateCompositeDynamicsFunctional2D<T,Descriptor>::appliesTo() const
 {
-    // Composite dynamics needs to be instantiated everywhere, including envelope.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1109,7 +1265,7 @@ void SetExternalScalarFromScalarFieldFunctional2D<T,Descriptor>::process (
 template<typename T, template<typename U> class Descriptor>
 BlockDomain::DomainT SetExternalScalarFromScalarFieldFunctional2D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -1259,7 +1415,7 @@ void SetExternalVectorFromTensorFieldFunctional2D<T,Descriptor,nDim>::process (
 template<typename T, template<typename U> class Descriptor, int nDim>
 BlockDomain::DomainT SetExternalVectorFromTensorFieldFunctional2D<T,Descriptor,nDim>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, template<typename U> class Descriptor, int nDim>
@@ -1306,7 +1462,6 @@ IniConstScalarFunctional2D<T>* IniConstScalarFunctional2D<T>::clone() const {
 
 template<typename T>
 BlockDomain::DomainT IniConstScalarFunctional2D<T>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1350,8 +1505,7 @@ MaskedIniConstScalarFunctional2D<T>* MaskedIniConstScalarFunctional2D<T>::clone(
 
 template<typename T>
 BlockDomain::DomainT MaskedIniConstScalarFunctional2D<T>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T>
@@ -1389,7 +1543,6 @@ IniConstTensorFunctional2D<T,nDim>* IniConstTensorFunctional2D<T,nDim>::clone() 
 
 template<typename T, int nDim>
 BlockDomain::DomainT IniConstTensorFunctional2D<T,nDim>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
     return BlockDomain::bulkAndEnvelope;
 }
 
@@ -1432,8 +1585,7 @@ MaskedIniConstTensorFunctional2D<T,nDim>* MaskedIniConstTensorFunctional2D<T,nDi
 
 template<typename T, int nDim>
 BlockDomain::DomainT MaskedIniConstTensorFunctional2D<T,nDim>::appliesTo() const {
-    // Include boundary right away, to avoid need for envelope update.
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 template<typename T, int nDim>
@@ -1526,6 +1678,48 @@ void SetToCoordinatesFunctional2D<T>::getTypeOfModification (
 }
 
 
+/* ************** Class SetToRandomFunctional2D ***************** */
+
+template<typename T>
+SetToRandomFunctional2D<T>::SetToRandomFunctional2D(Box2D boundingBox, sitmo::prng_engine eng_)
+    : nY(boundingBox.getNy()),
+      eng(eng_)
+{ }
+
+template<typename T>
+void SetToRandomFunctional2D<T>::process(Box2D domain, ScalarField2D<T>& field) {
+    Dot2D relativeOffset = field.getLocation();
+    plint rng_index = 0;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        plint globalX = nY*(iX + relativeOffset.x);
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            plint globalY = iY + relativeOffset.y + globalX;
+            PLB_ASSERT( globalY >= rng_index );
+            if (globalY > rng_index) {
+                eng.discard(globalY-rng_index);
+                rng_index = globalY;
+            }
+            field.get(iX,iY) = (T)eng() / ((T)std::numeric_limits<uint32_t>::max()+1.0);
+            ++rng_index;
+        }
+    }
+}
+
+template<typename T>
+SetToRandomFunctional2D<T>* SetToRandomFunctional2D<T>::clone() const {
+    return new SetToRandomFunctional2D<T>(*this);
+}
+
+template<typename T>
+void SetToRandomFunctional2D<T>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::staticVariables;
+}
+
+
+
+
 /* ************** Class SetTensorComponentFunctional2D ***************** */
 
 template<typename T, int nDim>
@@ -1565,6 +1759,50 @@ void SetTensorComponentFunctional2D<T,nDim>::getTypeOfModification (
 {
     modified[0] = modif::nothing;
     modified[1] = modif::staticVariables;
+}
+
+
+
+/* ******** GrowDomainFunctional2D ************************************* */
+
+template<typename T>
+GrowDomainFunctional2D<T>::GrowDomainFunctional2D(T flag_)
+    : flag(flag_)
+{ }
+
+template<typename T>
+void GrowDomainFunctional2D<T>::process (
+        Box2D domain, ScalarField2D<T>& voxels )
+{
+    ScalarField2D<T> tmpVoxels(voxels);
+    for (plint iX = domain.x0; iX <= domain.x1; ++iX) {
+        for (plint iY = domain.y0; iY <= domain.y1; ++iY) {
+            for (plint dx=-1; dx<=1; ++dx)
+            for (plint dy=-1; dy<=1; ++dy)
+            if(!(dx==0 && dy==0)) {
+                plint nextX = iX + dx;
+                plint nextY = iY + dy;
+                if (tmpVoxels.get(nextX,nextY)==flag) {
+                    voxels.get(iX,iY) = flag;
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+GrowDomainFunctional2D<T>* GrowDomainFunctional2D<T>::clone() const {
+    return new GrowDomainFunctional2D<T>(*this);
+}
+
+template<typename T>
+void GrowDomainFunctional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::staticVariables;
+}
+
+template<typename T>
+BlockDomain::DomainT GrowDomainFunctional2D<T>::appliesTo() const {
+    return BlockDomain::bulk;
 }
 
 }  // namespace plb

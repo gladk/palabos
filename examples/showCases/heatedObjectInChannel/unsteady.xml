@@ -1,0 +1,67 @@
+<?xml version="1.0" ?>
+
+<!--
+    Parameters set by the user.
+    All user input variables and all data in external input files must be in the same system of units.
+ -->
+
+<geometry>
+    <!-- The name of the STL file that contains the representation of the object. -->
+    <file> object.stl </file>
+    <!-- Parameter to inflate the surface mesh before voxelization. -->
+    <inflationParameter> 0 </inflationParameter>
+    <!-- Precision for geometric operations (FLT, DBL, LDBL, INF). -->
+    <precision> DBL </precision>
+    <!-- Position of the center of the object in the simulation domain. -->
+    <center> <x> 10.0 </x> <y> 4.60 </y> <z> 4.60 </z> </center>
+    <!-- Size of the computational domain. -->
+    <domain> <x> 40.0 </x> <y> 9 </y> <z> 9 </z> </domain>
+</geometry>
+
+<fluid>
+    <!-- Velocity-at-infinity is in x-direction. -->
+    <uInf> 1.0 </uInf>
+    <!-- Kinematic viscosity. -->
+    <nu> 0.0025 </nu>
+</fluid>
+
+<temperature>
+    <!-- Prandtl number: fluid kinematic viscosity / thermal diffusivity. -->
+    <Prandtl> 0.71 </Prandtl>
+    <!-- temperatureTimeFactor=x means: the temperature runs at a time step which is
+         x times bigger than the fluid. -->
+    <temperatureTimeFactor> 1 </temperatureTimeFactor>
+    <!-- Ambient temperature (temperature at the inlet and on the channel walls). -->
+    <T_inf> 273.15 </T_inf>
+    <!-- Temperature on the object wall. -->
+    <T_wall> 529.15 </T_wall>
+</temperature>
+
+<numerics>
+    <!-- Length to define the resolution and the Reynolds number. -->
+    <characteristicLength> 1 </characteristicLength>
+    <!-- Grid resolution (number of nodes in the characteristicLength). -->
+    <resolution> 16 </resolution>
+    <!-- Velocity in lattice units (lowering this value lowers the time step proportionally). -->
+    <uLB> 0.02 </uLB>
+    <!-- Parameter for the static Smagorinsky LES model. -->
+    <cSmago> 0.14 </cSmago>
+</numerics>
+
+<simulation>
+    <!-- Maximum number of iterations. -->
+    <maxIter> 200000 </maxIter>
+    <!-- Number of initial iterations for smoothly increasing the inlet velocity.
+         The solution of the heat equation starts after "startIter" iterations. -->
+    <startIter> 0 </startIter>
+    <!-- Frequency (iterations) at which statistics is printed to the terminal. -->
+    <statIter> 100 </statIter>
+    <!-- Frequency (iterations) at which VTK data files are produced. -->
+    <vtkIter> 200 </vtkIter>
+    <!-- Frequency (iterations) at which checkpoint data files are produced (or -1 for no checkpointing). -->
+    <cpIter> -1 </cpIter>
+    <!-- Use a formulation with rhoBar and j or not?  (It might be more efficient) -->
+    <useRhoBarJ> true </useRhoBarJ>
+    <!-- Use MPI I/O or not? -->
+    <useParallelIO> true </useParallelIO>
+</simulation>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -382,6 +382,239 @@ void PackedExternalRhoJcollideAndStream3D<T,Descriptor>::getTypeOfModification (
 {
     modified[0] = modif::staticVariables;
     modified[1] = modif::nothing;
+}
+
+
+
+/* ************* Class WaveAbsorptionExternalRhoJcollideAndStream3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::WaveAbsorptionExternalRhoJcollideAndStream3D(
+        T rhoBarF_, Array<T,Descriptor<T>::d> const& uF_)
+    : rhoBarF(rhoBarF_)
+{
+    jF = Descriptor<T>::fullRho(rhoBarF)*uF_;
+    jFsqr = normSqr(jF);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::collide (
+        BlockLattice3D<T,Descriptor>& lattice, Box3D const& domain,
+        ScalarField3D<T> const& rhoBarField, Dot3D const& offset1,
+        TensorField3D<T,Descriptor<T>::d> const& jField, Dot3D const& offset2,
+        ScalarField3D<T> const& sigmaField, Dot3D const& offset3,
+        BlockStatistics& stat )
+{
+    static const T epsilon = 1.e4 * std::numeric_limits<T>::epsilon();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                T rhoBar = rhoBarField.get(iX+offset1.x, iY+offset1.y, iZ+offset1.z);
+                Array<T,Descriptor<T>::d> const& j = jField.get(iX+offset2.x, iY+offset2.y, iZ+offset2.z);
+                T sigma = sigmaField.get(iX+offset3.x, iY+offset3.y, iZ+offset3.z);
+
+                if (sigma<epsilon) {
+                    cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
+                }
+                else {
+                    T jSqr = normSqr(j);
+                    Array<T,Descriptor<T>::q> fEq;
+                    cell.getDynamics().computeEquilibria(fEq, rhoBar, j, jSqr);
+                    
+                    Array<T,Descriptor<T>::q> fEqF;
+                    cell.getDynamics().computeEquilibria(fEqF, rhoBarF, jF, jFsqr);
+                    
+                    cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
+
+                    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                        cell[iPop] -= sigma*(fEq[iPop] - fEqF[iPop]);
+                    }
+                }
+
+                cell.revert();
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::bulkCollideAndStream (
+        BlockLattice3D<T,Descriptor>& lattice, Box3D const& domain,
+        ScalarField3D<T> const& rhoBarField, Dot3D const& offset1,
+        TensorField3D<T,Descriptor<T>::d> const& jField, Dot3D const& offset2,
+        ScalarField3D<T> const& sigmaField, Dot3D const& offset3,
+        BlockStatistics& stat )
+{
+    static const T epsilon = 1.e4 * std::numeric_limits<T>::epsilon();
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                T rhoBar = rhoBarField.get(iX+offset1.x, iY+offset1.y, iZ+offset1.z);
+                Array<T,Descriptor<T>::d> const& j = jField.get(iX+offset2.x, iY+offset2.y, iZ+offset2.z);
+                T sigma = sigmaField.get(iX+offset3.x, iY+offset3.y, iZ+offset3.z);
+
+                if (sigma<epsilon) {
+                    cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
+                }
+                else {
+                    T jSqr = normSqr(j);
+                    Array<T,Descriptor<T>::q> fEq;
+                    cell.getDynamics().computeEquilibria(fEq, rhoBar, j, jSqr);
+                    
+                    Array<T,Descriptor<T>::q> fEqF;
+                    cell.getDynamics().computeEquilibria(fEqF, rhoBarF, jF, jFsqr);
+                    
+                    cell.getDynamics().collideExternal(cell, rhoBar, j, T(), stat);
+
+                    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                        cell[iPop] -= sigma*(fEq[iPop] - fEqF[iPop]);
+                    }
+                }
+
+                latticeTemplates<T,Descriptor>::swapAndStream3D(lattice.grid, iX, iY, iZ);
+            }
+        }
+    }
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::boundaryStream (
+        BlockLattice3D<T,Descriptor>& lattice,
+        Box3D const& bound, Box3D const& domain )
+{
+    // Make sure domain is contained within bound
+    PLB_PRECONDITION( contained(domain, bound) );
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                for (plint iPop=1; iPop<=Descriptor<T>::q/2; ++iPop) {
+                    plint nextX = iX + Descriptor<T>::c[iPop][0];
+                    plint nextY = iY + Descriptor<T>::c[iPop][1];
+                    plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                    if ( nextX>=bound.x0 && nextX<=bound.x1 && nextY>=bound.y0 && nextY<=bound.y1 &&
+                         nextZ>=bound.z0 && nextZ<=bound.z1 )
+                    {
+                        std::swap(lattice.grid[iX][iY][iZ][iPop+Descriptor<T>::q/2],
+                                  lattice.grid[nextX][nextY][nextZ][iPop]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks )
+{
+    global::timer("collideAndStream").start();
+    BlockLattice3D<T,Descriptor>& lattice =
+        dynamic_cast<BlockLattice3D<T,Descriptor>&>(*atomicBlocks[0]);
+    ScalarField3D<T> const& rhoBarField =
+        dynamic_cast<ScalarField3D<T> const&>(*atomicBlocks[1]);
+    TensorField3D<T,Descriptor<T>::d> const& jField =
+        dynamic_cast<TensorField3D<T,Descriptor<T>::d> const&>(*atomicBlocks[2]);
+    ScalarField3D<T> const& sigmaField =
+        dynamic_cast<ScalarField3D<T> const&>(*atomicBlocks[3]);
+
+    BlockStatistics& stat = lattice.getInternalStatistics();
+
+    static const plint vicinity = Descriptor<T>::vicinity;
+    Box3D extDomain(domain.enlarge(vicinity));
+
+    Dot3D offset1 = computeRelativeDisplacement(lattice, rhoBarField);
+    Dot3D offset2 = computeRelativeDisplacement(lattice, jField);
+    Dot3D offset3 = computeRelativeDisplacement(lattice, sigmaField);
+
+    global::profiler().start("collStream");
+    global::profiler().increment("collStreamCells", extDomain.nCells());
+
+    // First, do the collision on cells within a boundary envelope of width
+    // equal to the range of the lattice vectors (e.g. 1 for D2Q9)
+    collide(lattice,
+            Box3D(extDomain.x0,extDomain.x0+vicinity-1,
+                  extDomain.y0,extDomain.y1,
+                  extDomain.z0,extDomain.z1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+    collide(lattice,
+            Box3D(extDomain.x1-vicinity+1,extDomain.x1,
+                  extDomain.y0,extDomain.y1,
+                  extDomain.z0,extDomain.z1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+    collide(lattice,
+            Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                  extDomain.y0,extDomain.y0+vicinity-1,
+                  extDomain.z0,extDomain.z1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+    collide(lattice,
+            Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                  extDomain.y1-vicinity+1,extDomain.y1,
+                  extDomain.z0,extDomain.z1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+    collide(lattice,
+            Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                  extDomain.y0+vicinity,extDomain.y1-vicinity,
+                  extDomain.z0,extDomain.z0+vicinity-1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+    collide(lattice,
+            Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                  extDomain.y0+vicinity,extDomain.y1-vicinity,
+                  extDomain.z1-vicinity+1,extDomain.z1),
+            rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+
+    // Then, do the efficient collideAndStream algorithm in the bulk,
+    // excluding the envelope (this is efficient because there is no
+    // if-then-else statement within the loop, given that the boundary
+    // region is excluded)
+    bulkCollideAndStream(lattice,
+                         Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                               extDomain.y0+vicinity,extDomain.y1-vicinity,
+                               extDomain.z0+vicinity,extDomain.z1-vicinity),
+                         rhoBarField, offset1, jField, offset2, sigmaField, offset3, stat);
+
+    // Finally, do streaming in the boundary envelope to conclude the
+    // collision-stream cycle
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x0,extDomain.x0+vicinity-1,
+                                             extDomain.y0,extDomain.y1,
+                                             extDomain.z0,extDomain.z1) );
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x1-vicinity+1,extDomain.x1,
+                                             extDomain.y0,extDomain.y1,
+                                             extDomain.z0,extDomain.z1) );
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                                             extDomain.y0,extDomain.y0+vicinity-1,
+                                             extDomain.z0,extDomain.z1) );
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                                             extDomain.y1-vicinity+1,extDomain.y1,
+                                             extDomain.z0,extDomain.z1) );
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                                             extDomain.y0+vicinity,extDomain.y1-vicinity,
+                                             extDomain.z0,extDomain.z0+vicinity-1) );
+    boundaryStream(lattice, extDomain, Box3D(extDomain.x0+vicinity,extDomain.x1-vicinity,
+                                             extDomain.y0+vicinity,extDomain.y1-vicinity,
+                                             extDomain.z1-vicinity+1,extDomain.z1) );
+    global::profiler().stop("collStream");
+    global::timer("collideAndStream").stop();
+}
+
+template<typename T, template<typename U> class Descriptor>
+WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>*
+    WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::clone() const
+{
+    return new WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void WaveAbsorptionExternalRhoJcollideAndStream3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified) const
+{
+    modified[0] = modif::staticVariables;
+    modified[1] = modif::nothing;
+    modified[2] = modif::nothing;
+    modified[3] = modif::nothing;
 }
 
 

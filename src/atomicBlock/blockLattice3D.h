@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -48,7 +48,10 @@ template<typename T, template<typename U> class Descriptor> class BlockLattice3D
 template<typename T, template<typename U> class Descriptor>
 class BlockLatticeDataTransfer3D : public BlockDataTransfer3D {
 public:
-    BlockLatticeDataTransfer3D(BlockLattice3D<T,Descriptor>& lattice_);
+    BlockLatticeDataTransfer3D();
+    virtual void setBlock(AtomicBlock3D& block);
+    virtual void setConstBlock(AtomicBlock3D const& block);
+    virtual BlockLatticeDataTransfer3D<T,Descriptor>* clone() const;
     virtual plint staticCellSize() const;
     /// Send data from the lattice into a byte-stream.
     virtual void send(Box3D domain, std::vector<char>& buffer, modif::ModifT kind) const;
@@ -92,9 +95,14 @@ private:
         Box3D toDomain, plint deltaX, plint deltaY, plint deltaZ,
         BlockLattice3D<T,Descriptor> const& from );
 private:
-    BlockLattice3D<T,Descriptor>& lattice;
-template<typename T_, template<typename U_> class Descriptor_>
+    BlockLattice3D<T,Descriptor>* lattice;
+    BlockLattice3D<T,Descriptor> const* constLattice;
+    template<typename T_, template<typename U_> class Descriptor_>
     friend class ExternalRhoJcollideAndStream3D;
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class ExternalCollideAndStream3D;
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class WaveAbsorptionExternalRhoJcollideAndStream3D;
 };
 
 /// A regular lattice for highly efficient 3D LB dynamics.
@@ -153,10 +161,6 @@ public:
      *  and the atomic-blocks get out of sync.
      **/
     virtual void incrementTime();
-    /// Get access to data transfer between blocks
-    virtual BlockLatticeDataTransfer3D<T,Descriptor>& getDataTransfer();
-    /// Get access to data transfer between blocks (const version)
-    virtual BlockLatticeDataTransfer3D<T,Descriptor> const& getDataTransfer() const;
 public:
     /// Attribute dynamics to a cell.
     void attributeDynamics(plint iX, plint iY, plint iZ, Dynamics<T,Descriptor>* dynamics);
@@ -164,6 +168,8 @@ public:
     Dynamics<T,Descriptor>& getBackgroundDynamics();
     /// Get a const reference to the background dynamics
     Dynamics<T,Descriptor> const& getBackgroundDynamics() const;
+    /// Assign an individual clone of the new dynamics to every cell.
+    void resetDynamics(Dynamics<T,Descriptor> const& dynamics);
     /// Apply streaming step to bulk (non-boundary) cells
     void bulkStream(Box3D domain);
     /// Apply streaming step to boundary cells
@@ -182,20 +188,24 @@ private:
     /// Helper method for memory de-allocation
     void releaseMemory();
     void implementPeriodicity();
+    plint allocatedMemory() const;
 private:
     void periodicDomain(Box3D domain);
 private:
     Dynamics<T,Descriptor>* backgroundDynamics;
     Cell<T,Descriptor>     *rawData;
     Cell<T,Descriptor>   ***grid;
-    BlockLatticeDataTransfer3D<T,Descriptor> dataTransfer;
 public:
     static CachePolicy3D& cachePolicy();
-template<typename T_, template<typename U_> class Descriptor_>
+    template<typename T_, template<typename U_> class Descriptor_>
     friend class ExternalRhoJcollideAndStream3D;
-template<typename T_, template<typename U_> class Descriptor_>
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class ExternalCollideAndStream3D;
+    template<typename T_, template<typename U_> class Descriptor_>
     friend class PackedExternalRhoJcollideAndStream3D;
-template<typename T_, template<typename U_> class Descriptor_>
+    template<typename T_, template<typename U_> class Descriptor_>
+    friend class WaveAbsorptionExternalRhoJcollideAndStream3D;
+    template<typename T_, template<typename U_> class Descriptor_>
     friend class OnLinkExternalRhoJcollideAndStream3D;
 };
 

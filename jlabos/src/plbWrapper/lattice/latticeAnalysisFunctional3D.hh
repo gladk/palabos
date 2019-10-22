@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -74,7 +74,7 @@ void N_BoxDensityFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<m
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxDensityFunctional3D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -116,7 +116,7 @@ void Masked_N_BoxDensityFunctional3D<T,Descriptor>::getTypeOfModification(std::v
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxDensityFunctional3D<T,Descriptor>::appliesTo() const
 {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -152,7 +152,7 @@ void N_BoxKineticEnergyFunctional3D<T,Descriptor>::getTypeOfModification(std::ve
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxKineticEnergyFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -195,7 +195,7 @@ void Masked_N_BoxKineticEnergyFunctional3D<T,Descriptor>::getTypeOfModification(
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxKineticEnergyFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -231,7 +231,7 @@ void N_BoxVelocityNormFunctional3D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityNormFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -275,7 +275,7 @@ void Masked_N_BoxVelocityNormFunctional3D<T,Descriptor>::getTypeOfModification(s
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityNormFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -321,7 +321,7 @@ void N_BoxVelocityComponentFunctional3D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityComponentFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -371,7 +371,7 @@ void Masked_N_BoxVelocityComponentFunctional3D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityComponentFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -407,7 +407,7 @@ void N_BoxVelocityFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxVelocityFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -449,7 +449,7 @@ void Masked_N_BoxVelocityFunctional3D<T,Descriptor>::getTypeOfModification(std::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxVelocityFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -485,7 +485,7 @@ void N_BoxPiNeqFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<mod
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPiNeqFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -527,7 +527,7 @@ void Masked_N_BoxPiNeqFunctional3D<T,Descriptor>::getTypeOfModification(std::vec
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPiNeqFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -563,7 +563,7 @@ void N_BoxShearStressFunctional3D<T,Descriptor>::getTypeOfModification(std::vect
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxShearStressFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -605,7 +605,7 @@ void Masked_N_BoxShearStressFunctional3D<T,Descriptor>::getTypeOfModification(st
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxShearStressFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -652,7 +652,7 @@ void N_BoxStrainRateFromStressFunctional3D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxStrainRateFromStressFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -705,7 +705,7 @@ void Masked_N_BoxStrainRateFromStressFunctional3D<T,Descriptor>::
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxStrainRateFromStressFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -744,7 +744,7 @@ void N_BoxPopulationFunctional3D<T,Descriptor>::getTypeOfModification(std::vecto
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPopulationFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -789,7 +789,7 @@ void Masked_N_BoxPopulationFunctional3D<T,Descriptor>::getTypeOfModification(std
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPopulationFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -827,7 +827,7 @@ void N_BoxPopulationsFunctional3D<T,Descriptor>::getTypeOfModification(std::vect
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT N_BoxPopulationsFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -870,7 +870,7 @@ void Masked_N_BoxPopulationsFunctional3D<T,Descriptor>::getTypeOfModification(st
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_N_BoxPopulationsFunctional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1204,7 +1204,7 @@ void UPO_EnergyDerivative_Functional3D<T,Descriptor>::getTypeOfModification(std:
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT UPO_EnergyDerivative_Functional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1261,7 +1261,7 @@ void Masked_UPO_EnergyDerivative_Functional3D<T,Descriptor>::getTypeOfModificati
 
 template<typename T, template<typename U> class Descriptor> 
 BlockDomain::DomainT Masked_UPO_EnergyDerivative_Functional3D<T,Descriptor>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 

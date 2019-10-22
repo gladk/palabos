@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,8 +26,10 @@
 #include "core/plbTimer.h"
 #include <map>
 
-#ifndef PLB_MPI_PARALLEL
-#include <time.h>
+#include <ctime>
+
+#ifdef PLB_USE_POSIX
+#include <unistd.h>
 #endif
 
 namespace plb {
@@ -45,7 +47,7 @@ void PlbTimer::start() {
 #ifdef PLB_MPI_PARALLEL
     startTime = mpi().getTime();
 #else
-#ifdef PLB_USE_POSIX
+#if defined PLB_USE_POSIX && defined _POSIX_TIMERS && (_POSIX_TIMERS > 0) && !defined(PLB_NGETTIME)
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     startTime = (double) ts.tv_nsec * (double) 1.0e-9;
@@ -76,7 +78,7 @@ double PlbTimer::getTime() const {
 #ifdef PLB_MPI_PARALLEL
         return cumulativeTime + mpi().getTime()-startTime;
 #else
-#ifdef PLB_USE_POSIX
+#if defined PLB_USE_POSIX && defined _POSIX_TIMERS && (_POSIX_TIMERS > 0) && !defined(PLB_NGETTIME)
         timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);
         double endTime = (double) ts.tv_nsec * (double) 1.0e-9;
@@ -103,7 +105,7 @@ PlbTimer& plbTimer(std::string nameOfTimer) {
     return answer;
 }
 
-/* ************** Timer ***************************************** */
+/* ************** Counter ***************************************** */
 
 PlbCounter::PlbCounter()
     : count(0)

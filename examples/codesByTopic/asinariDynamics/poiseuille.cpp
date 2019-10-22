@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -65,8 +65,7 @@ typedef double T;
 
 // Uncomment the three following lines to have the MRT model
 //#define DESCRIPTOR descriptors::MRTD2Q9Descriptor
-//#define DYNAMICS new MRTdynamics<T,DESCRIPTOR>(mrtId)
-//#define USE_MRT
+//#define DYNAMICS new MRTdynamics<T,DESCRIPTOR>(omega)
 
 /// Velocity on the parabolic Poiseuille profile
 T poiseuilleVelocity(plint iY, IncomprFlowParam<T> const& parameters) {

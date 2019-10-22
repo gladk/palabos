@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,8 +38,7 @@ namespace plb {
 template<typename T, template<typename U> class Descriptor>
 BouzidiOffLatticeModel3D<T,Descriptor>::BouzidiOffLatticeModel3D (
         BoundaryShape3D<T,Array<T,3> >* shape_, int flowType_)
-    : OffLatticeModel3D<T,Array<T,3> >(shape_, flowType_),
-      computeStat(true)
+    : OffLatticeModel3D<T,Array<T,3> >(shape_, flowType_)
 {
     typedef Descriptor<T> D;
     invAB.resize(D::q);
@@ -60,6 +59,13 @@ plint BouzidiOffLatticeModel3D<T,Descriptor>::getNumNeighbors() const {
 }
 
 template<typename T, template<typename U> class Descriptor>
+bool BouzidiOffLatticeModel3D<T,Descriptor>::isExtrapolated() const {
+    // Bouzidi is a completion scheme for a layer of cells on the
+    // "fluid" side of the boundary, unlike Guo.
+    return false;
+}
+
+template<typename T, template<typename U> class Descriptor>
 void BouzidiOffLatticeModel3D<T,Descriptor>::prepareCell (
         Dot3D const& cellLocation,
         AtomicContainerBlock3D& container )
@@ -77,7 +83,7 @@ void BouzidiOffLatticeModel3D<T,Descriptor>::prepareCell (
             Dot3D neighbor(cellLocation.x+D::c[iPop][0], cellLocation.y+D::c[iPop][1], cellLocation.z+D::c[iPop][2]);
             Dot3D prevNode(cellLocation.x-D::c[iPop][0], cellLocation.y-D::c[iPop][1], cellLocation.z-D::c[iPop][2]);
             // If the fluid node has a non-fluid neighbor ...
-            if (!this->isFluid(neighbor+offset)) {
+            if (this->isSolid(neighbor+offset)) {
                 plint iTriangle=-1;
                 global::timer("intersect").start();
                 Array<T,3> locatedPoint;
@@ -139,7 +145,7 @@ template<typename T, template<typename U> class Descriptor>
 void BouzidiOffLatticeModel3D<T,Descriptor>::boundaryCompletion (
         AtomicBlock3D& nonTypeLattice,
         AtomicContainerBlock3D& container,
-        std::vector<AtomicBlock3D const*> const& args )
+        std::vector<AtomicBlock3D *> const& args )
 {
     BlockLattice3D<T,Descriptor>& lattice =
         dynamic_cast<BlockLattice3D<T,Descriptor>&> (nonTypeLattice);
@@ -158,7 +164,7 @@ void BouzidiOffLatticeModel3D<T,Descriptor>::boundaryCompletion (
     PLB_ASSERT( boundaryNodes.size() == boundaryIds.size() );
     PLB_ASSERT( boundaryNodes.size() == hasFluidNeighbor.size() );
 
-    Dot3D absoluteOffset = lattice.getLocation();
+    Dot3D absoluteOffset = container.getLocation();
 
     Array<T,3>& localForce = info->getLocalForce();
     localForce.resetToZero();
@@ -176,7 +182,7 @@ void BouzidiOffLatticeModel3D<T,Descriptor>::cellCompletion (
         Dot3D const& boundaryNode,
         std::vector<int> const& solidDirections, std::vector<plint> const& boundaryIds,
         std::vector<bool> const& hasFluidNeighbor, Dot3D const& absoluteOffset,
-        Array<T,3>& localForce, std::vector<AtomicBlock3D const*> const& args )
+        Array<T,3>& localForce, std::vector<AtomicBlock3D *> const& args )
 {
     typedef Descriptor<T> D;
     Array<T,D::d> deltaJ;
@@ -185,9 +191,17 @@ void BouzidiOffLatticeModel3D<T,Descriptor>::cellCompletion (
     plint numNeumannNodes=0;
     T neumannDensity = T();
     Cell<T,Descriptor>& cell = lattice.get(boundaryNode.x,boundaryNode.y,boundaryNode.z);
+    if (this->computesStat()) {
+        for(pluint i=0; i<solidDirections.size(); ++i) {
+            int iPop = solidDirections[i];
+            deltaJ[0] += D::c[iPop][0]*cell[iPop];
+            deltaJ[1] += D::c[iPop][1]*cell[iPop];
+            deltaJ[2] += D::c[iPop][2]*cell[iPop];
+        }
+    }
     for(pluint i=0; i<solidDirections.size(); ++i) {
         int iPop = solidDirections[i];
-        int oppPop = indexTemplates::opposite<D>(i);
+        int oppPop = indexTemplates::opposite<D>(iPop);
         Array<T,3> wallNode, wall_vel;
         T AC;
         OffBoundary::Type bdType;
@@ -205,40 +219,47 @@ void BouzidiOffLatticeModel3D<T,Descriptor>::cellCompletion (
         Cell<T,Descriptor>& jCell = lattice.get(boundaryNode.x-D::c[iPop][0],boundaryNode.y-D::c[iPop][1],boundaryNode.z-D::c[iPop][2]);
         if (bdType==OffBoundary::dirichlet) {
             T u_ci = D::c[iPop][0]*wall_vel[0]+D::c[iPop][1]*wall_vel[1]+D::c[iPop][2]*wall_vel[2];
-            if (hasFluidNeighbor[i]) {
-                if (q<(T)0.5) {
+            plint numUnknown = 0;
+            if (q<(T)0.5) {
+                if (hasFluidNeighbor[i]) {
                     cell[oppPop] = 2.*q*iCell[iPop] + (1.-2.*q)*cell[iPop];
-                    cell[oppPop] += 2.* u_ci*D::t[iPop]*D::invCs2;
                 }
                 else {
-                    cell[oppPop] = 1./(2.*q)*iCell[iPop]+(2.*q-1)/(2.*q)*jCell[oppPop];
-                    cell[oppPop] += 1./q* u_ci*D::t[iPop]*D::invCs2;
+                    ++numUnknown;
+                    cell[oppPop] = iCell[iPop];
                 }
+                cell[oppPop] -= 2.* u_ci*D::t[iPop]*D::invCs2;
             }
             else {
-                cell[oppPop] = iCell[iPop]+2.* u_ci*D::t[iPop]*D::invCs2;
+                cell[oppPop] = 1./(2.*q)*iCell[iPop]+(2.*q-1)/(2.*q)*jCell[oppPop];
+                cell[oppPop] -= 1./q* u_ci*D::t[iPop]*D::invCs2;
             }
         }
         else if (bdType==OffBoundary::densityNeumann) {
             ++numNeumannNodes;
             neumannDensity += wall_vel[0];
-            if (hasFluidNeighbor[i]) {
-                cell[oppPop] = jCell[oppPop];
-            }
-            else {
-                cell[oppPop] = cell[iPop];
-            }
+            cell[oppPop] = jCell[oppPop];
         }
         else {
             // Not implemented yet.
             PLB_ASSERT( false );
         }
-        if (computeStat) {
-            deltaJ[0] = D::c[iPop][0]*iCell[iPop] - D::c[oppPop][0]*cell[oppPop];
-            deltaJ[1] = D::c[iPop][1]*iCell[iPop] - D::c[oppPop][1]*cell[oppPop];
-            deltaJ[2] = D::c[iPop][2]*iCell[iPop] - D::c[oppPop][2]*cell[oppPop];
+    }
+
+    if (this->computesStat()) {
+        Cell<T,Descriptor> collidedCell(cell);
+        BlockStatistics statsCopy(lattice.getInternalStatistics());
+        collidedCell.collide(statsCopy);
+
+        for(pluint i=0; i<solidDirections.size(); ++i) {
+            int iPop = solidDirections[i];
+            int oppPop = indexTemplates::opposite<D>(iPop);
+            deltaJ[0] -= D::c[oppPop][0]*collidedCell[oppPop];
+            deltaJ[1] -= D::c[oppPop][1]*collidedCell[oppPop];
+            deltaJ[2] -= D::c[oppPop][2]*collidedCell[oppPop];
         }
     }
+
     localForce += deltaJ;
     if (numNeumannNodes>0) {
         neumannDensity /= numNeumannNodes;

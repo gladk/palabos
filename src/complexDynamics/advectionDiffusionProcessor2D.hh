@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,7 +31,7 @@ namespace plb {
 
 // This data processor uses asymmetric finite differences to compute a gradient.
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
-void AdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>::process (
+void AdvectionDiffusionCornerBoundaryFunctional2D<T,Descriptor,xNormal,yNormal>::process (
         Box2D domain,
         BlockLattice2D<T,Descriptor>& lattice)
 {
@@ -62,7 +62,7 @@ void AdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>::
 
 // This data processor uses asymmetric finite differences to compute a gradient.
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
-void CompleteAdvectionDiffusionCornerBoundaryProcessor2D<T,Descriptor,xNormal,yNormal>::process (
+void CompleteAdvectionDiffusionCornerBoundaryFunctional2D<T,Descriptor,xNormal,yNormal>::process (
         Box2D domain,
         BlockLattice2D<T,Descriptor>& lattice)
 {

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,13 +37,13 @@
 
 namespace plb {
 
-/* ******************** class ViscositySpongeZone *********************************** */
+/* ******************** class ViscositySpongeZone3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
-ViscositySpongeZone<T,Descriptor>::ViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+ViscositySpongeZone3D<T,Descriptor>::ViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
         Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
         Array<T,6> const& scaleParameters_)
-        : nx(ny_),
+        : nx(nx_),
           ny(ny_),
           nz(nz_),
           bulkOmega(bulkOmega_),
@@ -53,12 +53,14 @@ ViscositySpongeZone<T,Descriptor>::ViscositySpongeZone(plint nx_, plint ny_, pli
           useTanhSpongeFunction(true)
 {
     for (int i = 0; i < 6; i++) {
-        PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        if (numSpongeCells[i] > 0) {
+            PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        }
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-ViscositySpongeZone<T,Descriptor>::ViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+ViscositySpongeZone3D<T,Descriptor>::ViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
         Array<plint,6> const& numSpongeCells_)
         : nx(nx_),
           ny(ny_),
@@ -69,7 +71,7 @@ ViscositySpongeZone<T,Descriptor>::ViscositySpongeZone(plint nx_, plint ny_, pli
 { }
 
 template<typename T, template<typename U> class Descriptor>
-void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+void ViscositySpongeZone3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
 {
     PLB_ASSERT(blocks.size() == 1);
     BlockLattice3D<T,Descriptor> *lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[0]);
@@ -77,7 +79,7 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
 
     Dot3D offset = lattice->getLocation();
 
-    T targetOmega = 1.0; // Here we hardcode the value of the relaxation parameter to 1.0 for stability purposes.
+    T targetOmega = (T) 1; // Here we hardcode the value of the relaxation parameter to 1.0 for stability purposes.
 
     T alpha = targetOmega / bulkOmega;
 
@@ -98,9 +100,9 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
         spongeCenters[4] = util::roundToInt(((T) 1             - translationParameters[4]) * numSpongeCells[4]);
         spongeCenters[5] = util::roundToInt(spongePositions[5] + translationParameters[5]  * numSpongeCells[5]);
 
-        T sigma[6]; // Sponge parameters.
+        T invSigma[6]; // Inverse sponge parameters.
         for (int i = 0; i < 6; i++) {
-            sigma[i] = scaleParameters[i] * numSpongeCells[i];
+            invSigma[i] = (T) 1 / (scaleParameters[i] * (T) numSpongeCells[i]);
         }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -110,37 +112,37 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     plint k = iZ + offset.z;
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyOmega = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((i - spongeCenters[0]) / sigma[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (i - spongeCenters[0]) * invSigma[0]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((i - spongeCenters[1]) / sigma[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (i - spongeCenters[1]) * invSigma[1]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((j - spongeCenters[2]) / sigma[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (j - spongeCenters[2]) * invSigma[2]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((j - spongeCenters[3]) / sigma[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (j - spongeCenters[3]) * invSigma[3]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((k - spongeCenters[4]) / sigma[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (k - spongeCenters[4]) * invSigma[4]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((k - spongeCenters[5]) / sigma[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (k - spongeCenters[5]) * invSigma[5]));
                         modifyOmega = true;
                     }
 
                     if (modifyOmega) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localOmega = bulkOmega * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setOmega(localOmega);
                     }
@@ -148,7 +150,11 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
             }
         }
     } else {
-        T pi = std::acos((T) -1.0);
+        T pi = std::acos((T) -1);
+        T invNumSpongeCells[6];
+        for (int i = 0; i < 6; i++) {
+            invNumSpongeCells[i] = (T) 1 / (T) numSpongeCells[i];
+        }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             plint i = iX + offset.x;
@@ -157,37 +163,37 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     plint k = iZ + offset.z;
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyOmega = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) i /                        (T) numSpongeCells[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) i                        * invNumSpongeCells[0]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (i - spongePositions[1]) / (T) numSpongeCells[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (i - spongePositions[1]) * invNumSpongeCells[1]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) j /                        (T) numSpongeCells[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) j                        * invNumSpongeCells[2]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (j - spongePositions[3]) / (T) numSpongeCells[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (j - spongePositions[3]) * invNumSpongeCells[3]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) k /                        (T) numSpongeCells[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) k                        * invNumSpongeCells[4]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (k - spongePositions[5]) / (T) numSpongeCells[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (k - spongePositions[5]) * invNumSpongeCells[5]));
                         modifyOmega = true;
                     }
 
                     if (modifyOmega) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localOmega = bulkOmega * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setOmega(localOmega);
                     }
@@ -198,13 +204,13 @@ void ViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::
 }
 
 
-/* ******************** class MaskedViscositySpongeZone *********************************** */
+/* ******************** class MaskedViscositySpongeZone3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
-MaskedViscositySpongeZone<T,Descriptor>::MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+MaskedViscositySpongeZone3D<T,Descriptor>::MaskedViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
         int flag_, Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
         Array<T,6> const& scaleParameters_)
-        : nx(ny_),
+        : nx(nx_),
           ny(ny_),
           nz(nz_),
           bulkOmega(bulkOmega_),
@@ -215,12 +221,14 @@ MaskedViscositySpongeZone<T,Descriptor>::MaskedViscositySpongeZone(plint nx_, pl
           flag(flag_)
 {
     for (int i = 0; i < 6; i++) {
-        PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        if (numSpongeCells[i] > 0) {
+            PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        }
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-MaskedViscositySpongeZone<T,Descriptor>::MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+MaskedViscositySpongeZone3D<T,Descriptor>::MaskedViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
         int flag_, Array<plint,6> const& numSpongeCells_)
         : nx(nx_),
           ny(ny_),
@@ -232,7 +240,7 @@ MaskedViscositySpongeZone<T,Descriptor>::MaskedViscositySpongeZone(plint nx_, pl
 { }
 
 template<typename T, template<typename U> class Descriptor>
-void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+void MaskedViscositySpongeZone3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
 {
     PLB_ASSERT(blocks.size() == 2);
     BlockLattice3D<T,Descriptor> *lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[0]);
@@ -243,7 +251,7 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
     Dot3D ofsFM = computeRelativeDisplacement(*lattice, *flagMatrix);
     Dot3D offset = lattice->getLocation();
 
-    T targetOmega = 1.0; // Here we hardcode the value of the relaxation parameter to 1.0 for stability purposes.
+    T targetOmega = (T) 1; // Here we hardcode the value of the relaxation parameter to 1.0 for stability purposes.
 
     T alpha = targetOmega / bulkOmega;
 
@@ -264,9 +272,9 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
         spongeCenters[4] = util::roundToInt(((T) 1             - translationParameters[4]) * numSpongeCells[4]);
         spongeCenters[5] = util::roundToInt(spongePositions[5] + translationParameters[5]  * numSpongeCells[5]);
 
-        T sigma[6]; // Sponge parameters.
+        T invSigma[6]; // Inverse sponge parameters.
         for (int i = 0; i < 6; i++) {
-            sigma[i] = scaleParameters[i] * numSpongeCells[i];
+            invSigma[i] = (T) 1 / (scaleParameters[i] * (T) numSpongeCells[i]);
         }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -280,37 +288,37 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
                         continue;
                     }
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyOmega = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((i - spongeCenters[0]) / sigma[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (i - spongeCenters[0]) * invSigma[0]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((i - spongeCenters[1]) / sigma[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (i - spongeCenters[1]) * invSigma[1]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((j - spongeCenters[2]) / sigma[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (j - spongeCenters[2]) * invSigma[2]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((j - spongeCenters[3]) / sigma[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (j - spongeCenters[3]) * invSigma[3]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((k - spongeCenters[4]) / sigma[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (k - spongeCenters[4]) * invSigma[4]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((k - spongeCenters[5]) / sigma[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (k - spongeCenters[5]) * invSigma[5]));
                         modifyOmega = true;
                     }
 
                     if (modifyOmega) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localOmega = bulkOmega * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setOmega(localOmega);
                     }
@@ -318,7 +326,11 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
             }
         }
     } else {
-        T pi = std::acos((T) -1.0);
+        T pi = std::acos((T) -1);
+        T invNumSpongeCells[6];
+        for (int i = 0; i < 6; i++) {
+            invNumSpongeCells[i] = (T) 1 / (T) numSpongeCells[i];
+        }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             plint i = iX + offset.x;
@@ -331,37 +343,37 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
                         continue;
                     }
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyOmega = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) i /                        (T) numSpongeCells[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) i                        * invNumSpongeCells[0]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (i - spongePositions[1]) / (T) numSpongeCells[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (i - spongePositions[1]) * invNumSpongeCells[1]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) j /                        (T) numSpongeCells[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) j                        * invNumSpongeCells[2]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (j - spongePositions[3]) / (T) numSpongeCells[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (j - spongePositions[3]) * invNumSpongeCells[3]));
                         modifyOmega = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) k /                        (T) numSpongeCells[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) k                        * invNumSpongeCells[4]));
                         modifyOmega = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (k - spongePositions[5]) / (T) numSpongeCells[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (k - spongePositions[5]) * invNumSpongeCells[5]));
                         modifyOmega = true;
                     }
 
                     if (modifyOmega) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localOmega = bulkOmega * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setOmega(localOmega);
                     }
@@ -372,10 +384,10 @@ void MaskedViscositySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain,
 }
 
 
-/* ******************** class SmagorinskySpongeZone *********************************** */
+/* ******************** class SmagorinskySpongeZone3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
-SmagorinskySpongeZone<T,Descriptor>::SmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
+SmagorinskySpongeZone3D<T,Descriptor>::SmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
         Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
         Array<T,6> const& scaleParameters_)
         : nx(nx_),
@@ -389,12 +401,14 @@ SmagorinskySpongeZone<T,Descriptor>::SmagorinskySpongeZone(plint nx_, plint ny_,
           useTanhSpongeFunction(true)
 {
     for (int i = 0; i < 6; i++) {
-        PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        if (numSpongeCells[i] > 0) {
+            PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        }
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-SmagorinskySpongeZone<T,Descriptor>::SmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
+SmagorinskySpongeZone3D<T,Descriptor>::SmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
         Array<plint,6> const& numSpongeCells_)
         : nx(nx_),
           ny(ny_),
@@ -403,14 +417,10 @@ SmagorinskySpongeZone<T,Descriptor>::SmagorinskySpongeZone(plint nx_, plint ny_,
           targetCSmago(targetCSmago_),
           numSpongeCells(numSpongeCells_),
           useTanhSpongeFunction(false)
-{
-    for (int i = 0; i < 6; i++) {
-        numSpongeCells[i] = numSpongeCells_[i];
-    }
-}
+{ }
 
 template<typename T, template<typename U> class Descriptor>
-void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+void SmagorinskySpongeZone3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
 {
     PLB_ASSERT(blocks.size() == 1);
     BlockLattice3D<T,Descriptor> *lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[0]);
@@ -438,9 +448,9 @@ void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std
         spongeCenters[4] = util::roundToInt(((T) 1             - translationParameters[4]) * numSpongeCells[4]);
         spongeCenters[5] = util::roundToInt(spongePositions[5] + translationParameters[5]  * numSpongeCells[5]);
 
-        T sigma[6]; // Sponge parameters.
+        T invSigma[6]; // Inverse sponge parameters.
         for (int i = 0; i < 6; i++) {
-            sigma[i] = scaleParameters[i] * numSpongeCells[i];
+            invSigma[i] = (T) 1 / (scaleParameters[i] * (T) numSpongeCells[i]);
         }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -450,37 +460,37 @@ void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     plint k = iZ + offset.z;
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyCSmago = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((i - spongeCenters[0]) / sigma[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (i - spongeCenters[0]) * invSigma[0]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((i - spongeCenters[1]) / sigma[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (i - spongeCenters[1]) * invSigma[1]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((j - spongeCenters[2]) / sigma[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (j - spongeCenters[2]) * invSigma[2]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((j - spongeCenters[3]) / sigma[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (j - spongeCenters[3]) * invSigma[3]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((k - spongeCenters[4]) / sigma[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (k - spongeCenters[4]) * invSigma[4]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((k - spongeCenters[5]) / sigma[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (k - spongeCenters[5]) * invSigma[5]));
                         modifyCSmago = true;
                     }
 
                     if (modifyCSmago) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localCSmago = bulkCSmago * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setParameter(whichParameter, localCSmago);
                     }
@@ -488,7 +498,11 @@ void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std
             }
         }
     } else {
-        T pi = std::acos((T) -1.0);
+        T pi = std::acos((T) -1);
+        T invNumSpongeCells[6];
+        for (int i = 0; i < 6; i++) {
+            invNumSpongeCells[i] = (T) 1 / (T) numSpongeCells[i];
+        }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             plint i = iX + offset.x;
@@ -497,38 +511,38 @@ void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std
                 for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                     plint k = iZ + offset.z;
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyCSmago = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) i /                        (T) numSpongeCells[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) i                        * invNumSpongeCells[0]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (i - spongePositions[1]) / (T) numSpongeCells[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (i - spongePositions[1]) * invNumSpongeCells[1]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) j /                        (T) numSpongeCells[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) j                        * invNumSpongeCells[2]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (j - spongePositions[3]) / (T) numSpongeCells[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (j - spongePositions[3]) * invNumSpongeCells[3]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) k /                        (T) numSpongeCells[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) k                        * invNumSpongeCells[4]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (k - spongePositions[5]) / (T) numSpongeCells[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (k - spongePositions[5]) * invNumSpongeCells[5]));
                         modifyCSmago = true;
                     }
 
                     // Scale and translate the sponge function.
                     if (modifyCSmago) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localCSmago = bulkCSmago * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setParameter(whichParameter, localCSmago);
                     }
@@ -539,10 +553,10 @@ void SmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std
 }
 
 
-/* ******************** class MaskedSmagorinskySpongeZone *********************************** */
+/* ******************** class MaskedSmagorinskySpongeZone3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
-MaskedSmagorinskySpongeZone<T,Descriptor>::MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_,
+MaskedSmagorinskySpongeZone3D<T,Descriptor>::MaskedSmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_,
         T targetCSmago_, int flag_, Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
         Array<T,6> const& scaleParameters_)
         : nx(nx_),
@@ -557,12 +571,14 @@ MaskedSmagorinskySpongeZone<T,Descriptor>::MaskedSmagorinskySpongeZone(plint nx_
           flag(flag_)
 {
     for (int i = 0; i < 6; i++) {
-        PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        if (numSpongeCells[i] > 0) {
+            PLB_ASSERT(translationParameters[i] > (T) 0 && translationParameters[i] < (T) 1);
+        }
     }
 }
 
 template<typename T, template<typename U> class Descriptor>
-MaskedSmagorinskySpongeZone<T,Descriptor>::MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_,
+MaskedSmagorinskySpongeZone3D<T,Descriptor>::MaskedSmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_,
         T targetCSmago_, int flag_, Array<plint,6> const& numSpongeCells_)
         : nx(nx_),
           ny(ny_),
@@ -572,14 +588,10 @@ MaskedSmagorinskySpongeZone<T,Descriptor>::MaskedSmagorinskySpongeZone(plint nx_
           numSpongeCells(numSpongeCells_),
           useTanhSpongeFunction(false),
           flag(flag_)
-{
-    for (int i = 0; i < 6; i++) {
-        numSpongeCells[i] = numSpongeCells_[i];
-    }
-}
+{ }
 
 template<typename T, template<typename U> class Descriptor>
-void MaskedSmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+void MaskedSmagorinskySpongeZone3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
 {
     PLB_ASSERT(blocks.size() == 2);
     BlockLattice3D<T,Descriptor> *lattice = dynamic_cast<BlockLattice3D<T,Descriptor>*>(blocks[0]);
@@ -610,9 +622,9 @@ void MaskedSmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domai
         spongeCenters[4] = util::roundToInt(((T) 1             - translationParameters[4]) * numSpongeCells[4]);
         spongeCenters[5] = util::roundToInt(spongePositions[5] + translationParameters[5]  * numSpongeCells[5]);
 
-        T sigma[6]; // Sponge parameters.
+        T invSigma[6]; // Inverse sponge parameters.
         for (int i = 0; i < 6; i++) {
-            sigma[i] = scaleParameters[i] * numSpongeCells[i];
+            invSigma[i] = (T) 1 / (scaleParameters[i] * (T) numSpongeCells[i]);
         }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
@@ -626,37 +638,37 @@ void MaskedSmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domai
                         continue;
                     }
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyCSmago = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((i - spongeCenters[0]) / sigma[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (i - spongeCenters[0]) * invSigma[0]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((i - spongeCenters[1]) / sigma[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (i - spongeCenters[1]) * invSigma[1]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((j - spongeCenters[2]) / sigma[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (j - spongeCenters[2]) * invSigma[2]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((j - spongeCenters[3]) / sigma[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (j - spongeCenters[3]) * invSigma[3]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 + std::tanh((k - spongeCenters[4]) / sigma[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::tanh((T) (k - spongeCenters[4]) * invSigma[4]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 - std::tanh((k - spongeCenters[5]) / sigma[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::tanh((T) (k - spongeCenters[5]) * invSigma[5]));
                         modifyCSmago = true;
                     }
 
                     if (modifyCSmago) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localCSmago = bulkCSmago * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setParameter(whichParameter, localCSmago);
                     }
@@ -664,7 +676,11 @@ void MaskedSmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domai
             }
         }
     } else {
-        T pi = std::acos((T) -1.0);
+        T pi = std::acos((T) -1);
+        T invNumSpongeCells[6];
+        for (int i = 0; i < 6; i++) {
+            invNumSpongeCells[i] = (T) 1 / (T) numSpongeCells[i];
+        }
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             plint i = iX + offset.x;
@@ -677,38 +693,38 @@ void MaskedSmagorinskySpongeZone<T,Descriptor>::processGenericBlocks(Box3D domai
                         continue;
                     }
 
-                    T spongeFunction = 1.0;
+                    T spongeFunction = (T) 1;
                     bool modifyCSmago = false;
                     if (numSpongeCells[0] > 0 && i <= spongePositions[0]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) i /                        (T) numSpongeCells[0]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) i                        * invNumSpongeCells[0]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[1] > 0 && i >= spongePositions[1]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (i - spongePositions[1]) / (T) numSpongeCells[1]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (i - spongePositions[1]) * invNumSpongeCells[1]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[2] > 0 && j <= spongePositions[2]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) j /                        (T) numSpongeCells[2]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) j                        * invNumSpongeCells[2]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[3] > 0 && j >= spongePositions[3]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (j - spongePositions[3]) / (T) numSpongeCells[3]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (j - spongePositions[3]) * invNumSpongeCells[3]));
                         modifyCSmago = true;
                     }
 
                     if (numSpongeCells[4] > 0 && k <= spongePositions[4]) {
-                        spongeFunction *= 0.5 * (1.0 - std::cos(pi * (T) k /                        (T) numSpongeCells[4]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 - std::cos(pi * (T) k                        * invNumSpongeCells[4]));
                         modifyCSmago = true;
                     }
                     if (numSpongeCells[5] > 0 && k >= spongePositions[5]) {
-                        spongeFunction *= 0.5 * (1.0 + std::cos(pi * (T) (k - spongePositions[5]) / (T) numSpongeCells[5]));
+                        spongeFunction *= (T) 0.5 * ((T) 1 + std::cos(pi * (T) (k - spongePositions[5]) * invNumSpongeCells[5]));
                         modifyCSmago = true;
                     }
 
                     // Scale and translate the sponge function.
                     if (modifyCSmago) {
-                        spongeFunction = (1.0 - alpha) * spongeFunction + alpha;
+                        spongeFunction = ((T) 1 - alpha) * spongeFunction + alpha;
                         T localCSmago = bulkCSmago * spongeFunction;
                         lattice->get(iX, iY, iZ).getDynamics().setParameter(whichParameter, localCSmago);
                     }

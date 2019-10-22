@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,6 +27,7 @@
 
 #include "core/runTimeDiagnostics.h"
 #include "core/util.h"
+#include "core/globalDefs.h"
 #include "algorithm/spline.h"
 #include "algorithm/timePeriodicSignal.h"
 
@@ -42,20 +43,12 @@ TimePeriodicSignal<T>::TimePeriodicSignal(std::string fname)
     std::vector<T> const& x = signal.getOrdinates();
     plint n = (plint) t.size();
 
-#ifdef PLB_DEBUG
-    T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (!util::fpequal(t[0], (T) 0, eps))
-        plbLogicError("The first given value of the signal must be at time 0.0.");
-    if (!util::fpequal(x[0], x[n-1], eps))
-        plbLogicError("The last given value of the signal must be equal to the first one.");
-#endif // PLB_DEBUG
+    PLB_ASSERT(util::isZero(t[0]));
+    PLB_ASSERT(util::fpequal(x[0], x[n-1]));
 
     period = t[n-1] - t[0];
 
-#ifdef PLB_DEBUG
-    if (util::fpequal(period, (T) 0, eps))
-        plbLogicError("The period must be greater than zero.");
-#endif // PLB_DEBUG
+    PLB_ASSERT(util::greaterThan(period, (T) 0));
 }
 
 template<typename T>
@@ -63,22 +56,13 @@ TimePeriodicSignal<T>::TimePeriodicSignal(std::vector<T> const& t, std::vector<T
     : signal(t, x)
 {
     plint n = (plint) t.size();
-    PLB_ASSERT(n >= 1);
 
-#ifdef PLB_DEBUG
-    T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (!util::fpequal(t[0], (T) 0, eps))
-        plbLogicError("The first given value of the signal must be at time 0.0.");
-    if (!util::fpequal(x[0], x[n-1], eps))
-        plbLogicError("The last given value of the signal must be equal to the first one.");
-#endif // PLB_DEBUG
+    PLB_ASSERT(util::isZero(t[0]));
+    PLB_ASSERT(util::fpequal(x[0], x[n-1]));
 
     period = t[n-1] - t[0];
 
-#ifdef PLB_DEBUG
-    if (util::fpequal(period, (T) 0, eps))
-        plbLogicError("The period must be greater than zero.");
-#endif // PLB_DEBUG
+    PLB_ASSERT(util::greaterThan(period, (T) 0));
 }
 
 template<typename T>
@@ -89,12 +73,7 @@ TimePeriodicSignal<T>* TimePeriodicSignal<T>::clone() const {
 template<typename T>
 T TimePeriodicSignal<T>::getSignalValue(T t) const
 {
-#ifdef PLB_DEBUG
-    static T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (t < (T) 0 && !util::fpequal(t, (T) 0, eps))
-        plbLogicError("The time value must be greater equal to 0.0.");
-#endif // PLB_DEBUG
-
+    PLB_ASSERT(util::greaterEqual(t, (T) 0));
     T trel = t - (plint) (t/period) * period;
     return signal.getFunctionValue(trel);
 }
@@ -102,12 +81,7 @@ T TimePeriodicSignal<T>::getSignalValue(T t) const
 template<typename T>
 T TimePeriodicSignal<T>::getDerivativeValue(T t) const
 {
-#ifdef PLB_DEBUG
-    static T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (t < (T) 0 && !util::fpequal(t, (T) 0, eps))
-        plbLogicError("The time value must be greater equal to 0.0.");
-#endif // PLB_DEBUG
-
+    PLB_ASSERT(util::greaterEqual(t, (T) 0));
     T trel = t - (plint) (t/period) * period;
     return signal.getDerivativeValue(trel);
 }
@@ -115,12 +89,7 @@ T TimePeriodicSignal<T>::getDerivativeValue(T t) const
 template<typename T>
 T TimePeriodicSignal<T>::getSecondDerivativeValue(T t) const
 {
-#ifdef PLB_DEBUG
-    static T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (t < (T) 0 && !util::fpequal(t, (T) 0, eps))
-        plbLogicError("The time value must be greater equal to 0.0.");
-#endif // PLB_DEBUG
-
+    PLB_ASSERT(util::greaterEqual(t, (T) 0));
     T trel = t - (plint) (t/period) * period;
     return signal.getSecondDerivativeValue(trel);
 }
@@ -128,12 +97,7 @@ T TimePeriodicSignal<T>::getSecondDerivativeValue(T t) const
 template<typename T>
 T TimePeriodicSignal<T>::getThirdDerivativeValue(T t) const
 {
-#ifdef PLB_DEBUG
-    static T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
-    if (t < (T) 0 && !util::fpequal(t, (T) 0, eps))
-        plbLogicError("The time value must be greater equal to 0.0.");
-#endif // PLB_DEBUG
-
+    PLB_ASSERT(util::greaterEqual(t, (T) 0));
     T trel = t - (plint) (t/period) * period;
     return signal.getThirdDerivativeValue(trel);
 }
@@ -147,19 +111,11 @@ T TimePeriodicSignal<T>::getIntegralValue() const
 template<typename T>
 T TimePeriodicSignal<T>::getIntegralValue(T tmin, T tmax) const
 {
-    static T eps = (T) 100.0 * std::numeric_limits<T>::epsilon();
+    PLB_ASSERT(util::lessEqual(tmin, tmax) && util::greaterEqual(tmin, (T) 0));
 
-#ifdef PLB_DEBUG
-    if (tmin > tmax)
-        plbLogicError("Invalid arguments.");
-    if (tmin < (T) 0 && !util::fpequal(tmin, (T) 0, eps))
-        plbLogicError("Invalid arguments.");
-    if (tmax < (T) 0 && !util::fpequal(tmax, (T) 0, eps))
-        plbLogicError("Invalid arguments.");
-#endif // PLB_DEBUG
-
-    if (util::fpequal(tmin, tmax, eps))
+    if (util::fpequal(tmin, tmax)) {
         return ((T) 0);
+    }
 
     T dt = tmax - tmin;
     plint k = (plint) (dt / period);

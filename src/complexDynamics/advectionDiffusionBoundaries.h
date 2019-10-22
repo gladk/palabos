@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,8 +46,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Clone the object, based on its dynamic type
     virtual AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
@@ -70,8 +68,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Clone the object, based on its dynamic type
     virtual RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
@@ -84,21 +80,19 @@ private:
 
 /// Advection-diffusion dynamics on flat boundaries
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-class RegularizedCompleteAdvectionDiffusionBoundaryDynamics : public StoreDensityDynamics<T,Descriptor>
+class CompleteRegularizedAdvectionDiffusionBoundaryDynamics : public StoreDensityDynamics<T,Descriptor>
 {
 public:
     /// Constructor
-    RegularizedCompleteAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics,
+    CompleteRegularizedAdvectionDiffusionBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics,
                                                   bool automaticPrepareCollision_=true);
-    RegularizedCompleteAdvectionDiffusionBoundaryDynamics(HierarchicUnserializer& unserializer);
+    CompleteRegularizedAdvectionDiffusionBoundaryDynamics(HierarchicUnserializer& unserializer);
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Clone the object, based on its dynamic type
-    virtual RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
+    virtual CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
 
     /// Execute completion scheme before base collision
     virtual void completePopulations(Cell<T,Descriptor>& cell) const;
@@ -118,8 +112,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     /// Clone the object on its dynamic type.
     virtual AdvectionDiffusionCornerDynamics2D<T, Descriptor, xNormal, yNormal>* clone() const;
 
@@ -142,8 +134,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Clone the object, based on its dynamic type
     virtual AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>* clone() const;
@@ -168,8 +158,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual AdvectionDiffusionCornerDynamics3D<T, Descriptor, xNormal, yNormal, zNormal>* clone() const;

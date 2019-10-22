@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,64 +27,178 @@
 #ifndef TRIANGLE_SET_HH
 #define TRIANGLE_SET_HH
 
-#include "triangleSet.h"
+#include "offLattice/triangleSet.h"
+#include "core/globalDefs.h"
 #include "core/util.h"
+#include "latticeBoltzmann/geometricOperationTemplates.h"
+
 #include <algorithm>
 #include <limits>
 #include <vector>
+#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <cctype>
 
-#define PLB_CBUFSIZ 256 // Must be undefined at the end of this file.
-                        // Must be larger than 80 which is the size of the binary STL header.
+#define PLB_CBUFSIZ 4096 // Must be undefined at the end of this file.
+                         // Must be larger than 80 which is the size of the binary STL header.
+                         // Must be large enough to contain all characters of an ASCII STL
+                         // file including at least the first "endfacet" word.
 
 namespace plb {
 
 template<typename T>
 TriangleSet<T>::TriangleSet(Precision precision_)
     : minEdgeLength(std::numeric_limits<T>::max()),
-      maxEdgeLength(std::numeric_limits<T>::min())
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
 {
     PLB_ASSERT(precision_ == FLT || precision_ == DBL || precision_ == LDBL || precision_ == INF);
-    precision = precision_;
+    eps = plb::getEpsilon<T>(precision_);
 
-    boundingCuboid.lowerLeftCorner  = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
-    boundingCuboid.upperRightCorner = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
+    T huge = std::numeric_limits<T>::max();
+
+    boundingCuboid.lowerLeftCorner  = Array<T,3>((T)  huge, (T)  huge, (T)  huge);
+    boundingCuboid.upperRightCorner = Array<T,3>((T) -huge, (T) -huge, (T) -huge);
 }
 
 template<typename T>
-TriangleSet<T>::TriangleSet(std::vector<Triangle> const& triangles_, Precision precision_)
-    : triangles(triangles_),
-      minEdgeLength(std::numeric_limits<T>::max()),
-      maxEdgeLength(std::numeric_limits<T>::min())
+TriangleSet<T>::TriangleSet(T eps_)
+    : minEdgeLength(std::numeric_limits<T>::max()),
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
+{
+    PLB_ASSERT(eps_ > (T) 0);
+    eps = eps_;
+
+    T huge = std::numeric_limits<T>::max();
+
+    boundingCuboid.lowerLeftCorner  = Array<T,3>((T)  huge, (T)  huge, (T)  huge);
+    boundingCuboid.upperRightCorner = Array<T,3>((T) -huge, (T) -huge, (T) -huge);
+}
+
+template<typename T>
+TriangleSet<T>::TriangleSet(std::vector<Triangle> const& triangles_, Precision precision_, TriangleSelector<T>* selector)
+    : minEdgeLength(std::numeric_limits<T>::max()),
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
 {
     PLB_ASSERT(precision_ == FLT || precision_ == DBL || precision_ == LDBL || precision_ == INF);
-    precision = precision_;
+    eps = plb::getEpsilon<T>(precision_);
+
+    plint partId = 0;   // There is only one part.
+
+    for (pluint i = 0; i < triangles_.size(); ++i) {
+        // We keep triangles that have a zero area, since they might be used to
+        // fix topological problems with the connectivity of the triangle set.
+        // However, we do not keep triangles that have one or more edges with a
+        // zero length. This has as a result, that if a triangle is kept in the
+        // triangle set and has zero area, its vertices are distinct but belong
+        // to a straight line.
+        if (!triangleHasZeroLengthEdges(triangles_[i], eps)) {
+            if (selector == 0 || (*selector)(triangles_[i], partId)) {
+                triangles.push_back(triangles_[i]);
+            }
+        }
+    }
+
+    delete selector;
 
     computeMinMaxEdges();
+    computeMinMaxAreas();
     computeBoundingCuboid();
 }
 
 template<typename T>
-TriangleSet<T>::TriangleSet(std::string fname, Precision precision_, SurfaceGeometryFileFormat fformat)
+TriangleSet<T>::TriangleSet(std::vector<Triangle> const& triangles_, T eps_, TriangleSelector<T>* selector)
     : minEdgeLength(std::numeric_limits<T>::max()),
-      maxEdgeLength(std::numeric_limits<T>::min())
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
+{
+    PLB_ASSERT(eps_ > (T) 0);
+    eps = eps_;
+
+    plint partId = 0;   // There is only one part.
+
+    for (pluint i = 0; i < triangles_.size(); ++i) {
+        // We keep triangles that have a zero area, since they might be used to
+        // fix topological problems with the connectivity of the triangle set.
+        // However, we do not keep triangles that have one or more edges with a
+        // zero length. This has as a result, that if a triangle is kept in the
+        // triangle set and has zero area, its vertices are distinct but belong
+        // to a straight line.
+        if (!triangleHasZeroLengthEdges(triangles_[i], eps)) {
+            if (selector == 0 || (*selector)(triangles_[i], partId)) {
+                triangles.push_back(triangles_[i]);
+            }
+        }
+    }
+
+    delete selector;
+
+    computeMinMaxEdges();
+    computeMinMaxAreas();
+    computeBoundingCuboid();
+}
+
+template<typename T>
+TriangleSet<T>::TriangleSet(std::string fname, Precision precision_, SurfaceGeometryFileFormat fformat,
+        TriangleSelector<T>* selector)
+    : minEdgeLength(std::numeric_limits<T>::max()),
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
 {
     PLB_ASSERT(precision_ == FLT || precision_ == DBL || precision_ == LDBL || precision_ == INF);
     PLB_ASSERT(fformat == STL || fformat == OFF);
-    precision = precision_;
+
+    eps = plb::getEpsilon<T>(precision_);
 
     switch (fformat) {
     case STL: default:
-        readSTL(fname);
+        readSTL(fname, selector);
         break;
     case OFF:
-        readOFF(fname);
+        readOFF(fname, selector);
         break;
     }
 
+    delete selector;
+
     computeMinMaxEdges();
+    computeMinMaxAreas();
+    computeBoundingCuboid();
+}
+
+template<typename T>
+TriangleSet<T>::TriangleSet(std::string fname, T eps_, SurfaceGeometryFileFormat fformat, TriangleSelector<T>* selector)
+    : minEdgeLength(std::numeric_limits<T>::max()),
+      maxEdgeLength(std::numeric_limits<T>::min()),
+      minTriangleArea(std::numeric_limits<T>::max()),
+      maxTriangleArea(std::numeric_limits<T>::min())
+{
+    PLB_ASSERT(eps_ > (T) 0);
+    PLB_ASSERT(fformat == STL || fformat == OFF);
+
+    eps = eps_;
+
+    switch (fformat) {
+    case STL: default:
+        readSTL(fname, selector);
+        break;
+    case OFF:
+        readOFF(fname, selector);
+        break;
+    }
+
+    delete selector;
+
+    computeMinMaxEdges();
+    computeMinMaxAreas();
     computeBoundingCuboid();
 }
 
@@ -99,19 +213,26 @@ template<typename T>
 void TriangleSet<T>::setPrecision(Precision precision_)
 {
     PLB_ASSERT(precision_ == FLT || precision_ == DBL || precision_ == LDBL || precision_ == INF);
-    precision = precision_;
+    eps = plb::getEpsilon<T>(precision_);
 }
 
 template<typename T>
-void TriangleSet<T>::readSTL(std::string fname)
+void TriangleSet<T>::setEpsilon(T eps_)
 {
-    FILE *fp = fopen(fname.c_str(), "r");
-    PLB_ASSERT(fp != NULL); // The input file cannot be read.
+    PLB_ASSERT(eps_ > (T) 0);
+    eps = eps_;
+}
+
+template<typename T>
+void TriangleSet<T>::readSTL(std::string fname, TriangleSelector<T>* selector)
+{
+    FILE* fp = fopen(fname.c_str(), "rb");
+    PLB_ASSERT(fp != 0); // The input file cannot be read.
 
     if (isAsciiSTL(fp)) {
-        readAsciiSTL(fp);
+        readAsciiSTL(fp, selector);
     } else {
-        readBinarySTL(fp);
+        readBinarySTL(fp, selector);
     }
 
     fclose(fp);
@@ -124,10 +245,12 @@ bool TriangleSet<T>::isAsciiSTL(FILE* fp)
 
 #ifdef PLB_DEBUG
     size_t sz = fread(buf, sizeof(char), PLB_CBUFSIZ, fp);
+    if (sz != PLB_CBUFSIZ) {
+        PLB_ASSERT(!ferror(fp));
+    }
 #else
     (void) fread(buf, sizeof(char), PLB_CBUFSIZ, fp);
 #endif
-    PLB_ASSERT(sz == PLB_CBUFSIZ); // The input file cannot be read.
     buf[PLB_CBUFSIZ] = '\0';
     rewind(fp);
 
@@ -144,10 +267,12 @@ bool TriangleSet<T>::isAsciiSTL(FILE* fp)
 
 #ifdef PLB_DEBUG
     sz = fread(buf, sizeof(char), PLB_CBUFSIZ, fp);
+    if (sz != PLB_CBUFSIZ) {
+        PLB_ASSERT(!ferror(fp));
+    }
 #else
     (void) fread(buf, sizeof(char), PLB_CBUFSIZ, fp);
 #endif
-    PLB_ASSERT(sz == PLB_CBUFSIZ); // The input file cannot be read.
     buf[PLB_CBUFSIZ] = '\0';
     rewind(fp);
 
@@ -159,7 +284,7 @@ bool TriangleSet<T>::isAsciiSTL(FILE* fp)
 }
 
 template<typename T>
-void TriangleSet<T>::readAsciiSTL(FILE* fp)
+void TriangleSet<T>::readAsciiSTL(FILE* fp, TriangleSelector<T>* selector)
 {
     char buf[PLB_CBUFSIZ];
     char *cp;
@@ -187,6 +312,8 @@ void TriangleSet<T>::readAsciiSTL(FILE* fp)
 
     cp = strstr(buf, "solid");
     PLB_ASSERT(cp != NULL); // The input file is badly structured.
+
+    plint partId = 0;
 
     while (cp != NULL && !failed) {
         if (fgets(buf, PLB_CBUFSIZ, fp) == NULL) {
@@ -222,7 +349,6 @@ void TriangleSet<T>::readAsciiSTL(FILE* fp)
             PLB_ASSERT(checkForBufferOverflow(buf)); // Problem with reading one line of text.
 
             Triangle triangle;
-            T nextMin, nextMax;
             for (int i = 0; i < 3; i++) {
                 if ( fgets(buf, PLB_CBUFSIZ, fp) == NULL ||
                      (cp = strstr(buf, "vertex")) == NULL ) {
@@ -255,21 +381,18 @@ void TriangleSet<T>::readAsciiSTL(FILE* fp)
             }
             PLB_ASSERT(checkForBufferOverflow(buf)); // Problem with reading one line of text.
 
-            if (checkForDegenerateTrianglesAndFixOrientationNoAbort(triangle, n)) {
-                triangles.push_back(triangle);
-
-                computeMinMaxEdge(triangles.size()-1, nextMin, nextMax);
-                minEdgeLength = std::min(minEdgeLength, nextMin);
-                maxEdgeLength = std::max(maxEdgeLength, nextMax);
+            // We keep triangles that have a zero area, since they might be used to
+            // fix topological problems with the connectivity of the triangle set.
+            // However, we do not keep triangles that have one or more edges with a
+            // zero length. This has as a result, that if a triangle is kept in the
+            // triangle set and has zero area, its vertices are distinct but belong
+            // to a straight line.
+            if (!triangleHasZeroLengthEdges(triangle, eps)) {
+                fixOrientation(triangle, n);
+                if (selector == 0 || (*selector)(triangle, partId)) {
+                    triangles.push_back(triangle);
+                }
             }
-            // OR (More strict checks...)
-            /*
-            checkForDegenerateTrianglesAndFixOrientation(triangle, n);
-            triangles.push_back(triangle);
-            computeMinMaxEdge(triangles.size()-1, nextMin, nextMax);
-            minEdgeLength = std::min(minEdgeLength, nextMin);
-            maxEdgeLength = std::max(maxEdgeLength, nextMax);
-            */
 
             if (fgets(buf, PLB_CBUFSIZ, fp) == NULL) {
                 failed = true;
@@ -286,11 +409,12 @@ void TriangleSet<T>::readAsciiSTL(FILE* fp)
         }
 
         cp = strstr(buf, "solid");
+        partId++;
     }
 }
 
 template<typename T>
-void TriangleSet<T>::readBinarySTL(FILE* fp)
+void TriangleSet<T>::readBinarySTL(FILE* fp, TriangleSelector<T>* selector)
 {
     char buf[PLB_CBUFSIZ];
     unsigned int nt;
@@ -302,7 +426,7 @@ void TriangleSet<T>::readBinarySTL(FILE* fp)
     while (fread(buf, sizeof(char), 80, fp) == 80 &&
            fread(&nt, sizeof(unsigned int), 1, fp) == 1 && !failed) {
         count++;
-        T nextMin, nextMax;
+        plint partId = (plint) count - 1;
         for (unsigned it = 0; it < nt && !failed; it++) {
             if (fread(array, sizeof(float), 3, fp) != 3) {
                 failed = true;
@@ -332,21 +456,18 @@ void TriangleSet<T>::readBinarySTL(FILE* fp)
                 PLB_ASSERT(!failed); // The input file is badly structured.
             }
 
-            if (checkForDegenerateTrianglesAndFixOrientationNoAbort(triangle, n)) {
-                triangles.push_back(triangle);
-
-                computeMinMaxEdge(triangles.size()-1, nextMin, nextMax);
-                minEdgeLength = std::min(minEdgeLength, nextMin);
-                maxEdgeLength = std::max(maxEdgeLength, nextMax);
+            // We keep triangles that have a zero area, since they might be used to
+            // fix topological problems with the connectivity of the triangle set.
+            // However, we do not keep triangles that have one or more edges with a
+            // zero length. This has as a result, that if a triangle is kept in the
+            // triangle set and has zero area, its vertices are distinct but belong
+            // to a straight line.
+            if (!triangleHasZeroLengthEdges(triangle, eps)) {
+                fixOrientation(triangle, n);
+                if (selector == 0 || (*selector)(triangle, partId)) {
+                    triangles.push_back(triangle);
+                }
             }
-            // OR (More strict checks...)
-            /*
-            checkForDegenerateTrianglesAndFixOrientation(triangle, n);
-            triangles.push_back(triangle);
-            computeMinMaxEdge(triangles.size()-1, nextMin, nextMax);
-            minEdgeLength = std::min(minEdgeLength, nextMin);
-            maxEdgeLength = std::max(maxEdgeLength, nextMax);
-            */
         }
     }
 
@@ -357,10 +478,10 @@ void TriangleSet<T>::readBinarySTL(FILE* fp)
 }
 
 template<typename T>
-void TriangleSet<T>::readOFF(std::string fname)
+void TriangleSet<T>::readOFF(std::string fname, TriangleSelector<T>* selector)
 {
-    FILE *fp = fopen(fname.c_str(), "r");
-    PLB_ASSERT(fp != NULL); // The input file cannot be read.
+    FILE *fp = fopen(fname.c_str(), "rb");
+    PLB_ASSERT(fp != 0); // The input file cannot be read.
 
     char buf[PLB_CBUFSIZ];
 #ifdef PLB_DEBUG
@@ -389,7 +510,7 @@ void TriangleSet<T>::readOFF(std::string fname)
     cp = strstr(buf, "OFF");
 
     if (cp != NULL) {
-        readAsciiOFF(fp);
+        readAsciiOFF(fp, selector);
     } else {
         PLB_ASSERT(false); // Nothing else is currently supported.
     }
@@ -398,7 +519,7 @@ void TriangleSet<T>::readOFF(std::string fname)
 }
 
 template<typename T>
-void TriangleSet<T>::readAsciiOFF(FILE* fp)
+void TriangleSet<T>::readAsciiOFF(FILE* fp, TriangleSelector<T>* selector)
 {
     char commentCharacter = '#';
     long NVertices = 0, NFaces = 0, NEdges = 0;
@@ -429,6 +550,8 @@ void TriangleSet<T>::readAsciiOFF(FILE* fp)
         }
     }
 
+    plint partId = 0; // Only one part in OFF files.
+
     triangles.clear();
     for (long iFace = 0; iFace < NFaces; iFace++) {
         if (readAhead(fp, commentCharacter) == EOF) {
@@ -452,105 +575,109 @@ void TriangleSet<T>::readAsciiOFF(FILE* fp)
         triangle[1] = vertices[ind[1]];
         triangle[2] = vertices[ind[2]];
 
-        Array<T,3> computedNormal;
-        if (checkForDegenerateTrianglesNoAbort(triangle, computedNormal)) {
-            triangles.push_back(triangle);
+        // We keep triangles that have a zero area, since they might be used to
+        // fix topological problems with the connectivity of the triangle set.
+        // However, we do not keep triangles that have one or more edges with a
+        // zero length. This has as a result, that if a triangle is kept in the
+        // triangle set and has zero area, its vertices are distinct but belong
+        // to a straight line.
+        if (!triangleHasZeroLengthEdges(triangle, eps)) {
+            if (selector == 0 || (*selector)(triangle, partId)) {
+                triangles.push_back(triangle);
+            }
         }
-        // OR (More strict checks...)
-        /*
-        checkForDegenerateTrianglesAndFixOrientation(triangle, computedNormal);
-        triangles.push_back(triangle);
-        */
     }
 }
 
-/// Make some optional checks
 template<typename T>
-void TriangleSet<T>::checkForDegenerateTriangles(Triangle const& triangle, Array<T,3>& computedNormal) const
+bool TriangleSet<T>::triangleHasZeroArea(Triangle const& triangle, T epsilon) const
 {
-    T eps = getEpsilon<T>(precision);
-
-    Array<T,3> v01 = triangle[1] - triangle[0];
-    Array<T,3> v02 = triangle[2] - triangle[0];
-    Array<T,3> v12 = triangle[2] - triangle[1];
-
-    T norm01 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v01));
-    T norm02 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v02));
-    T norm12 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v12));
-
-    if (util::fpequal(norm01, (T) 0.0, eps) || util::fpequal(norm02, (T) 0.0, eps) ||
-        util::fpequal(norm12, (T) 0.0, eps)) {
-        PLB_ASSERT(false); // One of the triangles is degenerate.
+    T area = computeTriangleArea(triangle[0], triangle[1], triangle[2]);
+    if (util::isZero(area, epsilon)) {
+        return true;
     }
+    return false;
+}
 
-    crossProduct(v01, v02, computedNormal);
+template<typename T>
+bool TriangleSet<T>::triangleHasZeroLengthEdges(Triangle const& triangle, T epsilon) const
+{
+    if (util::isZero(norm(triangle[1] - triangle[0]), epsilon) ||
+        util::isZero(norm(triangle[2] - triangle[0]), epsilon) ||
+        util::isZero(norm(triangle[2] - triangle[1]), epsilon)) {
+        return true;
+    }
+    return false;
+}
 
-    T norm_cn = std::sqrt(VectorTemplateImpl<T,3>::normSqr(computedNormal));
-
-    if (util::fpequal(norm_cn, (T) 0.0, eps)) {
-        PLB_ASSERT(false); // One of the triangles has zero area.
+template<typename T>
+void TriangleSet<T>::fixOrientation(Triangle& triangle, Array<T,3> const& n) const
+{
+    bool isAreaWeighted = false;
+    Array<T,3> computedNormal = computeTriangleNormal(triangle[0], triangle[1], triangle[2], isAreaWeighted);
+    if (dot(computedNormal, n) < (T) 0) {
+        std::swap(triangle[1], triangle[2]);
     }
 }
 
-/// Make some optional checks and fix triangle orientation.
 template<typename T>
-bool TriangleSet<T>::checkForDegenerateTrianglesNoAbort(Triangle const& triangle, Array<T,3>& computedNormal) const
+bool TriangleSet<T>::areTheSameTriangle(Triangle const& t1, Triangle const& t2, T epsilon) const
 {
-    T eps = getEpsilon<T>(precision);
+    Array<T,3> const& v10 = t1[0];
+    Array<T,3> const& v11 = t1[1];
+    Array<T,3> const& v12 = t1[2];
 
-    Array<T,3> v01 = triangle[1] - triangle[0];
-    Array<T,3> v02 = triangle[2] - triangle[0];
-    Array<T,3> v12 = triangle[2] - triangle[1];
+    Array<T,3> const& v20 = t2[0];
+    Array<T,3> const& v21 = t2[1];
+    Array<T,3> const& v22 = t2[2];
 
-    T norm01 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v01));
-    T norm02 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v02));
-    T norm12 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v12));
-
-    if (util::fpequal(norm01, (T) 0.0, eps) || util::fpequal(norm02, (T) 0.0, eps) ||
-        util::fpequal(norm12, (T) 0.0, eps)) {
-        return false; // One of the triangles is degenerate.
+    T n1020 = norm(v10 - v20);
+    T n1021 = norm(v10 - v21);
+    T n1022 = norm(v10 - v22);
+    if (!util::isZero(n1020, epsilon) &&
+        !util::isZero(n1021, epsilon) &&
+        !util::isZero(n1022, epsilon)) {
+        return false;
     }
 
-    crossProduct(v01, v02, computedNormal);
-
-    T norm_cn = std::sqrt(VectorTemplateImpl<T,3>::normSqr(computedNormal));
-
-    if (util::fpequal(norm_cn, (T) 0.0, eps)) {
-        return false; // One of the triangles has zero area.
+    T n1120 = norm(v11 - v20);
+    T n1121 = norm(v11 - v21);
+    T n1122 = norm(v11 - v22);
+    if (!util::isZero(n1120, epsilon) &&
+        !util::isZero(n1121, epsilon) &&
+        !util::isZero(n1122, epsilon)) {
+        return false;
     }
+
+    T n1220 = norm(v12 - v20);
+    T n1221 = norm(v12 - v21);
+    T n1222 = norm(v12 - v22);
+    if (!util::isZero(n1220, epsilon) &&
+        !util::isZero(n1221, epsilon) &&
+        !util::isZero(n1222, epsilon)) {
+        return false;
+    }
+
     return true;
 }
 
-/// Make some optional checks and fix triangle orientation.
 template<typename T>
-void TriangleSet<T>::checkForDegenerateTrianglesAndFixOrientation(Triangle& triangle, Array<T,3> const& n) const
+bool TriangleSet<T>::containedAndErase(Triangle const& triangle, std::vector<Triangle>& triangles, T epsilon) const
 {
-    Array<T,3> computedNormal;
-    checkForDegenerateTriangles(triangle, computedNormal);
-    T dot = VectorTemplateImpl<T,3>::scalarProduct(computedNormal,n);
-    if (dot < (T) 0.0) {
-        std::swap(triangle[1],triangle[2]);
+    typename std::vector<Triangle>::iterator it;
+    for (it = triangles.begin(); it != triangles.end(); ++it) {
+        if (areTheSameTriangle(triangle, *it, epsilon)) {
+            triangles.erase(it);
+            return true;
+        }
     }
-}
-
-/// Make some optional checks and fix triangle orientation.
-template<typename T>
-bool TriangleSet<T>::checkForDegenerateTrianglesAndFixOrientationNoAbort(Triangle& triangle, Array<T,3> const& n) const
-{
-    Array<T,3> computedNormal;
-    bool rv = checkForDegenerateTrianglesNoAbort(triangle, computedNormal);
-    T dot = VectorTemplateImpl<T,3>::scalarProduct(computedNormal,n);
-    if (dot < (T) 0.0) {
-        std::swap(triangle[1],triangle[2]);
-    }
-    return rv;
+    return false;
 }
 
 template<typename T>
 void TriangleSet<T>::translate(Array<T,3> const& vector)
 {
-    T eps = std::numeric_limits<T>::epsilon();
-    if (util::fpequal((T) std::sqrt(VectorTemplateImpl<T,3>::normSqr(vector)), (T) 0.0, eps))
+    if (util::isZero(norm(vector)))
         return;
 
     plint size = triangles.size();
@@ -570,8 +697,7 @@ void TriangleSet<T>::translate(Array<T,3> const& vector)
 template<typename T>
 void TriangleSet<T>::scale(T alpha)
 {
-    T eps = std::numeric_limits<T>::epsilon();
-    if (util::fpequal(alpha, (T) 1.0, eps))
+    if (util::isOne(alpha))
         return;
 
     plint size = triangles.size();
@@ -583,11 +709,10 @@ void TriangleSet<T>::scale(T alpha)
             triangles[i][j] *= alpha;
         }
     }
-    minEdgeLength *= alpha;
-    maxEdgeLength *= alpha;
 
-    boundingCuboid.lowerLeftCorner  *= alpha;
-    boundingCuboid.upperRightCorner *= alpha;
+    computeMinMaxEdges();
+    computeMinMaxAreas();
+    computeBoundingCuboid();
 }
 
 template<typename T>
@@ -609,6 +734,7 @@ void TriangleSet<T>::scale(T alpha, T beta, T gamma)
     }
 
     computeMinMaxEdges();
+    computeMinMaxAreas();
     computeBoundingCuboid();
 }
 
@@ -627,35 +753,75 @@ void TriangleSet<T>::rotateAtOrigin(Array<T,3> const& normedAxis, T theta) {
 }
 
 template<typename T>
-void TriangleSet<T>::rotate(T phi, T theta, T psi)
-{   
-    T eps = std::numeric_limits<T>::epsilon();
-    T pi = std::acos((T) -1.0);
+void TriangleSet<T>::rotateAxesTo(Array<T,3> const& ex, Array<T,3> const& ey) {
+    Array<T,3> ez( crossProduct(ex, ey) );
+    plint size = (plint)triangles.size();
+    for (plint iTriangle = 0; iTriangle < size; iTriangle++) {
+        for (int iVertex = 0; iVertex < 3; iVertex++) {
+            Array<T,3>& v = triangles[iTriangle][iVertex];
+            v = Array<T,3> (
+                ex[0]*v[0] + ey[0]*v[1] + ez[0]*v[2],
+                ex[1]*v[0] + ey[1]*v[1] + ez[1]*v[2],
+                ex[2]*v[0] + ey[2]*v[1] + ez[2]*v[2] );
+        }
+    }
 
-    PLB_ASSERT((theta > (T) 0.0 || util::fpequal(theta, (T) 0.0, eps)) &&
-               (theta < pi  || util::fpequal(theta, pi, eps)));
+    computeBoundingCuboid();
+}
+
+template<typename T>
+void TriangleSet<T>::rotateAxesFrom(Array<T,3> const& ex, Array<T,3> const& ey) {
+    Array<T,3> ez( crossProduct(ex, ey) );
+    plint size = (plint)triangles.size();
+    for (plint iTriangle = 0; iTriangle < size; iTriangle++) {
+        for (int iVertex = 0; iVertex < 3; iVertex++) {
+            Array<T,3>& v = triangles[iTriangle][iVertex];
+            v = Array<T,3> (
+                ex[0]*v[0] + ex[1]*v[1] + ex[2]*v[2],
+                ey[0]*v[0] + ey[1]*v[1] + ey[2]*v[2],
+                ez[0]*v[0] + ez[1]*v[1] + ez[2]*v[2] );
+        }
+    }
+
+    computeBoundingCuboid();
+}
+
+template<typename T>
+void TriangleSet<T>::rotate(T phi, T theta, T psi)
+{
+#ifdef PLB_DEBUG
+    static T pi = std::acos((T) -1);
+#endif
+    PLB_ASSERT(util::greaterEqual(theta, (T) 0, eps) && util::lessEqual(theta, pi, eps));
 
     plint size = triangles.size();
     if (size == 0)
         return;
+
+    T cosPhi   = std::cos(phi);
+    T sinPhi   = std::sin(phi);
+    T cosTheta = std::cos(theta);
+    T sinTheta = std::sin(theta);
+    T cosPsi   = std::cos(psi);
+    T sinPsi   = std::sin(psi);
 
     T a[3][3];
     a[0][0] =  (T) 1.0;
     a[0][1] =  (T) 0.0;
     a[0][2] =  (T) 0.0;
     a[1][0] =  (T) 0.0;
-    a[1][1] =  std::cos(theta);
-    a[1][2] = -std::sin(theta);
+    a[1][1] =  cosTheta;
+    a[1][2] = -sinTheta;
     a[2][0] =  (T) 0.0;
-    a[2][1] =  std::sin(theta);
-    a[2][2] =  std::cos(theta);
+    a[2][1] =  sinTheta;
+    a[2][2] =  cosTheta;
 
     T b[3][3];
-    b[0][0] =  std::cos(phi);
-    b[0][1] = -std::sin(phi);
+    b[0][0] =  cosPhi;
+    b[0][1] = -sinPhi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(phi);
-    b[1][1] =  std::cos(phi);
+    b[1][0] =  sinPhi;
+    b[1][1] =  cosPhi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -671,11 +837,11 @@ void TriangleSet<T>::rotate(T phi, T theta, T psi)
         }
     }
 
-    b[0][0] =  std::cos(psi);
-    b[0][1] = -std::sin(psi);
+    b[0][0] =  cosPsi;
+    b[0][1] = -sinPsi;
     b[0][2] =  (T) 0.0;
-    b[1][0] =  std::sin(psi);
-    b[1][1] =  std::cos(psi);
+    b[1][0] =  sinPsi;
+    b[1][1] =  cosPsi;
     b[1][2] =  (T) 0.0;
     b[2][0] =  (T) 0.0;
     b[2][1] =  (T) 0.0;
@@ -708,11 +874,18 @@ void TriangleSet<T>::rotate(T phi, T theta, T psi)
 template<typename T>
 void TriangleSet<T>::clear()
 {
-    triangles.clear();
+    std::vector<Triangle>().swap(triangles);
     minEdgeLength = std::numeric_limits<T>::max();
     maxEdgeLength = std::numeric_limits<T>::min();
-    boundingCuboid.lowerLeftCorner  = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
-    boundingCuboid.upperRightCorner = Array<T,3>((T) 0.0, (T) 0.0, (T) 0.0);
+    minTriangleArea = std::numeric_limits<T>::max();
+    maxTriangleArea = std::numeric_limits<T>::min();
+
+    T huge = std::numeric_limits<T>::max();
+
+    boundingCuboid.lowerLeftCorner  = Array<T,3>((T)  huge, (T)  huge, (T)  huge);
+    boundingCuboid.upperRightCorner = Array<T,3>((T) -huge, (T) -huge, (T) -huge);
+
+    eps = (T) 0.0;
 }
 
 template<typename T>
@@ -723,11 +896,15 @@ void TriangleSet<T>::merge(std::vector<TriangleSet<T>*> meshes)
     triangles.assign(meshes[0]->getTriangles().begin(), meshes[0]->getTriangles().end());
     minEdgeLength = meshes[0]->getMinEdgeLength();
     maxEdgeLength = meshes[0]->getMaxEdgeLength();
+    minTriangleArea = meshes[0]->getMinTriangleArea();
+    maxTriangleArea = meshes[0]->getMaxTriangleArea();
     boundingCuboid = meshes[0]->getBoundingCuboid();
     for (pluint i = 1; i < meshes.size(); i++) {
         triangles.insert(triangles.end(), meshes[i]->getTriangles().begin(), meshes[i]->getTriangles().end());
         minEdgeLength = std::min(minEdgeLength, meshes[i]->getMinEdgeLength());
         maxEdgeLength = std::max(maxEdgeLength, meshes[i]->getMaxEdgeLength());
+        minTriangleArea = std::min(minTriangleArea, meshes[i]->getMinTriangleArea());
+        maxTriangleArea = std::max(maxTriangleArea, meshes[i]->getMaxTriangleArea());
 
         Cuboid<T> bcuboid = meshes[i]->getBoundingCuboid();
         for (plint j = 0; j < 3; j++) {
@@ -745,6 +922,8 @@ void TriangleSet<T>::append(TriangleSet<T> const& mesh)
     triangles.insert(triangles.end(), mesh.getTriangles().begin(), mesh.getTriangles().end());
     minEdgeLength = std::min(minEdgeLength, mesh.getMinEdgeLength());
     maxEdgeLength = std::max(maxEdgeLength, mesh.getMaxEdgeLength());
+    minTriangleArea = std::min(minTriangleArea, mesh.getMinTriangleArea());
+    maxTriangleArea = std::max(maxTriangleArea, mesh.getMaxTriangleArea());
 
     Cuboid<T> bcuboid = mesh.getBoundingCuboid();
     for (plint j = 0; j < 3; j++) {
@@ -759,6 +938,7 @@ template<typename T>
 void TriangleSet<T>::refine()
 {
     std::vector<Triangle> newTriangles;
+    std::vector<Triangle> newZeroAreaTriangles;
 
     for (pluint i = 0; i < triangles.size(); ++i) {
         Triangle const& triangle = triangles[i];
@@ -776,42 +956,70 @@ void TriangleSet<T>::refine()
         newTriangle[0] = v01;
         newTriangle[1] = v12;
         newTriangle[2] = v20;
-        newTriangles.push_back(newTriangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(newTriangle);
+            }
+        } else {
+            newTriangles.push_back(newTriangle);
+        }
 
         newTriangle[0] = v00;
         newTriangle[1] = v01;
         newTriangle[2] = v20;
-        newTriangles.push_back(newTriangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(newTriangle);
+            }
+        } else {
+            newTriangles.push_back(newTriangle);
+        }
 
         newTriangle[0] = v01;
         newTriangle[1] = v11;
         newTriangle[2] = v12;
-        newTriangles.push_back(newTriangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(newTriangle);
+            }
+        } else {
+            newTriangles.push_back(newTriangle);
+        }
 
         newTriangle[0] = v20;
         newTriangle[1] = v12;
         newTriangle[2] = v22;
-        newTriangles.push_back(newTriangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(newTriangle);
+            }
+        } else {
+            newTriangles.push_back(newTriangle);
+        }
     }
 
-    triangles.clear();
-    triangles = newTriangles;
+    newTriangles.insert(newTriangles.end(), newZeroAreaTriangles.begin(), newZeroAreaTriangles.end());
+
+    triangles.swap(newTriangles);
 
     computeMinMaxEdges();
-    //computeBoundingCuboid();
+    computeMinMaxAreas();
+    // Don't recompute bounding cuboid, because it is unchanged.
 }
 
 template<typename T>
 void TriangleSet<T>::refine(T edgeLengthThreshold)
 {
-#ifdef PLB_DEBUG
-    T eps = getEpsilon<T>(precision);
-#endif
-    PLB_ASSERT(edgeLengthThreshold > eps);
+    PLB_ASSERT(util::greaterThan(edgeLengthThreshold, (T) 0, eps));
 
     T thr2 = util::sqr(edgeLengthThreshold);
 
     std::vector<Triangle> newTriangles;
+    std::vector<Triangle> newZeroAreaTriangles;
     Triangle newTriangle;
 
     for (pluint i = 0; i < triangles.size(); ++i) {
@@ -835,27 +1043,62 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                     newTriangle[0] = v0;
                     newTriangle[1] = vA;
                     newTriangle[2] = vC;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = vA;
                     newTriangle[1] = v1;
                     newTriangle[2] = vB;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = vC;
                     newTriangle[1] = vB;
                     newTriangle[2] = v2;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = vA;
                     newTriangle[1] = vB;
                     newTriangle[2] = vC;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
                 } else {
                     newTriangle[0] = vA;
                     newTriangle[1] = v1;
                     newTriangle[2] = vB;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     T eA2 = normSqr<T,3>(vA-v2);
                     T eB0 = normSqr<T,3>(vB-v0);
@@ -863,22 +1106,50 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                         newTriangle[0] = v2;
                         newTriangle[1] = v0;
                         newTriangle[2] = vA;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v2;
                         newTriangle[1] = vA;
                         newTriangle[2] = vB;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     } else {
                         newTriangle[0] = v0;
                         newTriangle[1] = vA;
                         newTriangle[2] = vB;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v0;
                         newTriangle[1] = vB;
                         newTriangle[2] = v2;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     }
                 }
             } else {
@@ -888,7 +1159,14 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                     newTriangle[0] = v0;
                     newTriangle[1] = vA;
                     newTriangle[2] = vC;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     T eA2 = normSqr<T,3>(vA-v2);
                     T eC1 = normSqr<T,3>(vC-v1);
@@ -896,33 +1174,75 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                         newTriangle[0] = v2;
                         newTriangle[1] = vC;
                         newTriangle[2] = vA;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v2;
                         newTriangle[1] = vA;
                         newTriangle[2] = v1;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     } else {
                         newTriangle[0] = v1;
                         newTriangle[1] = v2;
                         newTriangle[2] = vC;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v1;
                         newTriangle[1] = vC;
                         newTriangle[2] = vA;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     }
                 } else {
                     newTriangle[0] = v2;
                     newTriangle[1] = v0;
                     newTriangle[2] = vA;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = v2;
                     newTriangle[1] = vA;
                     newTriangle[2] = v1;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
                 }
             }
         } else {
@@ -934,7 +1254,14 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                     newTriangle[0] = v2;
                     newTriangle[1] = vC;
                     newTriangle[2] = vB;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     T eB0 = normSqr<T,3>(vB-v0);
                     T eC1 = normSqr<T,3>(vC-v1);
@@ -942,33 +1269,75 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                         newTriangle[0] = v0;
                         newTriangle[1] = v1;
                         newTriangle[2] = vB;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v0;
                         newTriangle[1] = vB;
                         newTriangle[2] = vC;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     } else {
                         newTriangle[0] = v1;
                         newTriangle[1] = vC;
                         newTriangle[2] = v0;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
 
                         newTriangle[0] = v1;
                         newTriangle[1] = vB;
                         newTriangle[2] = vC;
-                        newTriangles.push_back(newTriangle);
+                        if (triangleHasZeroArea(triangle, eps)) {
+                            if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                                !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                                newZeroAreaTriangles.push_back(newTriangle);
+                            }
+                        } else {
+                            newTriangles.push_back(newTriangle);
+                        }
                     }
                 } else {
                     newTriangle[0] = v0;
                     newTriangle[1] = v1;
                     newTriangle[2] = vB;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = v0;
                     newTriangle[1] = vB;
                     newTriangle[2] = v2;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
                 }
             } else {
                 if (e2 >= thr2) {
@@ -977,36 +1346,56 @@ void TriangleSet<T>::refine(T edgeLengthThreshold)
                     newTriangle[0] = v1;
                     newTriangle[1] = vC;
                     newTriangle[2] = v0;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
 
                     newTriangle[0] = v1;
                     newTriangle[1] = v2;
                     newTriangle[2] = vC;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
                 } else {
                     newTriangle[0] = v0;
                     newTriangle[1] = v1;
                     newTriangle[2] = v2;
-                    newTriangles.push_back(newTriangle);
+                    if (triangleHasZeroArea(triangle, eps)) {
+                        if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                            !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                            newZeroAreaTriangles.push_back(newTriangle);
+                        }
+                    } else {
+                        newTriangles.push_back(newTriangle);
+                    }
                 }
             }
         }
     }
 
-    triangles.clear();
-    triangles = newTriangles;
+    newTriangles.insert(newTriangles.end(), newZeroAreaTriangles.begin(), newZeroAreaTriangles.end());
+
+    triangles.swap(newTriangles);
 
     computeMinMaxEdges();
-    //computeBoundingCuboid();
+    computeMinMaxAreas();
+    // Don't recompute bounding cuboid, because it is unchanged.
 }
 
 template<typename T>
 bool TriangleSet<T>::refineRecursively(T targetMaxEdgeLength, plint maxNumIterations)
 {
-#ifdef PLB_DEBUG
-    T eps = getEpsilon<T>(precision);
-#endif
-    PLB_ASSERT(targetMaxEdgeLength > eps);
+    PLB_ASSERT(util::greaterThan(targetMaxEdgeLength, (T) 0, eps));
     PLB_ASSERT(maxNumIterations > 0);
 
     plint iter = 0;
@@ -1020,6 +1409,145 @@ bool TriangleSet<T>::refineRecursively(T targetMaxEdgeLength, plint maxNumIterat
     }
 
     return false;
+}
+
+template<typename T>
+void TriangleSet<T>::refineByArea(T triangleAreaThreshold)
+{
+    PLB_ASSERT(util::greaterThan(triangleAreaThreshold, (T) 0, eps));
+
+    std::vector<Triangle> newTriangles;
+    std::vector<Triangle> newZeroAreaTriangles;
+
+    for (pluint i = 0; i < triangles.size(); ++i) {
+        Triangle const& triangle = triangles[i];
+        T area = computeTriangleArea(triangle[0], triangle[1], triangle[2]);
+        if (area >= triangleAreaThreshold) {
+            Array<T,3> v00 = triangle[0];
+            Array<T,3> v11 = triangle[1];
+            Array<T,3> v22 = triangle[2];
+
+            Array<T,3> v01 = (T) 0.5 * (v00 + v11);
+            Array<T,3> v12 = (T) 0.5 * (v11 + v22);
+            Array<T,3> v20 = (T) 0.5 * (v22 + v00);
+
+            Triangle newTriangle;
+
+            newTriangle[0] = v01;
+            newTriangle[1] = v12;
+            newTriangle[2] = v20;
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                    !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle);
+                }
+            } else {
+                newTriangles.push_back(newTriangle);
+            }
+
+            newTriangle[0] = v00;
+            newTriangle[1] = v01;
+            newTriangle[2] = v20;
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                    !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle);
+                }
+            } else {
+                newTriangles.push_back(newTriangle);
+            }
+
+            newTriangle[0] = v01;
+            newTriangle[1] = v11;
+            newTriangle[2] = v12;
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                    !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle);
+                }
+            } else {
+                newTriangles.push_back(newTriangle);
+            }
+
+            newTriangle[0] = v20;
+            newTriangle[1] = v12;
+            newTriangle[2] = v22;
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                    !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle);
+                }
+            } else {
+                newTriangles.push_back(newTriangle);
+            }
+        } else {
+            newTriangles.push_back(triangle);
+        }
+    }
+
+    newTriangles.insert(newTriangles.end(), newZeroAreaTriangles.begin(), newZeroAreaTriangles.end());
+
+    triangles.swap(newTriangles);
+
+    computeMinMaxEdges();
+    computeMinMaxAreas();
+    // Don't recompute bounding cuboid, because it is unchanged.
+}
+
+template<typename T>
+bool TriangleSet<T>::refineByAreaRecursively(T targetMaxTriangleArea, plint maxNumIterations)
+{
+    PLB_ASSERT(util::greaterThan(targetMaxTriangleArea, (T) 0, eps));
+    PLB_ASSERT(maxNumIterations > 0);
+
+    plint iter = 0;
+    while (maxTriangleArea >= targetMaxTriangleArea && iter < maxNumIterations) {
+        refineByArea(targetMaxTriangleArea);
+        iter++;
+    }
+
+    if (maxTriangleArea < targetMaxTriangleArea) {
+        return true;
+    }
+
+    return false;
+}
+
+template<typename T>
+void TriangleSet<T>::select(TriangleSelector<T> const& selector)
+{
+    plint partId = 0;   // There is only one part in the TriangleSet.
+    std::vector<Triangle> newTriangles;
+
+    for (pluint i = 0; i < triangles.size(); ++i) {
+        Triangle const& triangle = triangles[i];
+        if (selector(triangle, partId)) {
+            newTriangles.push_back(triangle);
+        }
+    }
+
+    triangles.swap(newTriangles);
+
+    computeMinMaxEdges();
+    computeMinMaxAreas();
+    computeBoundingCuboid();
+}
+
+template<typename T>
+void TriangleSet<T>::removeTrianglesWithOrientation(Array<T,3> const& normal, T tolerance)
+{
+    std::vector<Triangle> newTriangles;
+    for (pluint i=0; i<triangles.size(); ++i) {
+        Triangle triangle = triangles[i];
+        Array<T,3> triangleNormal = computeTriangleNormal(triangle[0], triangle[1], triangle[2], false);
+        if (dot(triangleNormal, normal) < tolerance) {  // We decide to keep zero-area triangles.
+            newTriangles.push_back(triangle);
+        }
+    }
+    triangles.swap(newTriangles);
+    computeMinMaxEdges();
+    computeMinMaxAreas();
+    computeBoundingCuboid();
 }
 
 template<typename T>
@@ -1046,32 +1574,62 @@ void TriangleSet<T>::toFloatAndBack()
 }
 
 template<typename T>
-bool TriangleSet<T>::hasDegenerateTriangles() const
+bool TriangleSet<T>::hasZeroAreaTriangles() const
 {
-    T eps = getEpsilon<T>(precision);
+    plint size = triangles.size();
+    for (plint i = 0; i < size; i++) {
+        Triangle const& triangle = triangles[i];
+        if (triangleHasZeroArea(triangle, eps)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename T>
+plint TriangleSet<T>::numZeroAreaTriangles() const
+{
+    plint size = triangles.size();
+    plint count = 0;
+    for (plint i = 0; i < size; i++) {
+        Triangle const& triangle = triangles[i];
+        if (triangleHasZeroArea(triangle, eps)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+template<typename T>
+bool TriangleSet<T>::hasFloatingPointPrecisionDependence() const
+{
+    if (sizeof(T) == sizeof(float)) {
+        return false;   // The precision used is the lowest, so the check cannot be made.
+    }
+
+    // Here we use epsFLT = eps, because eps (the precision) is chosen by the user
+    // independently of the floating point precision of the triangle set (from the
+    // STL file). As an example, the user may have chosen a triangle set from a
+    // binary STL file (which contains floats), have the code compiled with long doubles,
+    // and provide DBL as a precision to determine eps. All checks should be made
+    // with the precision (eps) explicitly chosen by the user.
+    T epsFLT = eps;
     plint size = triangles.size();
     for (plint i = 0; i < size; i++) {
         Triangle const& triangle = triangles[i];
 
-        Array<T,3> v01 = triangle[1] - triangle[0];
-        Array<T,3> v02 = triangle[2] - triangle[0];
-        Array<T,3> v12 = triangle[2] - triangle[1];
-
-        T norm01 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v01));
-        T norm02 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v02));
-        T norm12 = std::sqrt(VectorTemplateImpl<T,3>::normSqr(v12));
-
-        if (util::fpequal(norm01, (T) 0.0, eps) || util::fpequal(norm02, (T) 0.0, eps) ||
-            util::fpequal(norm12, (T) 0.0, eps)) {
-            return true;
+        Triangle triangleFLT = triangle;
+        for (plint iVertex = 0; iVertex < 3; iVertex++) {
+            Array<T,3>& vertex = triangleFLT[iVertex];
+            vertex[0] = (T) (float) vertex[0];
+            vertex[1] = (T) (float) vertex[1];
+            vertex[2] = (T) (float) vertex[2];
         }
 
-        Array<T,3> computedNormal;
-        crossProduct(v01, v02, computedNormal);
+        bool rv    = triangleHasZeroArea(triangle,    eps);
+        bool rvFLT = triangleHasZeroArea(triangleFLT, epsFLT);
 
-        T norm_cn = std::sqrt(VectorTemplateImpl<T,3>::normSqr(computedNormal));
-
-        if (util::fpequal(norm_cn, (T) 0.0, eps)) {
+        if (!util::boolIsEqual(rv, rvFLT)) {
             return true;
         }
     }
@@ -1080,71 +1638,166 @@ bool TriangleSet<T>::hasDegenerateTriangles() const
 }
 
 template<typename T>
-void TriangleSet<T>::writeAsciiSTL(std::string fname) const
+void TriangleSet<T>::writeAsciiSTL(std::string fname, int numDecimalDigits, bool mainProcOnly,
+        TriangleSelector<T>* selector) const
 {
-    if (global::mpi().isMainProcessor()) {
-        plint size = triangles.size();
-        if (size == 0) {
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
+        if (triangles.empty()) {
+            delete selector;
             return;
         }
         FILE *fp = fopen(fname.c_str(), "w");
-        PLB_ASSERT(fp != NULL);
-
-        fprintf(fp, "solid plb\n");
-        for (plint i = 0; i < size; i++) {
-            Array<T,3> v0 = triangles[i][0];
-            Array<T,3> v1 = triangles[i][1];
-            Array<T,3> v2 = triangles[i][2];
-
-            Array<T,3> e01 = v1 - v0;
-            Array<T,3> e02 = v2 - v0;
-
-            Array<T,3> n;
-            crossProduct(e01, e02, n);
-            n /= std::sqrt(VectorTemplateImpl<T,3>::normSqr(n));
-            fprintf(fp, "  facet normal % .10e % .10e % .10e\n", (double) n[0], (double) n[1], (double) n[2]);
-            fprintf(fp, "    outer loop\n");
-            fprintf(fp, "      vertex % .10e % .10e % .10e\n", (double) v0[0], (double) v0[1], (double) v0[2]);
-            fprintf(fp, "      vertex % .10e % .10e % .10e\n", (double) v1[0], (double) v1[1], (double) v1[2]);
-            fprintf(fp, "      vertex % .10e % .10e % .10e\n", (double) v2[0], (double) v2[1], (double) v2[2]);
-            fprintf(fp, "    endloop\n");
-            fprintf(fp, "  endfacet\n");
-        }
-        fprintf(fp, "endsolid plb\n");
+        PLB_ASSERT(fp != 0);
+        T scale = (T) 1;
+        Array<T,3> offset(Array<T,3>::zero());
+        writeAsciiContentSTL(fp, "plb", scale, offset, numDecimalDigits, selector);
         fclose(fp);
+    } else {
+        delete selector;
     }
 }
 
 template<typename T>
-void TriangleSet<T>::writeBinarySTL(std::string fname) const
+void TriangleSet<T>::writeAsciiSTL(std::string fname, T scale, Array<T,3> const& offset, int numDecimalDigits,
+        bool mainProcOnly, TriangleSelector<T>* selector) const
 {
-    if (global::mpi().isMainProcessor()) {
-        unsigned int nt = triangles.size();
-        if (nt == 0) {
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
+        if (triangles.empty()) {
+            delete selector;
+            return;
+        }
+        FILE *fp = fopen(fname.c_str(), "w");
+        PLB_ASSERT(fp != 0);
+        writeAsciiContentSTL(fp, "plb", scale, offset, numDecimalDigits, selector);
+        fclose(fp);
+    } else {
+        delete selector;
+    }
+}
+
+template<typename T>
+void TriangleSet<T>::writeAsciiContentSTL(FILE* fp, std::string solidName, T scale, Array<T,3> const& offset,
+        int numDecimalDigits, TriangleSelector<T>* selector) const
+{
+    plint partId = 0;
+    if (selector != 0) {
+        plint numSelectedTriangles = 0;
+        for (pluint i = 0; i < triangles.size(); i++) {
+            if ((*selector)(triangles[i], partId)) {
+                numSelectedTriangles++;
+            }
+        }
+        if (numSelectedTriangles == 0) {
+            delete selector;
+            return;
+        }
+    }
+
+    std::string header(std::string("solid ") + solidName + std::string("\n"));
+    std::string footer(std::string("endsolid ") + solidName + std::string("\n"));
+
+    fprintf(fp, "%s", header.c_str());
+    bool isAreaWeighted = false;
+    int d = numDecimalDigits;
+    for (pluint i = 0; i < triangles.size(); i++) {
+        if (selector == 0 || (*selector)(triangles[i], partId)) {
+            Array<double,3> v0 = scale * triangles[i][0] + offset;
+            Array<double,3> v1 = scale * triangles[i][1] + offset;
+            Array<double,3> v2 = scale * triangles[i][2] + offset;
+
+            Array<double,3> n = computeTriangleNormal(v0, v1, v2, isAreaWeighted);
+
+            fprintf(fp, "  facet normal % .*e % .*e % .*e\n", d, n[0], d, n[1], d, n[2]);
+            fprintf(fp, "    outer loop\n");
+            fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v0[0], d, v0[1], d, v0[2]);
+            fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v1[0], d, v1[1], d, v1[2]);
+            fprintf(fp, "      vertex % .*e % .*e % .*e\n", d, v2[0], d, v2[1], d, v2[2]);
+            fprintf(fp, "    endloop\n");
+            fprintf(fp, "  endfacet\n");
+        }
+    }
+    fprintf(fp, "%s", footer.c_str());
+
+    delete selector;
+}
+
+template<typename T>
+void TriangleSet<T>::writeBinarySTL(std::string fname, bool mainProcOnly, TriangleSelector<T>* selector) const
+{
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
+        if (triangles.empty()) {
+            delete selector;
             return;
         }
         FILE *fp = fopen(fname.c_str(), "wb");
-        PLB_ASSERT(fp != NULL);
+        PLB_ASSERT(fp != 0);
+        T scale = (T) 1;
+        Array<T,3> offset(Array<T,3>::zero());
+        writeBinaryContentSTL(fp, "plb", scale, offset, selector);
+        fclose(fp);
+    } else {
+        delete selector;
+    }
+}
 
-        unsigned short abc = 0;
-        char buf[80];
+template<typename T>
+void TriangleSet<T>::writeBinarySTL(std::string fname, T scale, Array<T,3> const& offset, bool mainProcOnly,
+        TriangleSelector<T>* selector) const
+{
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
+        if (triangles.empty()) {
+            delete selector;
+            return;
+        }
+        FILE *fp = fopen(fname.c_str(), "wb");
+        PLB_ASSERT(fp != 0);
+        writeBinaryContentSTL(fp, "plb", scale, offset, selector);
+        fclose(fp);
+    } else {
+        delete selector;
+    }
+}
 
-        for (int i = 0; i < 80; i++)
-            buf[i] = '\0';
+template<typename T>
+void TriangleSet<T>::writeBinaryContentSTL(FILE* fp, std::string solidName, T scale, Array<T,3> const& offset,
+        TriangleSelector<T>* selector) const
+{
+    plint partId = 0;
+    if (selector != 0) {
+        plint numSelectedTriangles = 0;
+        for (pluint i = 0; i < triangles.size(); i++) {
+            if ((*selector)(triangles[i], partId)) {
+                numSelectedTriangles++;
+            }
+        }
+        if (numSelectedTriangles == 0) {
+            delete selector;
+            return;
+        }
+    }
 
-        fwrite(buf, sizeof(char), 80, fp);
-        fwrite(&nt, sizeof(unsigned int), 1, fp);
-        for (unsigned int i = 0; i < nt; i++) {
-            Array<T,3> v0 = triangles[i][0];
-            Array<T,3> v1 = triangles[i][1];
-            Array<T,3> v2 = triangles[i][2];
+    unsigned int nt = triangles.size();
+    unsigned short abc = 0;
+    char buf[80] = { '\0' };
 
-            Array<T,3> e01 = v1 - v0;
-            Array<T,3> e02 = v2 - v0;
+    char *name = (char *) malloc((solidName.length() + 1) * sizeof(char));
+    strcpy(name, solidName.c_str());
+    if (strlen(name) > 79) {
+        name[79] = '\0';
+    }
+    strcpy(buf, name);
+    free(name);
 
-            Array<T,3> nrml;
-            crossProduct(e01, e02, nrml);
-            nrml /= std::sqrt(VectorTemplateImpl<T,3>::normSqr(nrml));
+    fwrite(buf, sizeof(char), 80, fp);
+    fwrite(&nt, sizeof(unsigned int), 1, fp);
+    bool isAreaWeighted = false;
+    for (unsigned int i = 0; i < nt; i++) {
+        if (selector == 0 || (*selector)(triangles[i], partId)) {
+            Array<T,3> v0 = scale * triangles[i][0] + offset;
+            Array<T,3> v1 = scale * triangles[i][1] + offset;
+            Array<T,3> v2 = scale * triangles[i][2] + offset;
+
+            Array<T,3> nrml = computeTriangleNormal(v0, v1, v2, isAreaWeighted);
 
             float n[3];
             n[0] = nrml[0];
@@ -1166,34 +1819,32 @@ void TriangleSet<T>::writeBinarySTL(std::string fname) const
             fwrite((void *) v, sizeof(float), 3, fp);
             fwrite(&abc, sizeof(unsigned short), 1, fp);
         }
-
-        fclose(fp);
     }
+
+    delete selector;
 }
 
 template<typename T>
 int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& triangle,
-        TriangleSet<T>& newTriangleSet) const
+        std::vector<Triangle>& newTriangles, std::vector<Triangle>& newZeroAreaTriangles) const
 {
-    T epsilon = getEpsilon<T>(precision);
-
     int vertexTags[3];
 
     // Tag the triangle vertices.
     for (int iVertex = 0; iVertex < 3; iVertex++) {
         Array<T,3> tmp = triangle[iVertex] - plane.point;
         T norm_tmp = norm(tmp);
-        if (norm_tmp > epsilon) {
+        if (!util::isZero(norm_tmp, eps)) {
             tmp /= norm_tmp;
         } else {
             tmp[0] = tmp[1] = tmp[2] = (T) 0.0;
         }
         T dotp = dot(tmp, plane.normal);
-        if (std::fabs(dotp) <= epsilon) {
+        if (util::isZero(dotp, eps)) {
             vertexTags[iVertex] = 0;
-        } else if (dotp > (T) 0.0 && std::fabs(dotp) > epsilon) {
+        } else if (util::greaterThan(dotp, (T) 0, eps)) {
             vertexTags[iVertex] = -1;
-        } else if (dotp < (T) 0.0 && std::fabs(dotp) > epsilon) {
+        } else if (util::lessThan(dotp, (T) 0, eps)) {
             vertexTags[iVertex] = 1;
         } else {
             return -1;
@@ -1202,7 +1853,14 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
 
     // All three vertices belong to one side of the cut plane.
     if (vertexTags[0] == 1 && vertexTags[1] == 1 && vertexTags[2] == 1) {
-        newTriangleSet.triangles.push_back(triangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(triangle, eps) &&
+                !containedAndErase(triangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(triangle);
+            }
+        } else {
+            newTriangles.push_back(triangle);
+        }
         return 1;
     } else if (vertexTags[0] == -1 && vertexTags[1] == -1 && vertexTags[2] == -1) {
         return 0;
@@ -1217,32 +1875,50 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
         if (vertexTags[i] == 1 && vertexTags[j] == -1 && vertexTags[k] == -1) {
             Array<T,3> intersection_ij((T) 0.0, (T) 0.0, (T) 0.0), intersection_ik((T) 0.0, (T) 0.0, (T) 0.0);
             int rv = 0;
-            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[j], precision, intersection_ij);
+            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[j], eps, intersection_ij);
             if (rv != 1) {
                 return -1;
             }
-            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[k], precision, intersection_ik);
+            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[k], eps, intersection_ik);
             if (rv != 1) {
                 return -1;
             }
             Triangle newTriangle(triangle[i], intersection_ij, intersection_ik);
-            newTriangleSet.triangles.push_back(newTriangle);
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                    !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle);
+                }
+            } else {
+                newTriangles.push_back(newTriangle);
+            }
             return 1;
         } else if (vertexTags[i] == -1 && vertexTags[j] == 1 && vertexTags[k] == 1) {
             Array<T,3> intersection_ij((T) 0.0, (T) 0.0, (T) 0.0), intersection_ik((T) 0.0, (T) 0.0, (T) 0.0);
             int rv = 0;
-            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[j], precision, intersection_ij);
+            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[j], eps, intersection_ij);
             if (rv != 1) {
                 return -1;
             }
-            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[k], precision, intersection_ik);
+            rv = lineIntersectionWithPlane<T>(plane, triangle[i], triangle[k], eps, intersection_ik);
             if (rv != 1) {
                 return -1;
             }
             Triangle newTriangle_0(triangle[k], intersection_ij, triangle[j]);
             Triangle newTriangle_1(triangle[k], intersection_ik, intersection_ij);
-            newTriangleSet.triangles.push_back(newTriangle_0);
-            newTriangleSet.triangles.push_back(newTriangle_1);
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(newTriangle_0, eps) &&
+                    !containedAndErase(newTriangle_0, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle_0);
+                }
+                if (!triangleHasZeroLengthEdges(newTriangle_1, eps) &&
+                    !containedAndErase(newTriangle_1, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(newTriangle_1);
+                }
+            } else {
+                newTriangles.push_back(newTriangle_0);
+                newTriangles.push_back(newTriangle_1);
+            }
             return 1;
         }
     }
@@ -1254,29 +1930,50 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
 
         if (vertexTags[i] == 0) {
             if (vertexTags[j] == 1 && vertexTags[k] == 1) {
-                newTriangleSet.triangles.push_back(triangle);
+                if (triangleHasZeroArea(triangle, eps)) {
+                    if (!triangleHasZeroLengthEdges(triangle, eps) &&
+                        !containedAndErase(triangle, newZeroAreaTriangles, eps)) {
+                        newZeroAreaTriangles.push_back(triangle);
+                    }
+                } else {
+                    newTriangles.push_back(triangle);
+                }
                 return 1;
             } else if (vertexTags[j] == -1 && vertexTags[k] == -1) {
                 return 0;
             } else if (vertexTags[j] == 1 && vertexTags[k] == -1) {
                 Array<T,3> intersection((T) 0.0, (T) 0.0, (T) 0.0);
                 int rv = 0;
-                rv = lineIntersectionWithPlane<T>(plane, triangle[j], triangle[k], precision, intersection);
+                rv = lineIntersectionWithPlane<T>(plane, triangle[j], triangle[k], eps, intersection);
                 if (rv != 1) {
                     return -1;
                 }
                 Triangle newTriangle(triangle[i], triangle[j], intersection);
-                newTriangleSet.triangles.push_back(newTriangle);
+                if (triangleHasZeroArea(triangle, eps)) {
+                    if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                        !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                        newZeroAreaTriangles.push_back(newTriangle);
+                    }
+                } else {
+                    newTriangles.push_back(newTriangle);
+                }
                 return 1;
             } else if (vertexTags[j] == -1 && vertexTags[k] == 1) {
                 Array<T,3> intersection((T) 0.0, (T) 0.0, (T) 0.0);
                 int rv = 0;
-                rv = lineIntersectionWithPlane<T>(plane, triangle[j], triangle[k], precision, intersection);
+                rv = lineIntersectionWithPlane<T>(plane, triangle[j], triangle[k], eps, intersection);
                 if (rv != 1) {
                     return -1;
                 }
                 Triangle newTriangle(triangle[i], intersection, triangle[k]);
-                newTriangleSet.triangles.push_back(newTriangle);
+                if (triangleHasZeroArea(triangle, eps)) {
+                    if (!triangleHasZeroLengthEdges(newTriangle, eps) &&
+                        !containedAndErase(newTriangle, newZeroAreaTriangles, eps)) {
+                        newZeroAreaTriangles.push_back(newTriangle);
+                    }
+                } else {
+                    newTriangles.push_back(newTriangle);
+                }
                 return 1;
             }
         }
@@ -1289,7 +1986,14 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
 
         if (vertexTags[i] == 0 && vertexTags[j] == 0) {
             if (vertexTags[k] == 1) {
-                newTriangleSet.triangles.push_back(triangle);
+                if (triangleHasZeroArea(triangle, eps)) {
+                    if (!triangleHasZeroLengthEdges(triangle, eps) &&
+                        !containedAndErase(triangle, newZeroAreaTriangles, eps)) {
+                        newZeroAreaTriangles.push_back(triangle);
+                    }
+                } else {
+                    newTriangles.push_back(triangle);
+                }
                 return 1;
             } else if (vertexTags[k] == -1) {
                 return 0;
@@ -1299,7 +2003,14 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
 
     // All 3 vertices belong to the cut plane.
     if (vertexTags[0] == 0 && vertexTags[1] == 0 && vertexTags[2] == 0) {
-        newTriangleSet.triangles.push_back(triangle);
+        if (triangleHasZeroArea(triangle, eps)) {
+            if (!triangleHasZeroLengthEdges(triangle, eps) &&
+                !containedAndErase(triangle, newZeroAreaTriangles, eps)) {
+                newZeroAreaTriangles.push_back(triangle);
+            }
+        } else {
+            newTriangles.push_back(triangle);
+        }
         return 1;
     }
 
@@ -1309,26 +2020,36 @@ int TriangleSet<T>::cutTriangleWithPlane(Plane<T> const& plane, Triangle const& 
 template<typename T>
 int TriangleSet<T>::cutWithPlane(Plane<T> const& plane, TriangleSet<T>& newTriangleSet) const
 {
-    T epsilon = getEpsilon<T>(precision);
-
     T norm_normal = norm(plane.normal);
-    PLB_ASSERT(norm_normal > epsilon); // The cut plane normal vector cannot have zero magnitude.
+    PLB_ASSERT(!util::isZero(norm_normal, eps));
     Plane<T> newPlane;
     newPlane.point = plane.point;
     newPlane.normal = plane.normal / norm_normal;
 
-    newTriangleSet.triangles.resize(0);
+    newTriangleSet.triangles.clear();
+    newTriangleSet.eps = eps;
+    newTriangleSet.minEdgeLength = std::numeric_limits<T>::max();
+    newTriangleSet.maxEdgeLength = std::numeric_limits<T>::min();
+    newTriangleSet.minTriangleArea = std::numeric_limits<T>::max();
+    newTriangleSet.maxTriangleArea = std::numeric_limits<T>::min();
+    T huge = std::numeric_limits<T>::max();
+    newTriangleSet.boundingCuboid.lowerLeftCorner  = Array<T,3>((T)  huge, (T)  huge, (T)  huge);
+    newTriangleSet.boundingCuboid.upperRightCorner = Array<T,3>((T) -huge, (T) -huge, (T) -huge);
 
-    newTriangleSet.precision = precision;
-
+    std::vector<Triangle> newTriangles;
+    std::vector<Triangle> newZeroAreaTriangles;
     for (pluint iTriangle = 0; iTriangle < triangles.size(); iTriangle++) {
-        if (cutTriangleWithPlane(newPlane, triangles[iTriangle], newTriangleSet) == -1) {
+        if (cutTriangleWithPlane(newPlane, triangles[iTriangle], newTriangles, newZeroAreaTriangles) == -1) {
             return -1;
         }
     }
+    newTriangles.insert(newTriangles.end(), newZeroAreaTriangles.begin(), newZeroAreaTriangles.end());
+
+    newTriangleSet.triangles.swap(newTriangles);
 
     if (newTriangleSet.triangles.size() != 0) {
         newTriangleSet.computeMinMaxEdges();
+        newTriangleSet.computeMinMaxAreas();
         newTriangleSet.computeBoundingCuboid();
     }
 
@@ -1343,20 +2064,27 @@ template<typename T>
 int TriangleSet<T>::cutWithPlane (
         Plane<T> const& plane, Cuboid<T> const& cuboid, TriangleSet<T>& newTriangleSet ) const
 {
-    T epsilon = getEpsilon<T>(precision);
-
     T norm_normal = norm(plane.normal);
-    PLB_ASSERT(norm_normal > epsilon); // The cut plane normal vector cannot have zero magnitude.
+    PLB_ASSERT(!util::isZero(norm_normal, eps));
     Plane<T> newPlane;
     newPlane.point = plane.point;
     newPlane.normal = plane.normal / norm_normal;
 
     T norm_diagonal = norm(cuboid.upperRightCorner - cuboid.lowerLeftCorner);
-    PLB_ASSERT(norm_diagonal > epsilon); // The diagonal of the cuboid cannot have zero length.
+    PLB_ASSERT(!util::isZero(norm_diagonal, eps));
 
-    newTriangleSet.triangles.resize(0);
+    newTriangleSet.triangles.clear();
+    newTriangleSet.eps = eps;
+    newTriangleSet.minEdgeLength = std::numeric_limits<T>::max();
+    newTriangleSet.maxEdgeLength = std::numeric_limits<T>::min();
+    newTriangleSet.minTriangleArea = std::numeric_limits<T>::max();
+    newTriangleSet.maxTriangleArea = std::numeric_limits<T>::min();
+    T huge = std::numeric_limits<T>::max();
+    newTriangleSet.boundingCuboid.lowerLeftCorner  = Array<T,3>((T)  huge, (T)  huge, (T)  huge);
+    newTriangleSet.boundingCuboid.upperRightCorner = Array<T,3>((T) -huge, (T) -huge, (T) -huge);
 
-    newTriangleSet.precision = precision;
+    std::vector<Triangle> newTriangles;
+    std::vector<Triangle> newZeroAreaTriangles;
 
     for (pluint iTriangle = 0; iTriangle < triangles.size(); iTriangle++) {
         Triangle const& triangle = triangles[iTriangle];
@@ -1375,28 +2103,40 @@ int TriangleSet<T>::cutWithPlane (
             Array<T,3> diff_u;
             diff_u = vertices[iVertex] - cuboid.upperRightCorner;
 
-            if ((diff_l[0] < (T) 0.0 && std::fabs(diff_l[0]) > epsilon) ||
-                (diff_l[1] < (T) 0.0 && std::fabs(diff_l[1]) > epsilon) ||
-                (diff_l[2] < (T) 0.0 && std::fabs(diff_l[2]) > epsilon) ||
-                (diff_u[0] > (T) 0.0 && std::fabs(diff_u[0]) > epsilon) ||
-                (diff_u[1] > (T) 0.0 && std::fabs(diff_u[1]) > epsilon) ||
-                (diff_u[2] > (T) 0.0 && std::fabs(diff_u[2]) > epsilon)) {
+            if (util::lessThan(diff_l[0], (T) 0, eps) ||
+                util::lessThan(diff_l[1], (T) 0, eps) ||
+                util::lessThan(diff_l[2], (T) 0, eps) ||
+                util::greaterThan(diff_u[0], (T) 0, eps) ||
+                util::greaterThan(diff_u[1], (T) 0, eps) ||
+                util::greaterThan(diff_u[2], (T) 0, eps)) {
                 isNotFullyContained = 1;
                 break;
             }
         }
 
         if (isNotFullyContained) {
-            newTriangleSet.triangles.push_back(triangle);
+            if (triangleHasZeroArea(triangle, eps)) {
+                if (!triangleHasZeroLengthEdges(triangle, eps) &&
+                    !containedAndErase(triangle, newZeroAreaTriangles, eps)) {
+                    newZeroAreaTriangles.push_back(triangle);
+                }
+            } else {
+                newTriangles.push_back(triangle);
+            }
             continue;
         }
 
-        if (cutTriangleWithPlane(newPlane, triangle, newTriangleSet) == -1)
+        if (cutTriangleWithPlane(newPlane, triangle, newTriangles, newZeroAreaTriangles) == -1)
             return -1;
     }
 
+    newTriangles.insert(newTriangles.end(), newZeroAreaTriangles.begin(), newZeroAreaTriangles.end());
+
+    newTriangleSet.triangles.swap(newTriangles);
+
     if (newTriangleSet.triangles.size() != 0) {
         newTriangleSet.computeMinMaxEdges();
+        newTriangleSet.computeMinMaxAreas();
         newTriangleSet.computeBoundingCuboid();
     }
 
@@ -1426,6 +2166,37 @@ Array<T,3> TriangleSet<T>::getCentroid() const
     return centroid;
 }
 
+/// IMPLEMENTED BY HELEN MORRISON (2015)
+// Based on http://stackoverflow.com/questions/2083771/a-method-to-calculate-the-centre-of-mass-from-a-stl-stereo-lithography-file
+// (last accessed: 2015-06-04 18:43)
+template<typename T>
+Array<T,3> TriangleSet<T>::getCenterOfMass() const
+{
+    int numTriangles = triangles.size();
+
+    T totalVolume = 0, currentVolume;
+    T xCenter = 0, yCenter = 0, zCenter = 0;
+
+    for (int i = 0; i < numTriangles; i++)
+    {
+        currentVolume = (triangles[i][0][0]*triangles[i][1][1]*triangles[i][2][2] -
+                         triangles[i][0][0]*triangles[i][2][1]*triangles[i][1][2] -
+                         triangles[i][1][0]*triangles[i][0][1]*triangles[i][2][2] +
+                         triangles[i][1][0]*triangles[i][2][1]*triangles[i][0][2] +
+                         triangles[i][2][0]*triangles[i][0][1]*triangles[i][1][2] -
+                         triangles[i][2][0]*triangles[i][1][1]*triangles[i][0][2]) / 6;
+        totalVolume += currentVolume;
+        xCenter += ((triangles[i][0][0] + triangles[i][1][0] + triangles[i][2][0]) / 4) * currentVolume;
+        yCenter += ((triangles[i][0][1] + triangles[i][1][1] + triangles[i][2][1]) / 4) * currentVolume;
+        zCenter += ((triangles[i][0][2] + triangles[i][1][2] + triangles[i][2][2]) / 4) * currentVolume;
+    }
+
+    return Array<T,3>(xCenter/totalVolume,
+                      yCenter/totalVolume,
+                      zCenter/totalVolume);
+}
+
+
 template<typename T>
 void TriangleSet<T>::computeMinMaxEdges()
 {
@@ -1450,6 +2221,26 @@ void TriangleSet<T>::computeMinMaxEdge(pluint iTriangle, T& minEdge, T& maxEdge)
     T edge3 = norm(triangle[0]-triangle[2]);
     minEdge = std::min(edge1, std::min(edge2, edge3));
     maxEdge = std::max(edge1, std::max(edge2, edge3));
+}
+
+template<typename T>
+void TriangleSet<T>::computeMinMaxAreas()
+{
+    minTriangleArea = std::numeric_limits<T>::max();
+    maxTriangleArea = std::numeric_limits<T>::min();
+
+    for (pluint i=0; i<triangles.size(); ++i) {
+        T area = computeArea(i);
+        minTriangleArea = std::min(minTriangleArea, area);
+        maxTriangleArea = std::max(maxTriangleArea, area);
+    }
+}
+
+template<typename T>
+T TriangleSet<T>::computeArea(pluint iTriangle) const
+{
+    PLB_ASSERT( iTriangle<triangles.size() );
+    return computeTriangleArea(triangles[iTriangle][0], triangles[iTriangle][1], triangles[iTriangle][2]);
 }
 
 template<typename T>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -62,6 +62,9 @@ public: // Mesh usage interface.
     /// Get a const reference to the currently active mesh.
     TriangularSurfaceMesh<T> const& getMesh() const;
     plint getMargin() const;
+    void setMargin(plint margin_) {
+        margin = margin_;
+    }
     std::vector<Array<T,3> > const& getVertexList() const {
         return vertexList;
     }
@@ -279,7 +282,7 @@ private:
     ///   The tag is taken in increasing integer value according to a sorting
     ///   or the inlets/outlets along the given space direction.
     void tagInletOutlet (
-        std::vector<Lid> const& newLids );
+        std::vector<Lid>& newLids );
     /// There may exist more than one set of vertices, for example in
     ///   case of a moving wall which has current vertex positions and
     ///   equilibrium vertex positions.
@@ -319,6 +322,7 @@ public:
             TriangleBoundary3D<T> const& boundary_,
             BoundaryProfiles3D<T,SurfaceData> const& profiles_ );
     virtual bool isInside(Dot3D const& location) const;
+    virtual bool isOutside(Dot3D const& location) const;
     virtual bool pointOnSurface (
             Array<T,3> const& fromPoint, Array<T,3> const& direction,
             Array<T,3>& locatedPoint, T& distance,
@@ -334,7 +338,7 @@ public:
     virtual TriangleFlowShape3D<T,SurfaceData>* clone() const;
     /// Use this clone function to provide the meshed data to this object.
     /** The arguments are:
-     *  0: The voxel flags (ScalarField3D<T>),
+     *  0: The voxel flags (ScalarField3D<int>),
      *  1: The hash container (AtomicContainerBlock3D),
      *  2: The boundary argument: an additional argument needed by BoundaryProfiles
      *     in order to compute the boundary condition. In dynamic walls this is for
@@ -364,6 +368,7 @@ public:
                       int flowType_, Box3D const& boundingBox, plint borderWidth_,
                       plint envelopeWidth_, plint blockSize_,
                       plint gridLevel_=0, bool dynamicMesh_ = false);
+    // For faster results, the "seed" should contain at least one of the domain corners.
     VoxelizedDomain3D(TriangleBoundary3D<T> const& boundary_,
                       int flowType_, Box3D const& boundingBox, plint borderWidth_,
                       plint envelopeWidth_, plint blockSize_,
@@ -378,6 +383,7 @@ public:
     template<class ParticleFieldT>
     void adjustVoxelization(MultiParticleField3D<ParticleFieldT>& particles, bool dynamicMesh);
     void reparallelize(MultiBlockRedistribute3D const& redistribute);
+    void reparallelize(MultiBlockManagement3D const& newManagement);
     TriangleBoundary3D<T> const& getBoundary() const { return boundary; }
     int getFlowType() const { return flowType; }
 private:

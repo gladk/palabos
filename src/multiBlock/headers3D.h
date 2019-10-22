@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,6 +27,8 @@
  */
 
 #include "multiBlock/multiBlock3D.h"
+#include "multiBlock/coupling3D.h"
+#include "multiBlock/group3D.h"
 #include "multiBlock/multiContainerBlock3D.h"
 #include "multiBlock/multiBlockManagement3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
@@ -44,5 +46,6 @@
 #include "multiBlock/multiBlockInfo3D.h"
 #include "multiBlock/localMultiBlockInfo3D.h"
 #include "multiBlock/nonLocalTransfer3D.h"
+#include "multiBlock/nonLocalTransfer2D_3D.h"
 #include "multiBlock/multiBlockGenerator3D.h"
 

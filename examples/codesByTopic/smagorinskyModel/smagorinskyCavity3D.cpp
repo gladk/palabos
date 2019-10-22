@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,8 +39,7 @@ using namespace std;
 typedef double T;
 #define DESCRIPTOR descriptors::D3Q19Descriptor
 
-void randomIniCondition(plint iX, plint iY, plint iZ, T& rho, Array<T,3>& velocity) {
-    T randomValue = (T)rand() / (T)RAND_MAX;
+void randomIniCondition(plint iX, plint iY, plint iZ, T randomValue, T& rho, Array<T,3>& velocity) {
     velocity.resetToZero();
     rho = (T)1 + 1.e-2*randomValue;
 }
@@ -58,7 +57,7 @@ void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
     boundaryCondition.setVelocityConditionOnBlockBoundaries(lattice);
 
     T u = std::sqrt((T)2)/(T)2 * parameters.getLatticeU();
-    initializeAtEquilibrium(lattice, everythingButTopLid, randomIniCondition);
+    initializeAtRandomEquilibrium(lattice, everythingButTopLid, randomIniCondition);
     initializeAtEquilibrium(lattice, topLid, (T)1., Array<T,3>(u,(T)0.,u) );
     setBoundaryVelocity(lattice, topLid, Array<T,3>(u,(T)0.,u) );
 
@@ -107,8 +106,6 @@ int main(int argc, char* argv[]) {
     plbInit(&argc, &argv);
     global::directories().setOutputDir("./tmp/");
 
-    srand(1);
-
     IncomprFlowParam<T> parameters(
             (T) 1e-2,  // uMax
             (T) 1.e4,  // Re
@@ -127,8 +124,8 @@ int main(int argc, char* argv[]) {
     T cSmago = 0.14;
     MultiBlockLattice3D<T, DESCRIPTOR> lattice (
             parameters.getNx(), parameters.getNy(), parameters.getNz(),
-            new SmagorinskyBGKdynamics<T,DESCRIPTOR>(parameters.getOmega(), cSmago) );
-            //new SmagorinskyRegularizedDynamics<T,DESCRIPTOR>(parameters.getOmega(), cSmago) );
+            //new SmagorinskyBGKdynamics<T,DESCRIPTOR>(parameters.getOmega(), cSmago) );
+            new SmagorinskyRegularizedDynamics<T,DESCRIPTOR>(parameters.getOmega(), cSmago) );
             //new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega()) );
 
     // Uncomment the following line to instantiate the Smagorinsky LES model,

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -56,6 +56,8 @@ public:
                                std::vector<Particle2D<T,Descriptor> const*>& found) const =0;
     /// Execute velocity-particle interaction for all particles contained in the domain.
     virtual void velocityToParticleCoupling(Box2D domain, TensorField2D<T,2>& velocity, T scaling=0.) =0;
+    /// Execute velocity-particle interaction for all particles contained in the domain.
+    virtual void velocityToParticleCoupling(Box2D domain, NTensorField2D<T>& velocity, T scaling=0.) =0;
     /// Execute velocity-particle interaction for all particles contained in the domain.
     virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.) =0;
     /// Execute fluid-particle interaction for all particles contained in the domain.
@@ -118,6 +120,7 @@ public:
     virtual void findParticles(Box2D domain,
                                std::vector<Particle2D<T,Descriptor> const*>& found) const;
     virtual void velocityToParticleCoupling(Box2D domain, TensorField2D<T,2>& velocity, T scaling=0.);
+    virtual void velocityToParticleCoupling(Box2D domain, NTensorField2D<T>& velocity, T scaling=0.);
     virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
     virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice, T scaling);
     virtual void advanceParticles(Box2D domain, T cutOffValue=-1.);
@@ -176,6 +179,7 @@ public:
     virtual void findParticles(Box2D domain,
                                std::vector<Particle2D<T,Descriptor> const*>& found) const;
     virtual void velocityToParticleCoupling(Box2D domain, TensorField2D<T,2>& velocity, T scaling=0.);
+    virtual void velocityToParticleCoupling(Box2D domain, NTensorField2D<T>& velocity, T scaling=0.);
     virtual void rhoBarJtoParticleCoupling(Box2D domain, NTensorField2D<T>& rhoBarJ, bool velIsJ, T scaling=0.);
     virtual void fluidToParticleCoupling(Box2D domain, BlockLattice2D<T,Descriptor>& lattice, T scaling=0.);
     virtual void advanceParticles(Box2D domain, T cutOffValue=-1.);

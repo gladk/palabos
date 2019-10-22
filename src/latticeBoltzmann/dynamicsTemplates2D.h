@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -159,63 +159,98 @@ static void bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,D::d> const& j,
 static void complete_bgk_ma2_equilibria( T rhoBar, T invRho, Array<T,D::d> const& j,
                                 T jSqr, Array<T,D::q>& eqPop )
 {
-    T t0 = D::t[0];
-    T t1 = D::t[1];
-    T t2 = D::t[2];
+    // T t0 = D::t[0];
+    // T t1 = D::t[1];
+    // T t2 = D::t[2];
 
-    T kx     = (T)3 * j[0];
-    T ky     = (T)3 * j[1];
-    T kxSqr_ = invRho / (T)2 * kx*kx;
-    T kySqr_ = invRho / (T)2 * ky*ky;
-    T kxky_  = invRho * kx*ky;
+    // T kx     = (T)3 * j[0];
+    // T ky     = (T)3 * j[1];
+    // T kxSqr_ = invRho / (T)2 * kx*kx;
+    // T kySqr_ = invRho / (T)2 * ky*ky;
+    // T kxky_  = invRho * kx*ky;
 
-    T C1 = rhoBar + invRho*(T)3*jSqr;
-    T C2, C3;
+    // T C1 = rhoBar + invRho*(T)3*jSqr;
+    // T C2, C3;
     
+    // T ux = j[0]*invRho; T uy = j[1]*invRho;
+    // T ux2 = ux*ux; T uy2 = uy*uy;
+
+    // // i=0
+    // C3 = -kxSqr_ - kySqr_;
+    // eqPop[0] = t0 * (C1+C3) + j[0]*ux*uy2;
+
+    // // i=1 and i=5
+    // C2 = -kx + ky;
+    // C3 = -kxky_;
+    // eqPop[1] = t1 * (C1+C2+C3) + (T)0.25*j[0]*uy*(ux*uy+ux-uy);
+    // eqPop[5] = t1 * (C1-C2+C3) + (T)0.25*j[0]*uy*(ux*uy-ux+uy);
+
+    // // i=2 and i=6
+    // C2 = -kx;
+    // C3 = -kySqr_;
+    // eqPop[2] = t2 * (C1+C2+C3) - (T)0.5*j[0]*uy2*(ux-(T)1);
+    // eqPop[6] = t2 * (C1-C2+C3) - (T)0.5*j[0]*uy2*(ux+(T)1);
+
+    // // i=3 and i=7
+    // C2 = -kx - ky;
+    // C3 = kxky_;
+    // eqPop[3] = t1 * (C1+C2+C3) + (T)0.25*j[0]*uy*(ux*uy-ux-uy);
+    // eqPop[7] = t1 * (C1-C2+C3) + (T)0.25*j[0]*uy*(ux*uy+ux+uy);
+
+    // // i=4 and i=8
+    // C2 = -ky;
+    // C3 = -kxSqr_;
+    // eqPop[4] = t2 * (C1+C2+C3) - (T)0.5*j[1]*ux2*(uy-(T)1);
+    // eqPop[8] = t2 * (C1-C2+C3) - (T)0.5*j[1]*ux2*(uy+(T)1);
+
+    T t0 = (T)0.25*D::t[0];
+    T t1 = D::t[1];
+    T t2 = (T)0.5*D::t[2];
+
+    T rho = D::fullRho(rhoBar);
     T ux = j[0]*invRho; T uy = j[1]*invRho;
     T ux2 = ux*ux; T uy2 = uy*uy;
 
-    // i=0
-    C3 = -kxSqr_ - kySqr_;
-    eqPop[0] = t0 * (C1+C3) + j[0]*ux*uy2;
+    T Cx = (T)3*ux2-2; T Cy = 3*uy2-2;
+    eqPop[0] = t0*(rho*Cy*Cx)-D::t[0];
 
-    // i=1 and i=5
-    C2 = -kx + ky;
-    C3 = -kxky_;
-    eqPop[1] = t1 * (C1+C2+C3) + (T)0.25*j[0]*uy*(ux*uy+ux-uy);
-    eqPop[5] = t1 * (C1-C2+C3) + (T)0.25*j[0]*uy*(ux*uy-ux+uy);
+    T k1x = (T)3*(ux2-ux)+(T)1; T k2x = k1x+6*ux;
+    T k1y = (T)3*(uy2-uy)+(T)1; T k2y = k1y+6*uy;
 
-    // i=2 and i=6
-    C2 = -kx;
-    C3 = -kySqr_;
-    eqPop[2] = t2 * (C1+C2+C3) - (T)0.5*j[0]*uy2*(ux-(T)1);
-    eqPop[6] = t2 * (C1-C2+C3) - (T)0.5*j[0]*uy2*(ux+(T)1);
+    eqPop[2] = -t2*(rho*Cy*k1x)-D::t[2];
+    eqPop[4] = -t2*(rho*k1y*Cx)-D::t[2];
+    eqPop[6] = -t2*(rho*Cy*k2x)-D::t[2];
+    eqPop[8] = -t2*(rho*k2y*Cx)-D::t[2];
+    
+    eqPop[1] = t1*(rho*k2y*k1x)-t1;
+    eqPop[5] = t1*(rho*k1y*k2x)-t1;
+    eqPop[3] = t1*(rho*k1y*k1x)-t1;
+    eqPop[7] = t1*(rho*k2y*k2x)-t1;
 
-    // i=3 and i=7
-    C2 = -kx - ky;
-    C3 = kxky_;
-    eqPop[3] = t1 * (C1+C2+C3) + (T)0.25*j[0]*uy*(ux*uy-ux-uy);
-    eqPop[7] = t1 * (C1-C2+C3) + (T)0.25*j[0]*uy*(ux*uy+ux+uy);
 
-    // i=4 and i=8
-    C2 = -ky;
-    C3 = -kxSqr_;
-    eqPop[4] = t2 * (C1+C2+C3) - (T)0.5*j[1]*ux2*(uy-(T)1);
-    eqPop[8] = t2 * (C1-C2+C3) - (T)0.5*j[1]*ux2*(uy+(T)1);
 }
 
 static void complete_ma2_equilibrium_moments( T rhoBar, T invRho, Array<T,D::d> const& j,
-                                              Array<T,D::q>& momEq )
+                                              Array<T,D::q>& momEq, plint order )
 {
     momEq[0] = rhoBar;
     momEq[1] = j[0];
     momEq[2] = j[1];
-    momEq[3] = j[0]*j[0]*invRho;
-    momEq[4] = j[0]*j[1]*invRho;
-    momEq[5] = j[1]*j[1]*invRho;
-    momEq[6] = j[0]*momEq[5]*invRho;
-    momEq[7] = momEq[3]*j[1]*invRho;
-    momEq[8] = momEq[3]*momEq[5]*invRho;
+    if (order >= 2) {
+        momEq[3] = j[0]*j[0]*invRho;
+        momEq[4] = j[0]*j[1]*invRho;
+        momEq[5] = j[1]*j[1]*invRho;
+        if (order >= 3) {
+            momEq[6] = j[0]*momEq[5]*invRho;
+            momEq[7] = momEq[3]*j[1]*invRho;
+            if (order >= 4) {
+                momEq[8] = momEq[3]*momEq[5]*invRho;
+            }
+        }
+    } else{
+        PLB_ASSERT(order >= 2 && "Order must be greater than 2.");
+    }
+    
 }
 
 static void truncated_ma2_equilibrium_moments( T rhoBar, T invRho, Array<T,D::d> const& j,
@@ -231,6 +266,23 @@ static void truncated_ma2_equilibrium_moments( T rhoBar, T invRho, Array<T,D::d>
     momEq[7] = T();
     momEq[8] = T();
 }
+
+static void complete_ma2_populations( Array<T,D::q>& a, Array<T,D::q>& f ) {
+    f[0] = a[0]-(T)1.5*a[3]-(T)1.5*a[5]+(T)2.25*a[8];
+    f[1] = a[0]-3*a[1]+3*a[2]+3*a[3]-9*a[4]+3*a[5]-9*a[6]+9*a[7]+9*a[8];
+    f[2] = a[0]-3*a[1]+3*a[3]-(T)1.5*a[5]+(T)4.5*a[6]-(T)4.5*a[8];
+
+    f[3] = a[0]-3*a[1]-3*a[2]+3*a[3]+9*a[4]+3*a[5]-9*a[6]-9*a[7]+9*a[8];
+    f[4] = a[0]-3*a[2]-(T)1.5*a[3]+3*a[5]+(T)4.5*a[7]-(T)4.5*a[8];
+    f[5] = a[0]+3*a[1]-3*a[2]+3*a[3]-9*a[4]+3*a[5]+9*a[6]-9*a[7]+9*a[8];
+    f[6] = a[0]+3*a[1]+3*a[3]-(T)1.5*a[5]-(T)4.5*a[6]-(T)4.5*a[8];
+    f[7] = a[0]+3*a[1]+3*a[2]+3*a[3]+9*a[4]+3*a[5]+9*a[6]+9*a[7]+9*a[8];
+    f[8] = a[0]+3*a[2]-(T)1.5*a[3]+3*a[5]-(T)4.5*a[7]-(T)4.5*a[8];
+
+    for (plint iPop = 0; iPop < D::q; ++iPop) f[iPop] *= D::t[iPop];
+
+}
+
 
 static void complete_ma2_moments( Array<T,D::q>& f, Array<T,D::q>& mom )
 {
@@ -286,7 +338,7 @@ static void computeInvMmNeq(const Array<T,D::q> &mNeq, Array<T,D::q> &f) {
 }
 
 static void complete_neq_ma2_moments_from_phys_moments(Array<T,D::q>& mNeq, T rhoBar, T invRho, const Array<T,D::d> &j, 
-                    const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, T omega, T omegaNonPhys) 
+                    const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, plint order, T omega, T omegaNonPhys) 
 {
     T omegaRatio = omega / omegaNonPhys;
     mNeq[0] = T();
@@ -294,20 +346,27 @@ static void complete_neq_ma2_moments_from_phys_moments(Array<T,D::q>& mNeq, T rh
     mNeq[1] = T();
     mNeq[2] = T();
 
-    mNeq[3] = piNeq[0];
-    mNeq[4] = piNeq[1];
-    mNeq[5] = piNeq[2];
-    mNeq[6] = invRho*omegaRatio * (piNeq[2]*j[0]+(T)2*piNeq[1]*j[1]);
-    mNeq[7] = invRho*omegaRatio * (piNeq[0]*j[1]+(T)2*piNeq[1]*j[0]);
-    // mNeq[8] = invRho * (mNeq[6]*j[0]+mNeq[7]*j[1]);
-    mNeq[8] = invRho * invRho *omegaRatio * (j[0]*j[0]*piNeq[2]+(T)4*j[0]*j[1]*piNeq[1]+j[1]*j[1]*piNeq[0]);
+    if (order >= 2) {
+        mNeq[3] = piNeq[0];
+        mNeq[4] = piNeq[1];
+        mNeq[5] = piNeq[2];
+        if (order >= 3) {
+            mNeq[6] = invRho*omegaRatio * (piNeq[2]*j[0]+(T)2*piNeq[1]*j[1]);
+            mNeq[7] = invRho*omegaRatio * (piNeq[0]*j[1]+(T)2*piNeq[1]*j[0]);
+            if (order >= 4) {
+                mNeq[8] = invRho * invRho *omegaRatio * (j[0]*j[0]*piNeq[2]+(T)4*j[0]*j[1]*piNeq[1]+j[1]*j[1]*piNeq[0]);
+            }
+        }
+    } else{
+        PLB_ASSERT(order >= 2 && "Order must be greater than 2.");
+    }
 }
 
-static T complete_mrt_ma2_collision_base(Array<T,D::q>& f, T omega, T omegaNonPhys, plint iPhys) {
+static T complete_mrt_ma2_collision_base(Array<T,D::q>& f, plint order, T omega, T omegaNonPhys, plint iPhys) {
     Array<T,D::q> mNeq, mEq;
     complete_ma2_moments(f, mNeq);
     T invRho = D::invRho(mNeq[0]);
-    complete_ma2_equilibrium_moments(mNeq[0], invRho, Array<T,D::d>(mNeq[1],mNeq[2]), mEq);
+    complete_ma2_equilibrium_moments(mNeq[0], invRho, Array<T,D::d>(mNeq[1],mNeq[2]), mEq, order);
     
     T jSqr = mNeq[1]*mNeq[1] + mNeq[2]*mNeq[2];
     
@@ -345,7 +404,7 @@ static T complete_mrt_ma2_collision_base(Array<T,D::q>& f, T omega, T omegaNonPh
     return invRho*invRho*jSqr;
 }
 
-static T complete_regularized_mrt_ma2_collision_base(Array<T,D::q>& f, T rhoBar, const Array<T,D::d> &j, const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, T omega, T omegaNonPhys, plint iPhys) {
+static T complete_regularized_mrt_ma2_collision_base(Array<T,D::q>& f, plint order, T rhoBar, const Array<T,D::d> &j, const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, T omega, T omegaNonPhys, plint iPhys) {
     Array<T,D::q> mNeq, mEq;
     // T rhoBar; 
     // Array<T,D::d> j;
@@ -354,9 +413,9 @@ static T complete_regularized_mrt_ma2_collision_base(Array<T,D::q>& f, T rhoBar,
     T jSqr = j[0]*j[0] + j[1]*j[1];
     T invRho = D::invRho(rhoBar);
 
-    complete_neq_ma2_moments_from_phys_moments(mNeq, rhoBar, invRho, j, piNeq, omega, omegaNonPhys);
+    complete_neq_ma2_moments_from_phys_moments(mNeq, rhoBar, invRho, j, piNeq, order, omega, omegaNonPhys);
 
-    complete_ma2_equilibrium_moments(rhoBar, invRho, j, mEq);
+    complete_ma2_equilibrium_moments(rhoBar, invRho, j, mEq, order+1);
     
     
     for (plint iPop = 0; iPop < 1+D::d; ++iPop) {
@@ -422,11 +481,11 @@ static T truncated_mrt_ma2_collision_base(Array<T,D::q>& f, T omega, T omegaNonP
     return invRho*invRho*jSqr;
 }
 
-static T complete_mrt_ma2_ext_rhoBar_j_collision_base(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const &j, T omega, T omegaNonPhys, plint iPhys) {
+static T complete_mrt_ma2_ext_rhoBar_j_collision_base(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const &j, plint order, T omega, T omegaNonPhys, plint iPhys) {
     Array<T,D::q> mNeq, mEq;
     complete_ma2_moments(f, mNeq);
     T invRho = D::invRho(rhoBar);
-    complete_ma2_equilibrium_moments(rhoBar, invRho, j, mEq);
+    complete_ma2_equilibrium_moments(rhoBar, invRho, j, mEq, order+1);
     
     T jSqr = j[0]*j[0]+j[1]*j[1];
     
@@ -560,8 +619,8 @@ static void complete_bgk_ma2_regularize(Array<T,D::q> &f, T rhoBar, T invRho, Ar
     
     aOne[6] = invRho * (piNeq[2]*j[0]+(T)2*piNeq[1]*j[1]);
     aOne[7] = invRho * (piNeq[0]*j[1]+(T)2*piNeq[1]*j[0]);
-    aOne[8] = invRho * invRho * (j[0]*j[0]*piNeq[2]+(T)4*j[0]*j[1]*piNeq[1]+j[1]*j[1]*piNeq[0]);
-    // aOne[8] = invRho * (aOne[6]*j[0]+aOne[7]*j[1]);
+    // aOne[8] = invRho * invRho * (j[0]*j[0]*piNeq[2]+(T)4*j[0]*j[1]*piNeq[1]+j[1]*j[1]*piNeq[0]);
+    aOne[8] = invRho * (aOne[6]*j[0]+aOne[7]*j[1]);
     
     for (plint iPop = iPhys+1; iPop < D::q; ++iPop) aOne[iPop] *= omegaRatio;
     
@@ -637,6 +696,7 @@ static T bgk_ma2_collision_base(Array<T,D::q>& f, T rhoBar, Array<T,2> const& j,
     return invRho*invRho*jSqr;
 }
 
+
 static T complete_bgk_ma2_collision_base(Array<T,D::q>& f, T rhoBar, T invRho, Array<T,2> const& j, T omega) {
     T one_m_omega = (T)1 - omega;
     T t0_omega = D::t[0] * omega;
@@ -698,24 +758,91 @@ static T complete_bgk_ma2_collision_base(Array<T,D::q>& f, T rhoBar, T invRho, A
     return invRho*invRho*jSqr;
 }
 
+static T complete_regularized_bgk_ma2_collision_base(Array<T,D::q>& f, T rhoBar, T invRho, Array<T,2> const& j, Array<T,3> const& piNeq, T omega) {
+
+    T rho = D::fullRho(rhoBar);
+    T t0 = (T)0.25*D::t[0]*rho;
+    T t1 = D::t[1]*rho;
+    T t2 = (T)0.5*D::t[2]*rho;
+    T ux = j[0]*invRho; T uy = j[1]*invRho;
+    T ux2 = ux*ux; T uy2 = uy*uy;
+    T Cx = (T)3*ux2-2; T Cy = 3*uy2-2;
+    T k1x = (T)3*(ux2-ux)+(T)1; T k2x = k1x+6*ux;
+    T k1y = (T)3*(uy2-uy)+(T)1; T k2y = k1y+6*uy;
+
+    T one_omega = (T)1-omega;
+
+    f[0] = t0*Cy*Cx-D::t[0];
+    // f[0] += one_omega*(D::cs2*(Cy*piNeq[0]+Cx*piNeq[2])+(T)4*ux*uy*piNeq[1]);
+
+    f[2] = -t2*Cy*k1x-D::t[2];
+    // f[2] += one_omega*(-2*uy*(ux-0.5)*piNeq[1]-0.5*D::cs2*(Cy*piNeq[0]+k1x*piNeq[2]));
+    f[6] = -t2*Cy*k2x-D::t[2];
+    // f[6] += one_omega*(-2*uy*(ux+0.5)*piNeq[1]-0.5*D::cs2*(Cy*piNeq[0]+k2x*piNeq[2]));
+    f[4] = -t2*k1y*Cx-D::t[2];
+    // f[4] += one_omega*(-2*ux*(uy-0.5)*piNeq[1]-0.5*D::cs2*(k1y*piNeq[0]+Cx*piNeq[2]));
+    f[8] = -t2*k2y*Cx-D::t[2];
+    // f[8] += one_omega*(-2*ux*(uy+0.5)*piNeq[1]-0.5*D::cs2*(k2y*piNeq[0]+Cx*piNeq[2]));
+    
+    f[1] = t1*k2y*k1x-D::t[1];
+    // f[1] += one_omega*((ux-0.5)*(uy+0.5)*piNeq[1]+0.25*D::cs2*(k2y*piNeq[0]+k1x*piNeq[2]));
+    f[5] = t1*k1y*k2x-D::t[1];
+    // f[5] += one_omega*((ux+0.5)*(uy-0.5)*piNeq[1]+0.25*D::cs2*(k1y*piNeq[0]+k2x*piNeq[2]));
+    f[3] = t1*k1y*k1x-D::t[1];
+    // f[3] += one_omega*((ux-0.5)*(uy-0.5)*piNeq[1]+0.25*D::cs2*(k1y*piNeq[0]+k1x*piNeq[2]));
+    f[7] = t1*k2y*k2x-D::t[1];
+    // f[7] += one_omega*((ux+0.5)*(uy+0.5)*piNeq[1]+0.25*D::cs2*(k2y*piNeq[0]+k2x*piNeq[2]));
+
+    T aOne6 = piNeq[2]*ux+(T)2*piNeq[1]*uy;
+    T aOne7 = piNeq[0]*uy+(T)2*piNeq[1]*ux;
+    T aOne8 = aOne6*ux+aOne7*uy;
+    // T aOne8 = T();
+    f[0] += one_omega*(-((T)2*D::cs2)*(piNeq[0]+piNeq[2])+aOne8);
+    
+    T sym  = (T)0.25 * (D::cs2*(piNeq[0]+piNeq[2])-piNeq[1] + aOne8);
+    T asym = (T)0.25 * (aOne6-aOne7);
+    f[1] += one_omega*(sym - asym);
+    f[5] += one_omega*(sym + asym);
+    
+    sym  = D::cs2*(piNeq[0]-(T)0.5*piNeq[2])-(T)0.5*aOne8;
+    asym = (T)0.5*aOne6;
+    f[2] += one_omega*(sym + asym);
+    f[6] += one_omega*(sym - asym);
+    sym  = (T)0.25*(D::cs2*(piNeq[0]+piNeq[2])+piNeq[1]+aOne8);
+    asym = (T)0.25*(aOne6+aOne7);
+    f[3] += one_omega*(sym - asym);
+    f[7] += one_omega*(sym + asym);
+    
+    sym = D::cs2*(-(T)0.5*piNeq[0]+piNeq[2])-(T)0.5*aOne8;
+    asym = (T)0.5*aOne7;
+    f[4] += one_omega*(sym + asym);
+    f[8] += one_omega*(sym - asym);
+
+    return ux2+uy2;
+}
+
 static T complete_bgk_ma2_collision(Array<T,D::q>& f, T rhoBar, T invRho, Array<T,2> const& j, T omega) {
     return complete_bgk_ma2_collision_base(f, rhoBar, invRho, j, omega);
 }
 
-static T complete_mrt_ma2_collision(Array<T,D::q>& f, T omega, T omegaNonPhys, plint iPhys) {
-    return complete_mrt_ma2_collision_base(f, omega, omegaNonPhys, iPhys);
+static T complete_regularized_bgk_ma2_collision(Array<T,D::q>& f, T rhoBar, Array<T,2> const& j, Array<T,3> const& piNeq, T omega) {
+    return complete_regularized_bgk_ma2_collision_base(f, rhoBar, D::invRho(rhoBar), j, piNeq, omega);
 }
 
-static T complete_regularized_mrt_ma2_collision(Array<T,D::q>& f, T rhoBar, const Array<T,D::d> &j, const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, T omega, T omegaNonPhys, plint iPhys) {
-    return complete_regularized_mrt_ma2_collision_base(f, rhoBar, j, piNeq, omega, omegaNonPhys, iPhys);
+static T complete_mrt_ma2_collision(Array<T,D::q>& f, plint order, T omega, T omegaNonPhys, plint iPhys) {
+    return complete_mrt_ma2_collision_base(f, order, omega, omegaNonPhys, iPhys);
+}
+
+static T complete_regularized_mrt_ma2_collision(Array<T,D::q>& f, T rhoBar, const Array<T,D::d> &j, const Array<T,SymmetricTensorImpl<T,D::d>::n> &piNeq, plint order, T omega, T omegaNonPhys, plint iPhys) {
+    return complete_regularized_mrt_ma2_collision_base(f, order, rhoBar, j, piNeq, omega, omegaNonPhys, iPhys);
 }
 
 static T truncated_mrt_ma2_collision(Array<T,D::q>& f, T omega, T omegaNonPhys, plint iPhys) {
     return truncated_mrt_ma2_collision_base(f, omega, omegaNonPhys, iPhys);
 }
 
-static T complete_mrt_ma2_ext_rhoBar_j_collision(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& j, T omega, T omegaNonPhys, plint iPhys) {
-    return complete_mrt_ma2_ext_rhoBar_j_collision_base(f, rhoBar, j, omega, omegaNonPhys, iPhys);
+static T complete_mrt_ma2_ext_rhoBar_j_collision(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& j, plint order, T omega, T omegaNonPhys, plint iPhys) {
+    return complete_mrt_ma2_ext_rhoBar_j_collision_base(f, rhoBar, j, order, omega, omegaNonPhys, iPhys);
 }
 
 static T truncated_mrt_ma2_ext_rhoBar_j_collision(Array<T,D::q>& f, T rhoBar, Array<T,D::d> const& j, T omega, T omegaNonPhys, plint iPhys) {
@@ -726,7 +853,9 @@ static T bgk_ma2_collision(Array<T,D::q>& f, T rhoBar, Array<T,2> const& j, T om
     return bgk_ma2_collision_base(f, rhoBar, j, omega, D::invRho(rhoBar));
 }
 
-static T bgk_inc_collision(Array<T,D::q>& f, T rhoBar, Array<T,2> const& j, T omega, T invRho0=(T)1 ) {
+static T bgk_inc_collision(Array<T,D::q>& f, T rhoBar, Array<T,2> const& j, T omega ) {
+    // Incompressible: rho0=1
+    static const T invRho0 = (T) 1;
     return bgk_ma2_collision_base(f, rhoBar, j, omega, invRho0);
 }
 

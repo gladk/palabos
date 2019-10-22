@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -250,7 +250,6 @@ int main(int argc, char* argv[]) {
 
     cylinderSetup(lattice, parameters, *boundaryCondition);
     std::map<int,std::string> nameOfDynamics;
-    plb_ofstream ofile("dynamics.dat");
     ImageWriter<int>("earth").writeScaledGif("dynamics",
                                              *extractDynamicsChain(lattice,nameOfDynamics), 600,600 );
     //ImageWriter<int>("air").writeScaledGif("dynamics",

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -131,6 +131,19 @@ namespace descriptors
 
     template <typename T> struct AdvectionDiffusionWithSourceD3Q19Descriptor 
     : public D3Q19DescriptorBase<T>, public VelocityAndScalar3dBase
+    {
+        static const char name[];
+    };
+
+    /// D3Q27 lattice
+    template <typename T> struct AdvectionDiffusionD3Q27Descriptor 
+    : public D3Q27DescriptorBase<T>, public Velocity3dBase
+    {
+        static const char name[];
+    };
+
+    template <typename T> struct AdvectionDiffusionWithSourceD3Q27Descriptor 
+    : public D3Q27DescriptorBase<T>, public VelocityAndScalar3dBase
     {
         static const char name[];
     };

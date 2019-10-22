@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,6 +50,16 @@ struct BoundaryShape3D {
      *  undetermined.
      **/
     virtual bool isInside(Dot3D const& location) const =0;
+    /// Decide whether a given discrete lattice node is outside the solid shape.
+    /** The reason why there is an isOutside function now, is that 
+     *  there exists voxelFlag::outside, voxelFlag::outerBorder flags,
+     *  there are several flags which count as outside: undetermined,
+     *  outside, and borderline. This is particularly important for the
+     *  undetermined flag, because the outer envelopes in a multi-block
+     *  structure have no special meaning and are default-initialized to
+     *  undetermined. In any case isInside or isOutside will be false in this case.
+     **/
+    virtual bool isOutside(Dot3D const& location) const =0;
     /// Get the distance to the wall, and the velocity value on the wall,
     ///   from a given real-valued position (in lattice units), and along
     ///   a given direction. Returns true if there exists an intersection

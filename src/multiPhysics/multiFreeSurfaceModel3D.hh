@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define MULTI_FREE_SURFACE_MODEL_3D_HH
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "core/block3D.h"
 #include "latticeBoltzmann/geometricOperationTemplates.h"
 #include "atomicBlock/dataProcessor3D.h"
@@ -47,7 +48,7 @@ void MultiFreeSurfaceOneWayCoupling3D<T,Descriptor>
 {
     PLB_ASSERT(atomicBlocks.size() == 20);
 
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     std::vector<AtomicBlock3D*> atomicBlocks1, atomicBlocks2;
 
@@ -75,10 +76,18 @@ void MultiFreeSurfaceOneWayCoupling3D<T,Descriptor>
                     momentTemplates<T,Descriptor>::get_rhoBar_j(param2.cell(iX,iY,iZ), rhoBar2, j2);
                     T density2 = Descriptor<T>::fullRho(rhoBar2);
 
-                    T tau = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                    T dynamicOmega1 = param1.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param1.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau1 = 0.0;
+                    if (!util::isZero(dynamicOmega1)) {
+                        tau1 = (T) 1 / dynamicOmega1;
+                    } else {
+                        tau1 = (T) 1 / param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
                     for (plint iD=0; iD<3; ++iD) {
-                        //j1[iD] += interactionStrength*density1*(j2[iD]/density2 - j1[iD]/density1)*tau;
-                        j1[iD] += interactionStrength*rhoDefault1*(j2[iD]/density2 - j1[iD]/density1)*tau;
+                        //j1[iD] += interactionStrength*density1*(j2[iD]/density2 - j1[iD]/density1)*tau1;
+                        j1[iD] += interactionStrength*rhoDefault1*(j2[iD]/density2 - j1[iD]/density1)*tau1;
                     }
 
                     param1.setMomentum(iX,iY,iZ, j1);
@@ -96,7 +105,7 @@ void MultiFreeSurfaceVelocityContinuityCoupling3D<T,Descriptor>
 {
     PLB_ASSERT(atomicBlocks.size() == 20);
 
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     std::vector<AtomicBlock3D*> atomicBlocks1, atomicBlocks2;
 
@@ -208,16 +217,13 @@ void MultiFreeSurfaceVelocityContinuityCoupling3D<T,Descriptor>
 template<typename T,template<typename U> class Descriptor>
 T MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>::deltaFunction(T r, T h)
 {
-    Precision precision = floatingPointPrecision<T>();
-    T eps = getEpsilon<T>(precision);
+    PLB_ASSERT(util::greaterEqual(r, (T) 0));
+    PLB_ASSERT(util::greaterThan(h, (T) 0));
 
-    PLB_ASSERT(r > (T) 0 || std::fabs(r) <= eps);
-    PLB_ASSERT(h > (T) 0 && std::fabs(h) >  eps);
-
-    static T pi = std::acos((T) -1.0);
+    static T pi = std::acos((T) -1);
 
     T delta = 0.0;
-    if (r < h || std::fabs(r - h) <= eps) {
+    if (util::lessEqual(r, h)) {
         delta = 0.5 * (1.0 + std::cos(pi * r / h));
     }
 
@@ -230,7 +236,7 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
 {
     PLB_ASSERT(atomicBlocks.size() == 20);
 
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     std::vector<AtomicBlock3D*> atomicBlocks1, atomicBlocks2;
 
@@ -277,17 +283,31 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
                     }
                     force1 *= interactionStrength;
 
+                    T dynamicOmega1 = param1.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param1.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau1 = 0.0;
+                    if (!util::isZero(dynamicOmega1)) {
+                        tau1 = (T) 1 / dynamicOmega1;
+                    } else {
+                        tau1 = (T) 1 / param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
+                    T dynamicOmega2 = param2.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param2.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau2 = 0.0;
+                    if (!util::isZero(dynamicOmega2)) {
+                        tau2 = (T) 1 / dynamicOmega2;
+                    } else {
+                        tau2 = (T) 1 / param2.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
                     // force1 is an acceleration.
-                    T tau1 = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
                     param1.setMomentum(iX,iY,iZ, param1.getMomentum(iX,iY,iZ) + rhoDefault1*tau1*force1);
-                    T tau2 = T(1)/param2.cell(iX,iY,iZ).getDynamics().getOmega();
                     param2.setMomentum(iX,iY,iZ, param2.getMomentum(iX,iY,iZ) + rhoDefault2*tau2*(-force1));
 
                     /*
                     // force1 is a force.
-                    T tau1 = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
                     param1.setMomentum(iX,iY,iZ, param1.getMomentum(iX,iY,iZ) + tau1*force1);
-                    T tau2 = T(1)/param2.cell(iX,iY,iZ).getDynamics().getOmega();
                     param2.setMomentum(iX,iY,iZ, param2.getMomentum(iX,iY,iZ) + tau2*(-force1));
                     */
                 }
@@ -334,9 +354,17 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
                     Array<T,3> normalToInterface = param1.getNormal(iX, iY, iZ);                    
                     //Array<T,3> normalToInterface = -param2.getNormal(iX, iY, iZ);                    
                     if (VFdiff>(T)0.0) {
-                        T tau = T(1)/param2.cell(iX,iY,iZ).getDynamics().getOmega();
+                        T dynamicOmega2 = param2.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                                param2.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                        T tau2 = 0.0;
+                        if (!util::isZero(dynamicOmega2)) {
+                            tau2 = (T) 1 / dynamicOmega2;
+                        } else {
+                            tau2 = (T) 1 / param2.cell(iX,iY,iZ).getDynamics().getOmega();
+                        }
+
                         param2.setMomentum(iX,iY,iZ, param2.getMomentum(iX,iY,iZ) +
-                                interactionStrength*rhoDefault2*VFdiff*tau*normalToInterface);
+                                interactionStrength*rhoDefault2*VFdiff*tau2*normalToInterface);
                     }
                     */
                 }
@@ -381,9 +409,17 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
                     Array<T,3> normalToInterface = param2.getNormal(iX,iY,iZ);
                     //Array<T,3> normalToInterface = -param1.getNormal(iX,iY,iZ);
                     if (VFdiff>(T)0.0) {
-                        T tau = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                        T dynamicOmega1 = param1.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                                param1.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                        T tau1 = 0.0;
+                        if (!util::isZero(dynamicOmega1)) {
+                            tau1 = (T) 1 / dynamicOmega1;
+                        } else {
+                            tau1 = (T) 1 / param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                        }
+
                         param1.setMomentum(iX,iY,iZ, param1.getMomentum(iX,iY,iZ) +
-                                interactionStrength*rhoDefault1*VFdiff*tau*normalToInterface);
+                                interactionStrength*rhoDefault1*VFdiff*tau1*normalToInterface);
                     }
                     */
                 }
@@ -397,16 +433,13 @@ void MultiFreeSurfaceRepellingForceCoupling3D<T,Descriptor>
 template<typename T,template<typename U> class Descriptor>
 T MultiFreeSurfaceComplexCoupling3D<T,Descriptor>::deltaFunction(T r, T h)
 {
-    Precision precision = floatingPointPrecision<T>();
-    T eps = getEpsilon<T>(precision);
+    PLB_ASSERT(util::greaterEqual(r, (T) 0));
+    PLB_ASSERT(util::greaterThan(h, (T) 0));
 
-    PLB_ASSERT(r > (T) 0 || std::fabs(r) <= eps);
-    PLB_ASSERT(h > (T) 0 && std::fabs(h) >  eps);
-
-    static T pi = std::acos((T) -1.0);
+    static T pi = std::acos((T) -1);
 
     T delta = 0.0;
-    if (r < h || std::fabs(r - h) <= eps) {
+    if (util::lessEqual(r, h)) {
         delta = 0.5 * (1.0 + std::cos(pi * r / h));
     }
 
@@ -419,7 +452,7 @@ void MultiFreeSurfaceComplexCoupling3D<T,Descriptor>
 {
     PLB_ASSERT(atomicBlocks.size() == 20);
 
-    using namespace twoPhaseFlag;
+    using namespace freeSurfaceFlag;
 
     std::vector<AtomicBlock3D*> atomicBlocks1, atomicBlocks2;
 
@@ -552,17 +585,31 @@ void MultiFreeSurfaceComplexCoupling3D<T,Descriptor>
                 if (isWet(param1.flag(iX,iY,iZ)) && isWet(param2.flag(iX,iY,iZ))) {
                     // Add a force to both fluids. Remember the envelope is 3.
 
+                    T dynamicOmega1 = param1.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param1.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau1 = 0.0;
+                    if (!util::isZero(dynamicOmega1)) {
+                        tau1 = (T) 1 / dynamicOmega1;
+                    } else {
+                        tau1 = (T) 1 / param1.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
+                    T dynamicOmega2 = param2.cell(iX,iY,iZ).getDynamics().getDynamicParameter(dynamicParams::dynamicOmega,
+                            param2.cell(iX,iY,iZ));  // In case of a Smagorinsky model.
+                    T tau2 = 0.0;
+                    if (!util::isZero(dynamicOmega2)) {
+                        tau2 = (T) 1 / dynamicOmega2;
+                    } else {
+                        tau2 = (T) 1 / param2.cell(iX,iY,iZ).getDynamics().getOmega();
+                    }
+
                     // force1 is an acceleration.
-                    T tau1 = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
                     param1.setMomentum(iX,iY,iZ, param1.getMomentum(iX,iY,iZ) + rhoDefault1*tau1*force1);
-                    T tau2 = T(1)/param2.cell(iX,iY,iZ).getDynamics().getOmega();
                     param2.setMomentum(iX,iY,iZ, param2.getMomentum(iX,iY,iZ) + rhoDefault2*tau2*(-force1));
 
                     /*
                     // force1 is a force.
-                    T tau1 = T(1)/param1.cell(iX,iY,iZ).getDynamics().getOmega();
                     param1.setMomentum(iX,iY,iZ, param1.getMomentum(iX,iY,iZ) + tau1*force1);
-                    T tau2 = T(1)/param2.cell(iX,iY,iZ).getDynamics().getOmega();
                     param2.setMomentum(iX,iY,iZ, param2.getMomentum(iX,iY,iZ) + tau2*(-force1));
                     */
                 }

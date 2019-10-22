@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -53,7 +53,7 @@ namespace parallelIO {
 void writeXmlSpec( MultiBlock3D& multiBlock, FileName fName,
                    std::vector<plint> const& offset, bool dynamicContent )
 {
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     MultiBlockManagement3D const& management = multiBlock.getMultiBlockManagement();
     std::map<plint,Box3D> const& bulks = management.getSparseBlockStructure().getBulks();
     PLB_ASSERT( offset.empty() || bulks.size()==offset.size() );
@@ -139,7 +139,7 @@ void writeXmlSpec( MultiBlock3D& multiBlock, FileName fName,
 void writeOneBlockXmlSpec( MultiBlock3D const& multiBlock, FileName fName, plint dataSize,
                            IndexOrdering::OrderingT ordering )
 {
-    fName.defaultExt("plb");
+    fName.setExt("plb");
     MultiBlockManagement3D const& management = multiBlock.getMultiBlockManagement();
     std::vector<std::string> typeInfo = multiBlock.getTypeInfo();
     std::string blockName = multiBlock.getBlockName();
@@ -212,7 +212,7 @@ void save( MultiBlock3D& multiBlock, FileName fName, bool dynamicContent )
     global::profiler().stop("io");
 }
 
-void saveFull( MultiBlock3D& multiBlock, FileName fName, IndexOrdering::OrderingT ordering )
+void saveFull( MultiBlock3D& multiBlock, FileName fName, IndexOrdering::OrderingT ordering, bool appendMode )
 {
     global::profiler().start("io");
     SparseBlockStructure3D blockStructure(multiBlock.getBoundingBox());
@@ -264,8 +264,10 @@ void saveFull( MultiBlock3D& multiBlock, FileName fName, IndexOrdering::Ordering
     }
 
     plint totalSize = offset[offset.size()-1];
-    writeOneBlockXmlSpec(*multiAdjacentBlock, fName, totalSize, ordering);
-    writeRawData(fName, myBlockIds, offset, data);
+    if (!appendMode) {
+        writeOneBlockXmlSpec(*multiAdjacentBlock, fName, totalSize, ordering);
+    }
+    writeRawData(fName, myBlockIds, offset, data, appendMode);
     delete multiAdjacentBlock;
     global::profiler().stop("io");
 }

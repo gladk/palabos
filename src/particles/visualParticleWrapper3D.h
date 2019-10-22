@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -76,6 +76,34 @@ std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
             MultiBlockLattice3D<T,Descriptor>& lattice,
             bool incompressibleModel, bool dynamicMesh=false );
 
+/// Create particles that contain the surface force.
+/** Remember: a mesh is a non-parallel object, whereas particles are parallel
+ *  objects. This function does not have parallel efficiency, because every
+ *  processor needs to loop over the full mesh in order to create the parallel
+ *  particles. If you already have the particles, use the version of
+ *  computeSurfaceForce() that takes them as an argument, and you will get
+ *  parallel efficiency.
+ **/
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
+    computeSurfaceScalar (
+            TriangleBoundary3D<T>& boundary,
+            VoxelizedDomain3D<T>& voxelizedDomain,
+            MultiScalarField3D<T>& scalarField, Box3D domain,
+            const std::vector<int> &usableFlowTypes,
+            plint whichScalar = -1, bool dynamicMesh=false );
+
+/// Create particles that contain the surface force.
+/** This version acts on the full domain of the lattice.  **/
+template<typename T, template<typename U> class Descriptor>
+std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
+    computeSurfaceScalar (
+            TriangleBoundary3D<T>& boundary,
+            VoxelizedDomain3D<T>& voxelizedDomain,
+            MultiScalarField3D<T>& scalarField,
+            const std::vector<int> &usableFlowTypes,
+            plint whichScalar = -1, bool dynamicMesh=false );
+
 /// Requirement: particles must be of type point-particle.
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
@@ -98,6 +126,9 @@ std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >
 
 template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
 void scalarFieldToParticles(MultiScalarField3D<T>& scalar, MultiParticleField3D<ParticleFieldT>& particleField, Box3D domain);
+
+template<typename T, int nDim, template<typename U> class Descriptor, class ParticleFieldT>
+void tensorFieldToParticles(MultiTensorField3D<T,nDim>& tensor, MultiParticleField3D<ParticleFieldT>& particleField, Box3D domain);
 
 template<typename T, template<typename U> class Descriptor>
 std::auto_ptr<MultiParticleField3D<DenseParticleField3D<T,Descriptor> > >

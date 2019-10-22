@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -44,6 +44,18 @@ void copy( MultiNTensorField3D<T1>& field,
 template<typename T1, typename T2>
 MultiNTensorField3D<T2>* copyConvert( MultiNTensorField3D<T1>& field,
                                       Box3D domain );
+
+template<typename T>
+void nTensorToScalar(MultiNTensorField3D<T>& nTensor, MultiScalarField3D<T>& scalar);
+
+template<typename T>
+void scalarToNTensor(MultiScalarField3D<T>& scalar, MultiNTensorField3D<T>& nTensor);
+
+template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > scalarToNTensor(MultiScalarField3D<T>& scalar);
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > nTensorToScalar(MultiNTensorField3D<T>& nTensor);
 
 }  // namespace plb
 

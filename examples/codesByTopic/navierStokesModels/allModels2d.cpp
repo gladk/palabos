@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -103,18 +103,9 @@ int main(int argc, char* argv[]) {
 
     writeLogFile(parameters, "Poiseuille flow");
 
-// Comment these 3 lines for MRT
-
     MultiBlockLattice2D<T, DESCRIPTOR> lattice (
             parameters.getNx(), parameters.getNy(),
             new BackgroundDynamics(parameters.getOmega()) );
-
-// Uncomment these 4 lines for MRT
-    
-//     MRTparam<T,DESCRIPTOR> * mrt_param = new MRTparam<T,DESCRIPTOR>(parameters.getOmega());
-//     MultiBlockLattice2D<T, DESCRIPTOR> lattice (
-//             parameters.getNx(), parameters.getNy(),
-//             new BackgroundDynamics(mrt_param) );
 
     OnLatticeBoundaryCondition2D<T,DESCRIPTOR>*
         boundaryCondition = createLocalBoundaryCondition2D<T,DESCRIPTOR>();

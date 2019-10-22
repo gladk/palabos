@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -80,7 +80,7 @@ bool abortExecution(FileName abortFileName, std::vector<MultiBlock2D*> blocks, p
     int stop = 0;
     bool stopExecution = false;
     if (global::mpi().isMainProcessor()) {
-        FILE *fp = fopen(abortFileName.get().c_str(), "r");
+        FILE *fp = fopen(abortFileName.get().c_str(), "rb");
         if (fp != NULL) {
             stop = 1;
             fclose(fp);

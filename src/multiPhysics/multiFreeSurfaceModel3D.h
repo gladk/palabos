@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,12 +27,14 @@
 
 #include <algorithm>
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
 #include "multiBlock/defaultMultiBlockPolicy3D.h"
 #include "multiPhysics/freeSurfaceModel3D.h"
 #include "multiPhysics/freeSurfaceUtil3D.h"
 #include "multiPhysics/freeSurfaceInitializer3D.h"
 #include "dataProcessors/dataInitializerWrapper3D.h"
+#include "latticeBoltzmann/geometricOperationTemplates.h"
 
 namespace plb {
 
@@ -213,7 +215,9 @@ struct MultiFreeSurfaceFields3D {
     MultiFreeSurfaceFields3D(SparseBlockStructure3D const& blockStructure,
                              Dynamics<T,Descriptor> *dynamics1_, Dynamics<T,Descriptor> *dynamics2_,
                              T rhoDefault1_, T rhoDefault2_, T surfaceTension1_, T surfaceTension2_,
-                             T contactAngle1_, T contactAngle2_, Array<T,3> force1_, Array<T,3> force2_,
+                             T contactAngle1_, T contactAngle2_,
+                             Array<T,Descriptor<T>::ExternalField::sizeOfForce> force1_,
+                             Array<T,Descriptor<T>::ExternalField::sizeOfForce> force2_,
                              T interactionStrength_,
                              ThreadAttribution* threadAttribution = defaultMultiBlockPolicy3D().getThreadAttribution() )
         : dynamics1(dynamics1_),
@@ -268,35 +272,23 @@ struct MultiFreeSurfaceFields3D {
           normal2((MultiBlock3D&) flag2),
           interactionStrength(interactionStrength_)
     {
+        // MultiFreeSurfaceFields3D does not work with incompressible dynamics at the moment.
+        PLB_ASSERT(!dynamics1->velIsJ());
+        PLB_ASSERT(!dynamics2->velIsJ());
+
         delete threadAttribution;
-        Precision precision = floatingPointPrecision<T>();
-        T eps = getEpsilon<T>(precision);
-        // The contact angles take values between 0 and 180 degrees. If they
-        // are negative, this means that contact angle effects will not be
-        // modeled.
-        PLB_ASSERT(contactAngle1 < (T) 180.0 || std::fabs(contactAngle1 - (T) 180.0) <= eps);
-        PLB_ASSERT(contactAngle2 < (T) 180.0 || std::fabs(contactAngle2 - (T) 180.0) <= eps);
 
-        if (std::fabs(surfaceTension1) <= eps) {
-            useSurfaceTension1 = 0;
-        } else {
-            useSurfaceTension1 = 1;
-        }
+        useSurfaceTension1 = !util::isZero(surfaceTension1);
+        useSurfaceTension2 = !util::isZero(surfaceTension2);
 
-        if (std::fabs(surfaceTension2) <= eps) {
-            useSurfaceTension2 = 0;
-        } else {
-            useSurfaceTension2 = 1;
-        }
-
-        twoPhaseArgs1 = aggregateFreeSurfaceParams(lattice1, rhoBar1, j1, mass1, volumeFraction1,
+        freeSurfaceArgs1 = aggregateFreeSurfaceParams(lattice1, rhoBar1, j1, mass1, volumeFraction1,
                     flag1, normal1, helperLists1, curvature1, outsideDensity1);
 
-        twoPhaseArgs2 = aggregateFreeSurfaceParams(lattice2, rhoBar2, j2, mass2, volumeFraction2,
+        freeSurfaceArgs2 = aggregateFreeSurfaceParams(lattice2, rhoBar2, j2, mass2, volumeFraction2,
                     flag2, normal2, helperLists2, curvature2, outsideDensity2);
 
-        multiFreeSurfaceArgs = twoPhaseArgs1;
-        multiFreeSurfaceArgs.insert(multiFreeSurfaceArgs.end(), twoPhaseArgs2.begin(), twoPhaseArgs2.end());
+        multiFreeSurfaceArgs = freeSurfaceArgs1;
+        multiFreeSurfaceArgs.insert(multiFreeSurfaceArgs.end(), freeSurfaceArgs2.begin(), freeSurfaceArgs2.end());
 
         initializeInterfaceLists3D<T,Descriptor>(helperLists1);
         initializeInterfaceLists3D<T,Descriptor>(helperLists2);
@@ -319,10 +311,10 @@ struct MultiFreeSurfaceFields3D {
         j2.periodicity().toggleAll(true);
         normal1.periodicity().toggleAll(true);
         normal2.periodicity().toggleAll(true);
-        setToConstant(flag1, flag1.getBoundingBox(), (int) twoPhaseFlag::empty);
-        setToConstant(flag2, flag2.getBoundingBox(), (int) twoPhaseFlag::empty);
-        setToConstant(outsideDensity1, outsideDensity1.getBoundingBox(), rhoDefault1);
-        setToConstant(outsideDensity2, outsideDensity2.getBoundingBox(), rhoDefault2);
+        //setToConstant(flag1, flag1.getBoundingBox(), (int) freeSurfaceFlag::empty);
+        //setToConstant(flag2, flag2.getBoundingBox(), (int) freeSurfaceFlag::empty);
+        //setToConstant(outsideDensity1, outsideDensity1.getBoundingBox(), rhoDefault1);
+        //setToConstant(outsideDensity2, outsideDensity2.getBoundingBox(), rhoDefault2);
         rhoBarJparam1.push_back(&lattice1);
         rhoBarJparam1.push_back(&rhoBar1);
         rhoBarJparam1.push_back(&j1);
@@ -338,7 +330,7 @@ struct MultiFreeSurfaceFields3D {
         lattice2.internalStatSubscription().subscribeSum();     // Lost mass.
         lattice2.internalStatSubscription().subscribeIntSum();  // Num interface cells.
 
-        freeSurfaceDataProcessors(rhoDefault1, rhoDefault2, force1, force2, *dynamics1, *dynamics2);
+        freeSurfaceDataProcessors();
     }
 
     MultiFreeSurfaceFields3D(MultiFreeSurfaceFields3D<T,Descriptor> const& rhs)
@@ -376,8 +368,8 @@ struct MultiFreeSurfaceFields3D {
           normal2(rhs.normal2),
           rhoBarJparam1(rhs.rhoBarJparam1),
           rhoBarJparam2(rhs.rhoBarJparam2),
-          twoPhaseArgs1(rhs.twoPhaseArgs1),
-          twoPhaseArgs2(rhs.twoPhaseArgs2),
+          freeSurfaceArgs1(rhs.freeSurfaceArgs1),
+          freeSurfaceArgs2(rhs.freeSurfaceArgs2),
           multiFreeSurfaceArgs(rhs.multiFreeSurfaceArgs),
           interactionStrength(rhs.interactionStrength)
     { }
@@ -418,8 +410,8 @@ struct MultiFreeSurfaceFields3D {
         std::swap(normal2, rhs.normal2);
         std::swap(rhoBarJparam1, rhs.rhoBarJparam1);
         std::swap(rhoBarJparam2, rhs.rhoBarJparam2);
-        std::swap(twoPhaseArgs1, rhs.twoPhaseArgs1);
-        std::swap(twoPhaseArgs2, rhs.twoPhaseArgs2);
+        std::swap(freeSurfaceArgs1, rhs.freeSurfaceArgs1);
+        std::swap(freeSurfaceArgs2, rhs.freeSurfaceArgs2);
         std::swap(multiFreeSurfaceArgs, rhs.multiFreeSurfaceArgs);
         std::swap(interactionStrength, rhs.interactionStrength);
     }
@@ -489,30 +481,33 @@ struct MultiFreeSurfaceFields3D {
     void defaultInitialize() {
         applyProcessingFunctional (
            new DefaultInitializeFreeSurface3D<T,Descriptor>(dynamics1->clone(), force1, rhoDefault1),
-                   lattice1.getBoundingBox(), twoPhaseArgs1 );
+                   lattice1.getBoundingBox(), freeSurfaceArgs1 );
 
         applyProcessingFunctional (
            new DefaultInitializeFreeSurface3D<T,Descriptor>(dynamics2->clone(), force2, rhoDefault2),
-                   lattice2.getBoundingBox(), twoPhaseArgs2 );
+                   lattice2.getBoundingBox(), freeSurfaceArgs2 );
     }
 
     void partiallyDefaultInitialize() {
         applyProcessingFunctional (
            new PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>(dynamics1->clone(), force1, rhoDefault1),
-                   lattice1.getBoundingBox(), twoPhaseArgs1 );
+                   lattice1.getBoundingBox(), freeSurfaceArgs1 );
 
         applyProcessingFunctional (
            new PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>(dynamics2->clone(), force2, rhoDefault2),
-                   lattice2.getBoundingBox(), twoPhaseArgs2 );
+                   lattice2.getBoundingBox(), freeSurfaceArgs2 );
     }
 
-    void freeSurfaceDataProcessors(T rhoDefault1, T rhoDefault2, Array<T,3> force1, Array<T,3> force2,
-            Dynamics<T,Descriptor>& dynamics1, Dynamics<T,Descriptor>& dynamics2)
+    void freeSurfaceDataProcessors()
     {
-        MultiBlock3D& actor1 = *twoPhaseArgs2[0];
-        MultiBlock3D& actor2 = *twoPhaseArgs2[0];
+        MultiBlock3D& actor1 = *freeSurfaceArgs2[0];
+        MultiBlock3D& actor2 = *freeSurfaceArgs2[0];
 
         plint pl; // Processor level.
+
+        // MultiFreeSurfaceFields3D does not work with incompressible dynamics at the moment.
+        bool incompressibleModel1 = false;
+        bool incompressibleModel2 = false;
 
         /***** Initial level ******/
         pl = 0;
@@ -525,57 +520,51 @@ struct MultiFreeSurfaceFields3D {
                 lattice2.getBoundingBox(), rhoBarJparam2, pl );
 
         integrateProcessingFunctional (
-                new TwoPhaseComputeNormals3D<T,Descriptor>,
-                lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+                new FreeSurfaceComputeNormals3D<T,Descriptor>,
+                lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
-                new TwoPhaseComputeNormals3D<T,Descriptor>,
-                lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+                new FreeSurfaceComputeNormals3D<T,Descriptor>,
+                lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
 
         /***** New level ******/
         pl++;
 
         if (useSurfaceTension1) {
             integrateProcessingFunctional (
-                    new TwoPhaseComputeCurvature3D<T,Descriptor>(contactAngle1, lattice1.getBoundingBox()),
-                    lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+                    new FreeSurfaceComputeCurvature3D<T,Descriptor>(contactAngle1),
+                    lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         }
         if (useSurfaceTension2) {
             integrateProcessingFunctional (
-                    new TwoPhaseComputeCurvature3D<T,Descriptor>(contactAngle2, lattice2.getBoundingBox()),
-                    lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+                    new FreeSurfaceComputeCurvature3D<T,Descriptor>(contactAngle2),
+                    lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
         }
 
         integrateProcessingFunctional (
             new FreeSurfaceMassChange3D<T,Descriptor>, lattice1.getBoundingBox(),
-            actor1, twoPhaseArgs1, pl );
+            actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
             new FreeSurfaceMassChange3D<T,Descriptor>, lattice2.getBoundingBox(),
-            actor2, twoPhaseArgs2, pl );
+            actor2, freeSurfaceArgs2, pl );
        
         integrateProcessingFunctional (
             new FreeSurfaceCompletion3D<T,Descriptor>,
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
             new FreeSurfaceCompletion3D<T,Descriptor>,
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
-                                    
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
+
         integrateProcessingFunctional (
-            new FreeSurfaceMacroscopic3D<T,Descriptor>(rhoDefault1), 
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            new FreeSurfaceMacroscopic3D<T,Descriptor>(incompressibleModel1), 
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
-            new FreeSurfaceMacroscopic3D<T,Descriptor>(rhoDefault2), 
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+            new FreeSurfaceMacroscopic3D<T,Descriptor>(incompressibleModel2), 
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
 
         /***** New level ******/
         pl++;
 
-        Precision precision = floatingPointPrecision<T>();
-        T eps = getEpsilon<T>(precision);
-
-        int useRepellingForceCoupling = 1;
-        if (std::fabs(interactionStrength) <= eps) {
-            useRepellingForceCoupling = 0;
-        }
+        bool useRepellingForceCoupling = !util::isZero(interactionStrength);
 
         if (useRepellingForceCoupling) {
             //integrateProcessingFunctional (
@@ -600,75 +589,95 @@ struct MultiFreeSurfaceFields3D {
 
         if (useSurfaceTension1) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension1, rhoDefault1), 
-                lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+                new FreeSurfaceAddSurfaceTension3D<T,Descriptor>(surfaceTension1, incompressibleModel1), 
+                lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         }
         if (useSurfaceTension2) {
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension2, rhoDefault2), 
-                lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+                new FreeSurfaceAddSurfaceTension3D<T,Descriptor>(surfaceTension2, incompressibleModel2), 
+                lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
         }
+
+        integrateProcessingFunctional (
+            new FreeSurfaceStabilize3D<T,Descriptor>(), 
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
+        integrateProcessingFunctional (
+            new FreeSurfaceStabilize3D<T,Descriptor>(), 
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
 
         /***** New level ******/ // Maybe no new level is necessary here ...
         pl++;
 
         integrateProcessingFunctional (
             new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
             new FreeSurfaceComputeInterfaceLists3D<T,Descriptor>(),
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
 
         integrateProcessingFunctional (
             new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoDefault1),
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
             new FreeSurfaceIniInterfaceToAnyNodes3D<T,Descriptor>(rhoDefault2),
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
             
         integrateProcessingFunctional (
-            new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics1.clone(), force1),
+            new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics1->clone(), force1),
                                     lattice1.getBoundingBox(),
-                                    actor1, twoPhaseArgs1, pl ); 
+                                    actor1, freeSurfaceArgs1, pl ); 
         integrateProcessingFunctional (
-            new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics2.clone(), force2),
+            new FreeSurfaceIniEmptyToInterfaceNodes3D<T,Descriptor>(dynamics2->clone(), force2),
                                     lattice2.getBoundingBox(),
-                                    actor2, twoPhaseArgs2, pl ); 
+                                    actor2, freeSurfaceArgs2, pl ); 
 
         /***** New level ******/
         pl++;
 
         integrateProcessingFunctional (
             new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoDefault1),
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl);
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl);
         integrateProcessingFunctional (
             new FreeSurfaceRemoveFalseInterfaceCells3D<T,Descriptor>(rhoDefault2),
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl);
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl);
 
         /***** New level ******/
         pl++;
 
         integrateProcessingFunctional (
             new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
             new FreeSurfaceEqualMassExcessReDistribution3D<T,Descriptor>(),
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
 
         integrateProcessingFunctional (
-            new TwoPhaseComputeStatistics3D<T,Descriptor>,
-            lattice1.getBoundingBox(), actor1, twoPhaseArgs1, pl );
+            new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+            lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
         integrateProcessingFunctional (
-            new TwoPhaseComputeStatistics3D<T,Descriptor>,
-            lattice2.getBoundingBox(), actor2, twoPhaseArgs2, pl );
+            new FreeSurfaceComputeStatistics3D<T,Descriptor>,
+            lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
+
+        bool useForce1 = !util::isZero(norm(force1));
+        if (useForce1) {
+            integrateProcessingFunctional (
+                new FreeSurfaceAddExternalForce3D<T,Descriptor>(rhoDefault1), 
+                lattice1.getBoundingBox(), actor1, freeSurfaceArgs1, pl );
+        }
+        bool useForce2 = !util::isZero(norm(force2));
+        if (useForce2) {
+            integrateProcessingFunctional (
+                new FreeSurfaceAddExternalForce3D<T,Descriptor>(rhoDefault2), 
+                lattice2.getBoundingBox(), actor2, freeSurfaceArgs2, pl );
+        }
     }
 
     Dynamics<T,Descriptor> *dynamics1, *dynamics2;
     T rhoDefault1, rhoDefault2;
     T surfaceTension1, surfaceTension2;
     T contactAngle1, contactAngle2;
-    int useSurfaceTension1, useSurfaceTension2;
-    Array<T,3> force1, force2;
+    bool useSurfaceTension1, useSurfaceTension2;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force1, force2;
     MultiBlockLattice3D<T, Descriptor> lattice1, lattice2;
     MultiContainerBlock3D helperLists1, helperLists2;
     MultiScalarField3D<T> mass1, mass2;
@@ -681,7 +690,7 @@ struct MultiFreeSurfaceFields3D {
     MultiTensorField3D<T,3> normal1, normal2;
     T interactionStrength;
     std::vector<MultiBlock3D*> rhoBarJparam1, rhoBarJparam2;
-    std::vector<MultiBlock3D*> twoPhaseArgs1, twoPhaseArgs2, multiFreeSurfaceArgs;
+    std::vector<MultiBlock3D*> freeSurfaceArgs1, freeSurfaceArgs2, multiFreeSurfaceArgs;
 };
 
 

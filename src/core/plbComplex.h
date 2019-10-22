@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -53,6 +53,9 @@ public:
     Complex<T>& operator/=(Complex<T> const& rhs);
     template<typename U> Complex<T>& operator/=(U rhs);
 private:
+    // If at any point someone adds more data here, he should go
+    // also to the file mpiManager.cpp and change the implementation
+    // of the reduction operations for the Complex data types.
     T Re, Imag;
     static T pi;
 };

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,6 +38,37 @@
 #include <cmath>
 
 namespace plb {
+
+/* ******** BoxLaplacianFunctional2D *********************************** */
+
+template<typename T>
+void BoxLaplacianFunctional2D<T>::process (
+        Box2D domain, ScalarField2D<T>& value, ScalarField2D<T>& laplacian )
+{
+    Dot2D offset = computeRelativeDisplacement(value, laplacian);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            T laplacianValue =
+                -(T)4 * value.get(iX,iY) +
+                (value.get(iX-1,iY)+value.get(iX+1,iY)+value.get(iX,iY-1)+value.get(iX,iY+1));
+            laplacian.get(iX+offset.x, iY+offset.y) = laplacianValue;
+        }
+    }
+}
+
+template<typename T>
+BoxLaplacianFunctional2D<T>* BoxLaplacianFunctional2D<T>::clone() const
+{
+    return new BoxLaplacianFunctional2D<T>(*this);
+}
+
+template<typename T>
+void BoxLaplacianFunctional2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::staticVariables;
+}
+
 
 /* ******** BoxXderivativeFunctional2D *********************************** */
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,10 @@
 #include "palabos3D.h"
 #include "palabos3D.hh"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 using namespace plb;
 using namespace std;
 
@@ -44,23 +48,52 @@ int main(int argc, char* argv[])
     global::IOpolicy().activateParallelIO(false);
     plint resolution=0;
     plint referenceDirection=0;
+    T inflation=0.0;
 
-    string stlFileName, outFileName;
+    string stlFileName, outFileName, precisionStr;
     try {
         global::argv(1).read(stlFileName);
         global::argv(2).read(outFileName);
-        global::argv(3).read(resolution);
-        global::argv(4).read(referenceDirection);
+        global::argv(3).read(precisionStr);
+        global::argv(4).read(resolution);
+        global::argv(5).read(referenceDirection);
     }
     catch (PlbIOException& exception) {
-        pcout << "Wrong parameters; the syntax is: " 
-              << (std::string)global::argv(0) << " inputSTL.stl outputSTL.stl resolution referenceDirection[0,1,2]" << std::endl;
+        pcout << "Usage: " 
+              << (std::string)global::argv(0) << " inputSTL.stl outputSTL.stl precision (FLT|DBL|LDBL|INF) resolution referenceDirection (0|1|2) [inflation (>= 0)]" << std::endl;
         exit(-1);
+    }
+
+    std::transform(precisionStr.begin(), precisionStr.end(), precisionStr.begin(), ::toupper);
+
+    Precision precision;
+    if (precisionStr == "FLT") {
+        precision = FLT;
+    } else if (precisionStr == "DBL") {
+        precision = DBL;
+    } else if (precisionStr == "LDBL") {
+        precision = LDBL;
+    } else if (precisionStr == "INF") {
+        precision = INF;
+    } else {
+        pcout << "Wrong precision command-line argument." << std::endl;
+        exit(-1);
+    }
+
+    try {
+        global::argv(6).read(inflation);
+        if (util::lessThan(inflation, (T) 0)) {
+            pcout << "Wrong inflation command-line argument." << std::endl;
+            exit(-1);
+        }
+    }
+    catch (PlbIOException& exception) {
+        inflation = -1.0;
     }
 
     TriangleSet<T>* triangleSet = 0;
     try {
-        triangleSet = new TriangleSet<T>(stlFileName, FLT);
+        triangleSet = new TriangleSet<T>(stlFileName, precision);
     }
     catch (PlbIOException& exception) {
         pcout << "Error, could not read STL file " << stlFileName
@@ -69,7 +102,11 @@ int main(int argc, char* argv[])
     }
     DEFscaledMesh<T> mesh(*triangleSet, resolution, referenceDirection, margin, extraLayer);
     TriangleBoundary3D<T> boundary(mesh);
-    boundary.getMesh().inflate();
+    if (inflation < (T) 0) {
+        boundary.getMesh().inflate();
+    } else {
+        boundary.getMesh().inflate(inflation);
+    }
     T dx = boundary.getDx();
     Array<T,3> location(boundary.getPhysicalLocation());
     VoxelizedDomain3D<T> voxelizedDomain (
@@ -89,14 +126,13 @@ int main(int argc, char* argv[])
     std::vector<TriangleSet<T>::Triangle> triangles;
     isoSurfaceMarchingCube(triangles, voxelizedDomain, flagMatrix.getBoundingBox());
     TriangleSet<T> newTriangleSet(triangles, FLT);
-    newTriangleSet.writeBinarySTL(outFileName);
-
+    newTriangleSet.writeAsciiSTL(outFileName);
 
     DEFscaledMesh<T> newMesh(newTriangleSet);
     TriangleBoundary3D<T> newBoundary(newMesh);
     newBoundary.getMesh().scale(dx);
     newBoundary.getMesh().translate(location);
-    newBoundary.getMesh().writeBinarySTL(outFileName);
+    newBoundary.getMesh().writeAsciiSTL(outFileName);
 
     return 0;
 }

@@ -35,6 +35,8 @@ SMPparallel  = false
 #   emulated (such as with Cygwin).
 usePOSIX     = true
 
+# Path to external source files (other than Palabos)
+srcPaths =
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
@@ -80,6 +82,7 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
             profileFlags="$(profileFlags)" \
+            srcPaths="$(srcPaths)" \
             libraryPaths="$(libraryPaths)" \
             includePaths="$(includePaths)" \
             libraries="$(libraries)"

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -138,10 +138,10 @@ void CompleteBoussinesqThermalProcessor2D<T,FluidDescriptor,TemperatureDescripto
     typedef FluidDescriptor<T> D;
     enum {
         rhoBarOffset   = TemperatureDescriptor<T>::ExternalField::rhoBarBeginsAt,
-        jOffset   = TemperatureDescriptor<T>::ExternalField::velocityBeginsAt,
-        piNeqOffset   = TemperatureDescriptor<T>::ExternalField::piNeqBeginsAt,
-        omegaOffset   = TemperatureDescriptor<T>::ExternalField::omegaBeginsAt,
-        forceOffset = FluidDescriptor<T>::ExternalField::forceBeginsAt
+        velocityOffset = TemperatureDescriptor<T>::ExternalField::velocityBeginsAt,
+        piNeqOffset    = TemperatureDescriptor<T>::ExternalField::piNeqBeginsAt,
+        omegaOffset    = TemperatureDescriptor<T>::ExternalField::omegaBeginsAt,
+        forceOffset    = FluidDescriptor<T>::ExternalField::forceBeginsAt
     };
     Dot2D offset = computeRelativeDisplacement(fluid, temperature);
     
@@ -170,10 +170,12 @@ void CompleteBoussinesqThermalProcessor2D<T,FluidDescriptor,TemperatureDescripto
             for (plint iD = 0; iD < D::d; ++iD) {
                 j[iD] += D::fullRho(rhoBar)*force[iD]*(T)0.5;
             }
+
+            Array<T,FluidDescriptor<T>::d> vel = FluidDescriptor<T>::invRho(rhoBar) * j;
             
             *temperature.get(iX+offset.x,iY+offset.y).getExternal(omegaOffset) = fluid.get(iX,iY).getDynamics().getOmega();
             *temperature.get(iX+offset.x,iY+offset.y).getExternal(rhoBarOffset) = rhoBar;
-            j.to_cArray(temperature.get(iX+offset.x,iY+offset.y).getExternal(jOffset));
+            vel.to_cArray(temperature.get(iX+offset.x,iY+offset.y).getExternal(velocityOffset));
             piNeq.to_cArray(temperature.get(iX+offset.x,iY+offset.y).getExternal(piNeqOffset));
 
         }

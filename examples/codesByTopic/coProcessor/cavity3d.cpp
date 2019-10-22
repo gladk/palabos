@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -113,10 +113,14 @@ SparseBlockStructure3D createRegularDistribution3D (
     for (plint iX=0; iX<(plint)xVal.size()-1; ++iX) {
         for (plint iY=0; iY<(plint)yVal.size()-1; ++iY) {
             for (plint iZ=0; iZ<(plint)zVal.size()-1; ++iZ) {
-                dataGeometry.addBlock (
-                        Box3D( xVal[iX], xVal[iX+1]-1, yVal[iY],
-                               yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 ),
-                        dataGeometry.nextIncrementalId() );
+                plint nextID = dataGeometry.nextIncrementalId();
+                Box3D domain( xVal[iX], xVal[iX+1]-1, yVal[iY],
+                              yVal[iY+1]-1, zVal[iZ], zVal[iZ+1]-1 );
+                dataGeometry.addBlock(domain, nextID);
+                pcout << "Adding block with ID=" << nextID << ": ["
+                      << domain.x0 << "," << domain.x1 << " | "
+                      << domain.y0 << "," << domain.y1 << " | "
+                      << domain.z0 << "," << domain.z1 << "]" << std::endl;
             }
         }
     }
@@ -135,6 +139,12 @@ SparseBlockStructure3D createCavityDistribution3D(plint nx, plint ny, plint nz)
     return createRegularDistribution3D(xVal, yVal, zVal);
 }
 
+
+void saveAtomicBlock(MultiBlockLattice3D<T,DESCRIPTOR>& lattice, plint blockId) {
+    BlockLattice3D<T,DESCRIPTOR>& atomicBlock = lattice.getComponent(blockId);
+    plb_ofstream ofile("block13.dat");
+    ofile << atomicBlock;
+}
 
 int main(int argc, char* argv[]) {
 
@@ -196,6 +206,7 @@ int main(int argc, char* argv[]) {
                     defaultMultiBlockPolicy3D().getMultiCellAccess<T,DESCRIPTOR>(),
                     new BGKdynamics<T,DESCRIPTOR>(parameters.getOmega()) );
 
+    saveAtomicBlock(lattice, 13);
 
     OnLatticeBoundaryCondition3D<T,DESCRIPTOR>* boundaryCondition
         = createInterpBoundaryCondition3D<T,DESCRIPTOR>();

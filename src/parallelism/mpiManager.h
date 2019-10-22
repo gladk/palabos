@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -104,6 +104,9 @@ public:
     template <typename T>
     void sendToMaster( T* sendBuf, int sendCount, bool iAmRoot );
 
+    /// Special case for sending strings. Memory handling is automatic.
+    void sendToMaster( std::string& message, bool iAmRoot );
+
     /// Scatter data from one processor over multiple processors
     template <typename T>
     void scatterV( T *sendBuf, T *recvBuf, int* sendCounts, int root = 0 );
@@ -141,6 +144,10 @@ public:
     /// Reduction operation, followed by a broadcast
     template <typename T>
     void reduceAndBcast(T& reductVal, MPI_Op op, int root = 0 );
+
+    /// Scan operation (partial reductions) of data on a collection of processes
+    template <typename T>
+    void scan( T sendVal, T& recvVal, MPI_Op op );
 
     /// Complete a non-blocking MPI operation
     void wait(MPI_Request* request, MPI_Status* status);
@@ -189,6 +196,8 @@ public:
     void bCast(T* sendBuf, int sendCount, int root = 0) { }
     /// Special case for broadcasting strings. Memory handling is automatic.
     void bCast(std::string& message, int root = 0) { }
+    /// Special case for sending strings. Memory handling is automatic.
+    void sendToMaster( std::string& message, bool iAmRoot ) { }
     /// Synchronizes the processes
     void barrier() { }
 

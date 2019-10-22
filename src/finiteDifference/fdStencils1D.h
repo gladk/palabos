@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -39,6 +39,24 @@ namespace fd {
     template<typename T>
     T ctl_diff(T u_p1, T u_m1) {
         return (u_p1 - u_m1) / (T)2;
+    }
+
+    /// Fourth-order central gradient (u_p1 = u(x+1))
+    template<typename T>
+    T ctl_diff(T u_p2, T u_p1, T u_m1, T u_m2) {
+        return ((T)1/(T)12)*(u_m2-u_p2)+((T)2/(T)3)*(u_p1-u_m1);
+    }
+
+    /// Sixth-order central gradient (u_p1 = u(x+1))
+    template<typename T>
+    T ctl_diff(T u_p3, T u_p2, T u_p1, T u_m1, T u_m2, T u_m3) {
+        return -(-u_p3+(T)9*u_p2-(T)45*u_p1+(T)45*u_m1-(T)9*u_m2+u_m3)/(T)60;
+    }
+
+    /// Sixth-order central gradient (u_p1 = u(x+1))
+    template<typename T>
+    T ctl_diff(T u_p4, T u_p3, T u_p2, T u_p1, T u_m1, T u_m2, T u_m3, T u_m4) {
+        return -((T)3*u_p4-(T)32*u_p3+(T)168*u_p2-(T)672*u_p1+(T)672*u_m1-(T)168*u_m2+(T)32*u_m3-(T)3*u_m4)/(T)840;
     }
     
     /// Second-order forward gradient (u_1 = u(x+1))
@@ -281,6 +299,87 @@ inline T bulkZderiv (
 }
 
 template<typename T, int nDim>
+inline T bulkXderivOrderFour (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dxu = fd::ctl_diff( velocity.get(iX+2,iY,iZ)[iD], velocity.get(iX+1,iY,iZ)[iD],
+                          velocity.get(iX-1,iY,iZ)[iD], velocity.get(iX-2,iY,iZ)[iD] );
+    return dxu;
+}
+
+template<typename T, int nDim>
+inline T bulkYderivOrderFour (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dyu = fd::ctl_diff( velocity.get(iX,iY+2,iZ)[iD], velocity.get(iX,iY+1,iZ)[iD],
+                          velocity.get(iX,iY-1,iZ)[iD], velocity.get(iX,iY-2,iZ)[iD] );
+    return dyu;
+}
+
+template<typename T, int nDim>
+inline T bulkZderivOrderFour (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dzu = fd::ctl_diff( velocity.get(iX,iY,iZ+2)[iD], velocity.get(iX,iY,iZ+1)[iD],
+                          velocity.get(iX,iY,iZ-1)[iD], velocity.get(iX,iY,iZ-2)[iD] );
+    return dzu;
+}
+
+template<typename T, int nDim>
+inline T bulkXderivOrderSix (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dxu = fd::ctl_diff( velocity.get(iX+3,iY,iZ)[iD], velocity.get(iX+2,iY,iZ)[iD], velocity.get(iX+1,iY,iZ)[iD],
+                          velocity.get(iX-1,iY,iZ)[iD], velocity.get(iX-2,iY,iZ)[iD] , velocity.get(iX-3,iY,iZ)[iD] );
+    return dxu;
+}
+
+template<typename T, int nDim>
+inline T bulkYderivOrderSix (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dyu = fd::ctl_diff( velocity.get(iX,iY+3,iZ)[iD], velocity.get(iX,iY+2,iZ)[iD], velocity.get(iX,iY+1,iZ)[iD],
+                          velocity.get(iX,iY-1,iZ)[iD], velocity.get(iX,iY-2,iZ)[iD] , velocity.get(iX,iY-3,iZ)[iD] );
+    return dyu;
+}
+
+template<typename T, int nDim>
+inline T bulkZderivOrderSix (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dzu = fd::ctl_diff( velocity.get(iX,iY,iZ+3)[iD], velocity.get(iX,iY,iZ+2)[iD], velocity.get(iX,iY,iZ+1)[iD],
+                          velocity.get(iX,iY,iZ-1)[iD], velocity.get(iX,iY,iZ-2)[iD] , velocity.get(iX,iY,iZ-3)[iD] );
+    return dzu;
+}
+
+template<typename T, int nDim>
+inline T bulkXderivOrderEight (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dxu = fd::ctl_diff( velocity.get(iX+4,iY,iZ)[iD], velocity.get(iX+3,iY,iZ)[iD], velocity.get(iX+2,iY,iZ)[iD], velocity.get(iX+1,iY,iZ)[iD],
+                          velocity.get(iX-1,iY,iZ)[iD], velocity.get(iX-2,iY,iZ)[iD], velocity.get(iX-3,iY,iZ)[iD], velocity.get(iX-4,iY,iZ)[iD] );
+    return dxu;
+}
+
+template<typename T, int nDim>
+inline T bulkYderivOrderEight (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dyu = fd::ctl_diff( velocity.get(iX,iY+4,iZ)[iD], velocity.get(iX,iY+3,iZ)[iD], velocity.get(iX,iY+2,iZ)[iD], velocity.get(iX,iY+1,iZ)[iD],
+                          velocity.get(iX,iY-1,iZ)[iD], velocity.get(iX,iY-2,iZ)[iD], velocity.get(iX,iY-3,iZ)[iD], velocity.get(iX,iY-4,iZ)[iD] );
+    return dyu;
+}
+
+template<typename T, int nDim>
+inline T bulkZderivOrderEight (
+        TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ, int iD )
+{
+    T dzu = fd::ctl_diff( velocity.get(iX,iY,iZ+4)[iD], velocity.get(iX,iY,iZ+3)[iD], velocity.get(iX,iY,iZ+2)[iD], velocity.get(iX,iY,iZ+1)[iD],
+                          velocity.get(iX,iY,iZ-1)[iD], velocity.get(iX,iY,iZ-2)[iD], velocity.get(iX,iY,iZ-3)[iD], velocity.get(iX,iY,iZ-4)[iD] );
+    return dzu;
+}
+
+template<typename T, int nDim>
 inline T planeXderiv (
         TensorField3D<T,nDim> const& velocity, int direction, int orientation,
         plint iX, plint iY, plint iZ, int iD )
@@ -436,6 +535,89 @@ inline T bulkVorticityZ(TensorField3D<T,nDim> const& velocity, plint iX, plint i
 {
     T dxuy = fdDataField::bulkXderiv(velocity, iX,iY,iZ, 1);
     T dyux = fdDataField::bulkYderiv(velocity, iX,iY,iZ, 0);
+
+    return dxuy - dyux;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityXOrderFour(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dyuz = fdDataField::bulkYderivOrderFour(velocity, iX,iY,iZ, 2);
+    T dzuy = fdDataField::bulkZderivOrderFour(velocity, iX,iY,iZ, 1);
+
+    return dyuz - dzuy;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityYOrderFour(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dzux = fdDataField::bulkZderivOrderFour(velocity, iX,iY,iZ, 0);
+    T dxuz = fdDataField::bulkXderivOrderFour(velocity, iX,iY,iZ, 2);
+
+    return dzux - dxuz;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityZOrderFour(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dxuy = fdDataField::bulkXderivOrderFour(velocity, iX,iY,iZ, 1);
+    T dyux = fdDataField::bulkYderivOrderFour(velocity, iX,iY,iZ, 0);
+
+    return dxuy - dyux;
+}
+
+
+template<typename T, int nDim>
+inline T bulkVorticityXOrderSix(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dyuz = fdDataField::bulkYderivOrderSix(velocity, iX,iY,iZ, 2);
+    T dzuy = fdDataField::bulkZderivOrderSix(velocity, iX,iY,iZ, 1);
+
+    return dyuz - dzuy;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityYOrderSix(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dzux = fdDataField::bulkZderivOrderSix(velocity, iX,iY,iZ, 0);
+    T dxuz = fdDataField::bulkXderivOrderSix(velocity, iX,iY,iZ, 2);
+
+    return dzux - dxuz;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityZOrderSix(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dxuy = fdDataField::bulkXderivOrderSix(velocity, iX,iY,iZ, 1);
+    T dyux = fdDataField::bulkYderivOrderSix(velocity, iX,iY,iZ, 0);
+
+    return dxuy - dyux;
+}
+
+
+template<typename T, int nDim>
+inline T bulkVorticityXOrderEight(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dyuz = fdDataField::bulkYderivOrderEight(velocity, iX,iY,iZ, 2);
+    T dzuy = fdDataField::bulkZderivOrderEight(velocity, iX,iY,iZ, 1);
+
+    return dyuz - dzuy;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityYOrderEight(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dzux = fdDataField::bulkZderivOrderEight(velocity, iX,iY,iZ, 0);
+    T dxuz = fdDataField::bulkXderivOrderEight(velocity, iX,iY,iZ, 2);
+
+    return dzux - dxuz;
+}
+
+template<typename T, int nDim>
+inline T bulkVorticityZOrderEight(TensorField3D<T,nDim> const& velocity, plint iX, plint iY, plint iZ )
+{
+    T dxuy = fdDataField::bulkXderivOrderEight(velocity, iX,iY,iZ, 1);
+    T dyux = fdDataField::bulkYderivOrderEight(velocity, iX,iY,iZ, 0);
 
     return dxuy - dyux;
 }

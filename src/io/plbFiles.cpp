@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,6 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "core/plbDebug.h"
 #include "io/plbFiles.h"
 
 namespace plb {
@@ -61,7 +62,27 @@ void FileName::initialize(std::string file) {
 std::string FileName::get() const {
     std::string composite;
     if (path != "") {
-        composite = path+"/";
+        // First determine the separator.
+        std::string separator;
+        size_t sep = path.find_last_of("/");
+        if (sep != std::string::npos) {
+            // Unix separator.
+            separator = "/";
+        } else {
+            sep = path.find_last_of("\\");
+            if (sep != std::string::npos) {
+                // Windows separator.
+                separator = "\\";
+            } else {
+                // By default we choose the Unix separator.
+                // This needs to change, and to find a better
+                // way to detect when the separator is
+                // "/" or "\".
+                separator = "/";
+            }
+        }
+
+        composite = path+separator;
     }
     composite += name;
     if (ext != "") {

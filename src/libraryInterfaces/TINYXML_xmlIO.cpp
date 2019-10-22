@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -54,13 +54,18 @@ XMLreader::XMLreader( std::vector<TiXmlNode*> pParentVect )
 XMLreader::XMLreader( std::string fName )
 {
     TiXmlDocument* doc = 0;
-    int loadOK = false;
+    bool loadOK = false;
+    std::string errorMessage;
     if (global::mpi().isMainProcessor()) {
         doc = new TiXmlDocument(fName.c_str());
         loadOK = doc->LoadFile();
+        if (!loadOK) {
+            errorMessage = "Problem processing input XML file " + fName + ": " + doc->ErrorDesc();
+        }
     }
 
-    plbMainProcIOError(!loadOK, std::string("Problem processing input XML file ")+fName);
+    global::mpi().bCast(errorMessage);
+    plbMainProcIOError(!loadOK, errorMessage);
 
     if (global::mpi().isMainProcessor()) {
         mainProcessorIni(doc);
@@ -82,7 +87,7 @@ void XMLreader::mainProcessorIni( std::vector<TiXmlNode*> pParentVect )
     std::map<plint, TiXmlNode*> parents;
     for (pluint iParent=0; iParent<pParentVect.size(); ++iParent) {
         PLB_PRECONDITION( pParentVect[iParent]->Type()==TiXmlNode::DOCUMENT ||
-                          pParentVect[iParent]->Type()==TiXmlNode::TINYXML_ELEMENT );
+                          pParentVect[iParent]->Type()==TiXmlNode::ELEMENT );
 
         TiXmlElement* pParentElement = pParentVect[iParent]->ToElement();
         plint id=0;

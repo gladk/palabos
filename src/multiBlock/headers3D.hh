@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -27,6 +27,8 @@
  */
 
 #include "multiBlock/multiBlockLattice3D.hh"
+#include "multiBlock/coupling3D.hh"
+#include "multiBlock/group3D.hh"
 #include "multiBlock/multiDataField3D.hh"
 #include "multiBlock/serialMultiBlockLattice3D.hh"
 #include "multiBlock/serialMultiDataField3D.hh"

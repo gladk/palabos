@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -215,6 +215,7 @@ void LatticeCopyFineToCoarseZerothOrder2D<T,Descriptor>::process (
         for (plint coarseY=coarseDomain.y0; coarseY<=coarseDomain.y1; ++coarseY, fineY+=stretch) {
             // Fine --> Coarse
             Cell<T,Descriptor> const& fineCell = fineLattice.get(fineX,fineY);
+            coarseLattice.attributeDynamics(coarseX,coarseY,fineCell.getDynamics().clone());
             Cell<T,Descriptor>& coarseCell = coarseLattice.get(coarseX,coarseY);
             T fineOmega = fineCell.getDynamics().getOmega();
             T fine_nu_cs2 = 1./fineOmega - 0.5;
@@ -232,22 +233,24 @@ void LatticeCopyFineToCoarseZerothOrder2D<T,Descriptor>::process (
                     components[1+iDim] /= rhoFine;
                 }
             }
-            PLB_ASSERT(components.size()==1+Descriptor<T>::d+Descriptor<T>::q);
-            // 1. Density.
-            T p_cs2 = components[0]-(1-Descriptor<T>::SkordosFactor());
-            components[0] = (1-Descriptor<T>::SkordosFactor()) + p_cs2*presScale;
-            // 2. Velocity.
-            for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
-                components[1+iDim] *= velScale;
-            }
-            // 3. Off-equilibrium populations.
-            for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
-                components[1+Descriptor<T>::d+iPop] *= localFneqScale;
-            }
-            T rhoCoarse = Descriptor<T>::fullRho(components[0]);
-            if (!coarseCell.getDynamics().velIsJ()) {
+            if (components.size()==1+Descriptor<T>::d+Descriptor<T>::q) {
+                // PLB_ASSERT(components.size()==1+Descriptor<T>::d+Descriptor<T>::q);
+                // 1. Density.
+                T p_cs2 = components[0]-(1-Descriptor<T>::SkordosFactor());
+                components[0] = (1-Descriptor<T>::SkordosFactor()) + p_cs2*presScale;
+                // 2. Velocity.
                 for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
-                    components[1+iDim] *= rhoCoarse;
+                    components[1+iDim] *= velScale;
+                }
+                // 3. Off-equilibrium populations.
+                for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+                    components[1+Descriptor<T>::d+iPop] *= localFneqScale;
+                }
+                T rhoCoarse = Descriptor<T>::fullRho(components[0]);
+                if (!coarseCell.getDynamics().velIsJ()) {
+                    for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
+                        components[1+iDim] *= rhoCoarse;
+                    }
                 }
             }
             coarseCell.getDynamics().recompose(coarseCell, components, order);

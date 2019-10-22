@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,18 +42,21 @@ class ShanChenMultiComponentProcessor3D :
     public LatticeBoxProcessingFunctional3D<T,Descriptor>
 {
 public:
-    /// With this constructor, space- and time-dependent values of the
+    /// With these constructors, space- and time-dependent values of the
     ///   relaxation parameters omega are accounted for.
     ShanChenMultiComponentProcessor3D(T G_);
-    /// With this constructor, the values of the relaxation parameters omega are
+    ShanChenMultiComponentProcessor3D(std::vector<std::vector<T> > const& speciesG_);
+    /// With these constructors, the values of the relaxation parameters omega are
     ///   taken to be species-dependent, but not space- or time-dependent. Their
     ///   value is imposed in the constructor.
     ShanChenMultiComponentProcessor3D(T G_, std::vector<T> const& imposedOmega_);
+    ShanChenMultiComponentProcessor3D(std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_);
     virtual void process(Box3D domain, std::vector<BlockLattice3D<T,Descriptor>*> lattices );
     virtual ShanChenMultiComponentProcessor3D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     T G;
+    std::vector<T> speciesG;
     std::vector<T> imposedOmega;
 };
 
@@ -73,6 +76,31 @@ private:
     interparticlePotential::PsiFunction<T>* Psi;
 };
 
+/// Shan-Chen coupling for multi-component flow with or without external force
+/// but with external rhoBar and j.
+template<typename T, template<typename U> class Descriptor>
+class ShanChenExternalMultiComponentProcessor3D :
+    public BoxProcessingFunctional3D
+{
+public:
+    /// With these constructors, space- and time-dependent values of the
+    ///   relaxation parameters omega are accounted for.
+    ShanChenExternalMultiComponentProcessor3D(T G_);
+    ShanChenExternalMultiComponentProcessor3D(std::vector<std::vector<T> > const& speciesG_);
+    /// With these constructors, the values of the relaxation parameters omega are
+    ///   taken to be species-dependent, but not space- or time-dependent. Their
+    ///   value is imposed in the constructor.
+    ShanChenExternalMultiComponentProcessor3D(T G_, std::vector<T> const& imposedOmega_);
+    ShanChenExternalMultiComponentProcessor3D(std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual ShanChenExternalMultiComponentProcessor3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T G;
+    std::vector<T> speciesG;
+    std::vector<T> imposedOmega;
+};
+
 }
 
-#endif  // SHAN_CHEN_LATTICES_3D_H
+#endif  // SHAN_CHEN_PROCESSOR_3D_H

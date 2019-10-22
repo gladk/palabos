@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -45,7 +45,7 @@ public :
         for (plint iX = domain.x0; iX <= domain.x1; ++iX) {
             for (plint iY = domain.y0; iY <= domain.y1; ++iY)
             {
-                T rho = rho0 + ((T)random()/(T)RAND_MAX)*maxRho;
+                T rho = rho0 + ((T)rand()/(T)RAND_MAX)*maxRho;
                 Array<T,2> zeroVelocity (0.,0.);
                 
                 iniCellAtEquilibrium(lattice.get(iX,iY), rho, zeroVelocity);
@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
 {
     plbInit(&argc, &argv);
     global::directories().setOutputDir("./tmp/");
+
+    srand(global::mpi().getRank() + 3);
 
     // For the choice of the parameters G, rho0, and psi0, we refer to the book
     //   Michael C. Sukop and Daniel T. Thorne (2006), 

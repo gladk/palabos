@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -368,6 +368,38 @@ inline void linearRepartition(plint x0, plint x1, plint nBlocks,
     }
 }
 
+inline void linearBlockRepartition(plint x0, plint x1,
+                                   plint wishedLength,
+                                   std::vector<std::pair<plint,plint> >& ranges)
+{
+    plint totalSize = x1-x0+1;
+    plint nBlocks = std::max((plint)1, totalSize/wishedLength);
+    util::linearRepartition(x0, x1, nBlocks, ranges);
+}
+
+inline void linearEvenBlockRepartition(plint x0, plint x1, plint wishedLength, std::vector<std::pair<plint,plint> >& ranges)
+{
+    // Repartition of even numbers to blocks that contain even number of elements.
+    PLB_PRECONDITION(wishedLength > 0 && wishedLength % 2 == 0);
+    plint totalSize = x1 - x0 + 1;
+    PLB_PRECONDITION(totalSize > 0 && totalSize % 2 == 0);
+    plint nBlocks = std::max((plint) 1, totalSize / wishedLength);
+    ranges.resize(nBlocks);
+    plint basicLength = nBlocks == 1 ? totalSize : wishedLength;
+    plint halfOfRemainder = (totalSize % basicLength) / 2;
+
+    plint currentPos = 0;
+    for (plint iRange = 0; iRange < nBlocks; iRange++) {
+        plint currentLength = basicLength + 2 * (plint) (halfOfRemainder / nBlocks);
+        if (iRange < halfOfRemainder % nBlocks) {
+            currentLength += 2;
+        }
+        ranges[iRange] = std::pair<plint,plint>(x0 + currentPos, x0 + currentPos + currentLength - 1);
+        currentPos += currentLength;
+    }
+    PLB_ASSERT(ranges[nBlocks - 1].second == x1);
+}
+
 /// Extend the size of an int-vector, and initialize new values to -1.
 inline void extendVectorSize(std::vector<int>& vect, pluint fullSize) {
     pluint currentSize = vect.size();
@@ -381,175 +413,114 @@ inline void extendVectorSize(std::vector<int>& vect, pluint fullSize) {
 
 /// Test equality of two floating point numbers, with an accuracy
 ///   that is relative to the value of the arguments.
+///   If at least one operand is zero, then an absolute tolerance
+///   comparison is performed.
 template<typename T>
-bool fpequal(T x, T y, T eps)
+inline bool fpequal(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
-    bool val;
-
-    if (std::fabs(x) <= (T) 2.0 * eps)
-        x = (T) 0.0;
-
-    if (std::fabs(y) <= (T) 2.0 * eps)
-        y = (T) 0.0;
-
-    if (x == (T) 0.0 || y == (T) 0.0) {
-        if (std::fabs(x - y) <= (T) 2.0 * eps)
-            val = true;
-        else
-            val = false;
-    } else {
-        if (std::fabs(x - y) <= eps * std::fabs(x) &&
-            std::fabs(x - y) <= eps * std::fabs(y))
-            val = true;
-        else
-            val = false;
+    // This is an attempt to treat underflow.
+    if (std::fabs(x) <= eps) {
+        x = (T) 0;
     }
 
-    return val;
-}
+    // This is an attempt to treat underflow.
+    if (std::fabs(y) <= eps) {
+        y = (T) 0;
+    }
 
-/// Test equality of two floating point numbers, with an accuracy
-///   that is relative to the value of the arguments. The epsilon 
-///   value is set by default to the corresponding floating point
-///   precision.
-template<typename T>
-bool fpequal(T x, T y)
-{
-    T eps = getEpsilon<T>(floatingPointPrecision<T>());
-    return fpequal(x, y, eps);
+    if (x == (T) 0 || y == (T) 0) {
+        return (std::fabs(x - y) <= eps);
+    } else {
+        return (std::fabs(x - y) <= eps * std::fabs(x) && std::fabs(x - y) <= eps * std::fabs(y));
+    }
 }
 
 template<typename T>
-bool greaterEqual(T x, T y, T eps)
+inline bool greaterEqual(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x > y) || fpequal(x, y, eps);
 }
 
 template<typename T>
-bool greaterEqual(T x, T y)
-{
-    return (x > y) || fpequal(x, y);
-}
-
-template<typename T>
-bool greaterThan(T x, T y, T eps)
+inline bool greaterThan(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x > y) && !fpequal(x, y, eps);
 }
 
 template<typename T>
-bool greaterThan(T x, T y)
-{
-    return (x > y) && !fpequal(x, y);
-}
-
-template<typename T>
-bool lessEqual(T x, T y, T eps)
+inline bool lessEqual(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x < y) || fpequal(x, y, eps);
 }
 
 template<typename T>
-bool lessEqual(T x, T y)
-{
-    return (x < y) || fpequal(x, y);
-}
-
-template<typename T>
-bool lessThan(T x, T y, T eps)
+inline bool lessThan(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x < y) && !fpequal(x, y, eps);
 }
 
-template<typename T>
-bool lessThan(T x, T y)
-{
-    return (x < y) && !fpequal(x, y);
-}
-
 /// Test equality of two floating point numbers, with absolute accuracy,
 ///   independent of the value of the arguments. This is useful in relation
 ///   with calculations in which all important quantities are of the order 1.
 template<typename T>
-bool fpequal_abs(T x, T y, T eps)
+inline bool fpequal_abs(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
-    return std::fabs(x-y) <= eps;
-}
-
-/// Test equality of two floating point numbers, with absolute accuracy,
-///   independent of the value of the arguments. This is useful in relation
-///   with calculations in which all important quantities are of the order 1.
-///   The epsilon value is set by default to the corresponding floating point
-///   precision.
-template<typename T>
-bool fpequal_abs(T x, T y)
-{
-    T eps = getEpsilon<T>(floatingPointPrecision<T>());
-    return fpequal_abs(x, y, eps);
+    return std::fabs(x - y) <= eps;
 }
 
 template<typename T>
-bool greaterEqual_abs(T x, T y, T eps)
+inline bool greaterEqual_abs(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x > y) || fpequal_abs(x, y, eps);
 }
 
 template<typename T>
-bool greaterEqual_abs(T x, T y)
-{
-    return (x > y) || fpequal_abs(x, y);
-}
-
-template<typename T>
-bool greaterThan_abs(T x, T y, T eps)
+inline bool greaterThan_abs(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x > y) && !fpequal_abs(x, y, eps);
 }
 
 template<typename T>
-bool greaterThan_abs(T x, T y)
-{
-    return (x > y) && !fpequal_abs(x, y);
-}
-
-template<typename T>
-bool lessEqual_abs(T x, T y, T eps)
+inline bool lessEqual_abs(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x < y) || fpequal_abs(x, y, eps);
 }
 
 template<typename T>
-bool lessEqual_abs(T x, T y)
-{
-    return (x < y) || fpequal_abs(x, y);
-}
-
-template<typename T>
-bool lessThan_abs(T x, T y, T eps)
+inline bool lessThan_abs(T x, T y, T eps = std::numeric_limits<T>::epsilon())
 {
     return (x < y) && !fpequal_abs(x, y, eps);
 }
 
 template<typename T>
-bool lessThan_abs(T x, T y)
+inline bool isZero(T x, T eps = std::numeric_limits<T>::epsilon())
 {
-    return (x < y) && !fpequal_abs(x, y);
-}
-
-/// Helper functions to check equality with 0 and 1.
-/// They should work with floating-point and integral types as well.
-template<typename T>
-inline bool isZero(T x)
-{
-    T eps = getEpsilon<T>();
-    return(std::fabs(x) <= eps);
+    return fpequal(x, (T) 0, eps);
 }
 
 template<typename T>
-inline bool isOne(T x)
+inline bool isOne(T x, T eps = std::numeric_limits<T>::epsilon())
 {
-    T eps = getEpsilon<T>();
-    return(std::fabs(x - (T) 1) <= eps);
+    return fpequal(x, (T) 1, eps);
+}
+
+template<typename T>
+inline bool isNaN(T x)
+{
+    // Warning: This check might be hardware dependent.
+    return x != x;
+}
+
+template<typename T>
+inline bool isInfinite(T x)
+{
+    return !(std::fabs(x) <= std::numeric_limits<T>::max());
+}
+
+template<typename T>
+inline bool isFiniteNumber(T x)
+{
+    return (!isNaN(x) && !isInfinite(x));
 }
 
 

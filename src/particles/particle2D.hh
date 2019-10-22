@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -172,6 +172,12 @@ template<typename T, template<typename U> class Descriptor>
 void PointParticle2D<T,Descriptor>::velocityToParticle(TensorField2D<T,2>& velocityField, T scaling)
 {
     velocity = predictorCorrectorTensorField<T,2>(velocityField, this->getPosition(), scaling);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void PointParticle2D<T,Descriptor>::velocityToParticle(NTensorField2D<T>& velocityField, T scaling)
+{
+    velocity = predictorCorrectorNTensorField<T>(velocityField, this->getPosition(), scaling);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -428,6 +434,9 @@ template<typename T, template<typename U> class Descriptor>
 void RestParticle2D<T,Descriptor>::velocityToParticle(TensorField2D<T,2>& velocityField, T scaling) { }
 
 template<typename T, template<typename U> class Descriptor>
+void RestParticle2D<T,Descriptor>::velocityToParticle(NTensorField2D<T>& velocityField, T scaling) { }
+
+template<typename T, template<typename U> class Descriptor>
 void RestParticle2D<T,Descriptor>::rhoBarJtoParticle (
         NTensorField2D<T>& rhoBarJfield, bool velIsJ, T scaling )
 { }
@@ -492,6 +501,25 @@ void VerletParticle2D<T,Descriptor>::velocityToParticle(TensorField2D<T,2>& velo
     fluidVelocity.resetToZero();
     for (plint iCell=0; iCell<4; ++iCell) {
         fluidVelocity += weights[iCell]*velocityField.get(pos[iCell].x,pos[iCell].y)*scaling;
+    }
+
+    Array<T,2> force( (fluidVelocity-this->get_v()) *fluidCompliance);
+    this->set_a(force / this->get_rho());
+}
+
+template<typename T, template<typename U> class Descriptor>
+void VerletParticle2D<T,Descriptor>::velocityToParticle(NTensorField2D<T>& velocityField, T scaling)
+{
+    Array<T,2> position(this->getPosition());
+    std::vector<Dot2D> pos(4);
+    std::vector<T> weights(4);
+    linearInterpolationCoefficients(velocityField, position, pos, weights);
+    Array<T,2> fluidVelocity;
+    fluidVelocity.resetToZero();
+    for (plint iCell=0; iCell<4; ++iCell) {
+        T* data = velocityField.get(pos[iCell].x,pos[iCell].y);
+        fluidVelocity[0] += weights[iCell]*scaling * data[0];
+        fluidVelocity[1] += weights[iCell]*scaling * data[1];
     }
 
     Array<T,2> force( (fluidVelocity-this->get_v()) *fluidCompliance);

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -55,13 +55,16 @@ namespace plb {
  * Otherwise some of the code will work erroneously, because the
  * aformentioned relations are taken as given to enable a few
  * optimizations.
+ *
+ * Givan that this constraint is difficult to verify by hand, we copy-paste
+ * a Python code at the end of extendedNeighborhoodLattices3D.hh which does the work.
 */
 namespace descriptors {
     
-    /// D3Q121 lattice constants
+    /// d3q121 lattice constants
     template <typename T> struct D3Q121Constants
     {
-        enum { d = 3, q = 121 };        ///< number of dimensions/distr. functions
+        enum { d = 3, q = 121 };      ///< number of dimensions/distr. functions
         static const T invD;          ///< 1 / (number of dimensions)
         static const int vicinity;    ///< size of neighborhood
         static const int c[q][d];     ///< lattice directions
@@ -86,6 +89,39 @@ namespace descriptors {
     
     template <typename T> struct ForcedD3Q121Descriptor
     : public D3Q121DescriptorBase<T>, public Force3dDescriptorBase
+    {
+        static const char name[];
+    };
+    
+    
+    /// d3q39 lattice constants
+    template <typename T> struct D3Q39Constants
+    {
+        enum { d = 3, q = 39 };      ///< number of dimensions/distr. functions
+        static const T invD;          ///< 1 / (number of dimensions)
+        static const int vicinity;    ///< size of neighborhood
+        static const int c[q][d];     ///< lattice directions
+        static const int cNormSqr[q]; ///< norm-square of the vector c
+        static const T t[q];          ///< lattice weights
+        static const T cs2;           ///< lattice constant cs2 (in BGK, this is the square-speed-of-sound)
+        static const T invCs2;        ///< 1 / cs2
+    };
+    
+    template <typename T> struct D3Q39DescriptorBase
+    : public D3Q39Constants<T>, public DefaultRoundOffPolicy<T>
+    {
+        typedef D3Q39DescriptorBase<T> BaseDescriptor;
+        enum { numPop=D3Q39Constants<T>::q };
+    };
+    
+    template <typename T> struct D3Q39Descriptor
+    : public D3Q39DescriptorBase<T>, public NoExternalFieldBase
+    {
+        static const char name[];
+    };
+    
+    template <typename T> struct ForcedD3Q39Descriptor
+    : public D3Q39DescriptorBase<T>, public Force3dDescriptorBase
     {
         static const char name[];
     };

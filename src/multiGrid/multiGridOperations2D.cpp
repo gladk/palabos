@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -56,7 +56,7 @@ void executeDataProcessor( DataProcessorGenerator2D const& generator,
         plint dxScale = referenceLevel - iLevel;
         plint dtScale = dxScale;  // TODO: here, we assume convective scaling; general case should be considered.
         
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
         if (dxScale < 0) // if we go to a coarser grid
             localGenerator->divide(boxRescaleFactor);  
         else  // otherwise we go to a finer grid
@@ -110,7 +110,7 @@ void executeDataProcessor( ReductiveDataProcessorGenerator2D& generator,
         int dtScale = dxScale;  // TODO: here, we assume convective scaling; general case could be considered.
         localGenerators[iLevel] = generator.clone();
         
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
         if (dxScale < 0)
             generator.divide(boxRescaleFactor);  
         else
@@ -164,7 +164,7 @@ void addInternalProcessor( DataProcessorGenerator2D const& generator,
         
         // TODO: correct for referenceLevel!=0
         localGenerator -> setscale(dxScale,dtScale);
-        int boxRescaleFactor = util::roundToInt(util::twoToThePower(abs(referenceLevel-iLevel)));
+        int boxRescaleFactor = util::roundToInt(util::twoToThePower(std::abs(referenceLevel-iLevel)));
         if (referenceLevel-iLevel > 0)
             localGenerator->divide(boxRescaleFactor);  
         else

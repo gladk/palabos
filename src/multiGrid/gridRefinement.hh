@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -103,22 +103,25 @@ void ConvectiveRescaleEngine<T,Descriptor>::scaleCoarseFine (
         Cell<T,Descriptor> const& coarseCell, std::vector<T>& decomposedFineValues ) const
 {
     coarseCell.getDynamics().decompose(coarseCell, decomposedFineValues, order);
-    T tauCoarse = 1./coarseCell.getDynamics().getOmega();
-    T tauFine   = 2.*tauCoarse - (T)1./(T)2.;
-    
-    if (order == 0){
-        for (plint iFneq=0; iFneq<Descriptor<T>::q; ++iFneq) {
-            decomposedFineValues[1+Descriptor<T>::d+iFneq] *= tauFine/tauCoarse;
+
+    if(!coarseCell.getDynamics().isAdvectionDiffusion()){
+        T tauCoarse = 1./coarseCell.getDynamics().getOmega();
+        T tauFine   = 2.*tauCoarse - (T)1./(T)2.;
+
+        if (order == 0){
+            for (plint iFneq=0; iFneq<Descriptor<T>::q; ++iFneq) {
+                decomposedFineValues[1+Descriptor<T>::d+iFneq] *= tauFine/tauCoarse;
+            }
         }
+        else {
+            for (plint iPineq=0; iPineq < SymmetricTensor<T,Descriptor>::n; ++iPineq) {
+                decomposedFineValues[1+Descriptor<T>::d+iPineq] *= tauFine/tauCoarse;
+            }
+        }
+
+        coarseCell.getDynamics().rescale( decomposedFineValues, toFine_xDxInv,
+                                          toFine_xDt, order );
     }
-    else {
-        for (plint iPineq=0; iPineq < SymmetricTensor<T,Descriptor>::n; ++iPineq) {
-            decomposedFineValues[1+Descriptor<T>::d+iPineq] *= tauFine/tauCoarse;
-        }    
-    }
-    
-    coarseCell.getDynamics().rescale( decomposedFineValues, toFine_xDxInv,
-                                      toFine_xDt, order );
     
 }
 
@@ -126,27 +129,30 @@ template<typename T, template<typename U> class Descriptor>
 void ConvectiveRescaleEngine<T,Descriptor>::scaleFineCoarse (
         Cell<T,Descriptor> const& fineCell, std::vector<T>& decomposedCoarseValues ) const
 {
+
     // decompose the fine cell populations
     fineCell.getDynamics().decompose(fineCell, decomposedCoarseValues, order);
-    
-    // computation of the factor associated with both tau
-    T tauFine   = 1./fineCell.getDynamics().getOmega();
-    T tauCoarse = (tauFine+(T)1./(T)2.)/(T)2.;
-    
-    if (order == 0){
-        for (plint iFneq=0; iFneq < Descriptor<T>::q; ++iFneq) {
-            decomposedCoarseValues[1+Descriptor<T>::d+iFneq] *= tauCoarse/tauFine;
+
+    if(!fineCell.getDynamics().isAdvectionDiffusion()){
+        // computation of the factor associated with both tau
+        T tauFine   = 1./fineCell.getDynamics().getOmega();
+        T tauCoarse = (tauFine+(T)1./(T)2.)/(T)2.;
+
+        if (order == 0){
+            for (plint iFneq=0; iFneq < Descriptor<T>::q; ++iFneq) {
+                decomposedCoarseValues[1+Descriptor<T>::d+iFneq] *= tauCoarse/tauFine;
+            }
         }
+        else {
+            for (plint iPineq=0; iPineq < SymmetricTensor<T,Descriptor>::n; ++iPineq) {
+                decomposedCoarseValues[1+Descriptor<T>::d+iPineq] *= tauCoarse/tauFine;
+            }
+        }
+
+        // rescale and copy the values inside decomposedCoarseValues
+        fineCell.getDynamics().rescale(decomposedCoarseValues, toCoarse_xDxInv,
+                                       toCoarse_xDt, order);
     }
-    else {
-        for (plint iPineq=0; iPineq < SymmetricTensor<T,Descriptor>::n; ++iPineq) {
-            decomposedCoarseValues[1+Descriptor<T>::d+iPineq] *= tauCoarse/tauFine;
-        }    
-    }
-        
-    // rescale and copy the values inside decomposedCoarseValues
-    fineCell.getDynamics().rescale(decomposedCoarseValues, toCoarse_xDxInv,
-                                   toCoarse_xDt, order);
 
 }
 

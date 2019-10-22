@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,6 +30,7 @@
 #include "core/geometry3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
 #include "multiBlock/multiDataField3D.h"
+#include "io/plbFiles.h"
 
 #include <string>
 
@@ -47,18 +48,28 @@ public:
     TransientStatistics3D<T,Descriptor>* clone() const;
     ~TransientStatistics3D();
     // Field must be one of:
-    // "velocityX", "velocityY", "velocityZ", "velocityNorm", "pressure", "vorticityX", "vorticityY", "vorticityZ", "vorticityNorm"
+    //
+    // "velocityX", "velocityY", "velocityZ", "velocityNorm", "density", "pressure",
+    //     "vorticityX", "vorticityY", "vorticityZ", "vorticityNorm"
+    //
+    // The "density" entry above is mainly to treat advection-diffusion equations.
+    //
     // Operation must be one of:
     // "min", "max", "ave" (for mean value), "rms", "dev" (for standard deviation).
     bool registerFieldOperation(std::string field, std::string operation);
     void initialize();
     void update();
-    MultiScalarField3D<T>* get(std::string field, std::string operation) const;
-    // "rho" is the actual fluid density in physical units.
+    MultiScalarField3D<T>& get(std::string field, std::string operation) const;
+    // "rho" is the actual fluid density in physical units (or the scaling factor for an advection-diffusion equation).
     // "pressureOffset" is the ambient pressure in physical units.
     // "rhoLB" is the lattice-Boltzmann density (1 by default).
     void output(std::string path, std::string domainName, plint iteration, plint namePadding, T dx, T dt,
             Array<T,3> const& physicalLocation, T rho = T(1), T pressureOffset = T(0), T rhoLB = T(1));
+    // Save the current state of all the registered transient statistics for restarting.
+    void saveState(plint iteration, FileName xmlFileName, FileName baseFileName, plint fileNamePadding = 8);
+    // Save the current state of all the registered transient statistics for restarting.
+    void loadState(plint& iteration, FileName xmlFileName);
+
 private:
     int fieldToId(std::string field) const;
     int operationToId(std::string operation) const;
@@ -70,8 +81,8 @@ private:
     std::string getFileName(std::string path, int iField, int iOperation, std::string domainName,
             plint iteration, plint namePadding) const;
 private:
-    enum { numFields = 9 };
-    enum { velocityX, velocityY, velocityZ, velocityNorm, pressure, vorticityX, vorticityY, vorticityZ, vorticityNorm };
+    enum { numFields = 10 };
+    enum { velocityX, velocityY, velocityZ, velocityNorm, density, pressure, vorticityX, vorticityY, vorticityZ, vorticityNorm };
     enum { numOperations = 5 };
     enum { min, max, ave, rms, dev };
 private:

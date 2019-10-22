@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     if (argc != 9) {
         pcout << "Wrong parameters; the syntax is:" << std::endl
               << (std::string)global::argv(0)
-              << "[FLT | DBL | LDBL | INF] inputSTL.stl cut-plane-point-x cut-plane-point-y cut-plane-point-z" << std::endl
+              << " [FLT | DBL | LDBL | INF] inputSTL.stl cut-plane-point-x cut-plane-point-y cut-plane-point-z" << std::endl
               << "cut-plane-normal-x cut-plane-normal-y cut-plane-normal-z" << std::endl;
         exit(-1);
     }
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
         pcout << "Problem with the surface cutting." << std::endl;
         exit(1);
     }
-    normalNegativePart.writeBinarySTL("normalNegativePart.stl");
+    normalNegativePart.writeAsciiSTL("normalNegativePart.stl");
 
     TriangleSet<T> normalPositivePart;
     cutPlane.normal = -cutPlane.normal;
@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
         pcout << "Problem with the surface cutting." << std::endl;
         exit(1);
     }
-    normalPositivePart.writeBinarySTL("normalPositivePart.stl");
+    normalPositivePart.writeAsciiSTL("normalPositivePart.stl");
 
     delete set;
 

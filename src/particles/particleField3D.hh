@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,8 +34,8 @@ namespace plb {
 /* *************** class ParticleField3D ************************************ */
 
 template<typename T, template<typename U> class Descriptor>
-ParticleField3D<T,Descriptor>::ParticleField3D(plint nx, plint ny, plint nz)
-    : AtomicBlock3D(nx,ny,nz)
+ParticleField3D<T,Descriptor>::ParticleField3D(plint nx, plint ny, plint nz, BlockDataTransfer3D* dataTransfer)
+    : AtomicBlock3D(nx,ny,nz, dataTransfer)
 { }
 
 template<typename T, template<typename U> class Descriptor>
@@ -89,10 +89,29 @@ void ParticleField3D<T,Descriptor>::computeGridPosition (
 /* *************** class DenseParticleDataTransfer3D ************************ */
 
 template<typename T, template<typename U> class Descriptor>
-DenseParticleDataTransfer3D<T,Descriptor>::DenseParticleDataTransfer3D (
-        DenseParticleField3D<T,Descriptor>& particleField_)
-    : particleField(particleField_)
+DenseParticleDataTransfer3D<T,Descriptor>::DenseParticleDataTransfer3D()
+    : particleField(0),
+      constParticleField(0)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+void DenseParticleDataTransfer3D<T,Descriptor>::setBlock(AtomicBlock3D& block) {
+    particleField = dynamic_cast<DenseParticleField3D<T,Descriptor>*>(&block);
+    PLB_ASSERT(particleField);
+    constParticleField = particleField;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void DenseParticleDataTransfer3D<T,Descriptor>::setConstBlock(AtomicBlock3D const& block) {
+    constParticleField = dynamic_cast<DenseParticleField3D<T,Descriptor> const*>(&block);
+    PLB_ASSERT(constParticleField);
+}
+
+template<typename T, template<typename U> class Descriptor>
+DenseParticleDataTransfer3D<T,Descriptor>* DenseParticleDataTransfer3D<T,Descriptor>::clone() const
+{
+    return new DenseParticleDataTransfer3D<T,Descriptor>(*this);
+}
 
 template<typename T, template<typename U> class Descriptor>
 plint DenseParticleDataTransfer3D<T,Descriptor>::staticCellSize() const {
@@ -103,6 +122,7 @@ template<typename T, template<typename U> class Descriptor>
 void DenseParticleDataTransfer3D<T,Descriptor>::send (
         Box3D domain, std::vector<char>& buffer, modif::ModifT kind ) const
 {
+    PLB_PRECONDITION( constParticleField );
     buffer.clear();
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the send procedure
@@ -111,8 +131,8 @@ void DenseParticleDataTransfer3D<T,Descriptor>::send (
          (kind==modif::allVariables) ||
          (kind==modif::dataStructure) )
     {
-        std::vector<Particle3D<T,Descriptor>*> foundParticles;
-        particleField.findParticles(domain, foundParticles);
+        std::vector<Particle3D<T,Descriptor> const*> foundParticles;
+        constParticleField->findParticles(domain, foundParticles);
         for (pluint iParticle=0; iParticle<foundParticles.size(); ++iParticle) {
             // The serialize function automatically reallocates memory for buffer.
             serialize(*foundParticles[iParticle], buffer);
@@ -124,9 +144,10 @@ template<typename T, template<typename U> class Descriptor>
 void DenseParticleDataTransfer3D<T,Descriptor>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION(contained(domain, particleField.getBoundingBox()));
+    PLB_PRECONDITION( particleField );
+    PLB_PRECONDITION(contained(domain, particleField->getBoundingBox()));
     // Clear the existing data before introducing the new data.
-    particleField.removeParticles(domain);
+    particleField->removeParticles(domain);
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the receive procedure
     //   is run whenever kind is one of the dynamic types.
@@ -141,7 +162,7 @@ void DenseParticleDataTransfer3D<T,Descriptor>::receive (
             Particle3D<T,Descriptor>* newParticle =
                 meta::particleRegistration3D<T,Descriptor>().generate(unserializer);
             posInBuffer = unserializer.getCurrentPos();
-            particleField.addParticle(domain, newParticle);
+            particleField->addParticle(domain, newParticle);
         }
     }
 }
@@ -150,14 +171,15 @@ template<typename T, template<typename U> class Descriptor>
 void DenseParticleDataTransfer3D<T,Descriptor>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind, Dot3D absoluteOffset )
 {
+    PLB_PRECONDITION( particleField );
     if (absoluteOffset.x == 0 && absoluteOffset.y == 0 && absoluteOffset.z == 0) {
         receive(domain, buffer, kind);
         return;
     }
-    PLB_PRECONDITION(contained(domain, particleField.getBoundingBox()));
+    PLB_PRECONDITION(contained(domain, particleField->getBoundingBox()));
     Array<T,3> realAbsoluteOffset((T)absoluteOffset.x, (T)absoluteOffset.y, (T)absoluteOffset.z);
     // Clear the existing data before introducing the new data.
-    particleField.removeParticles(domain);
+    particleField->removeParticles(domain);
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the receive procedure
     //   is run whenever kind is one of the dynamic types.
@@ -174,7 +196,7 @@ void DenseParticleDataTransfer3D<T,Descriptor>::receive (
             posInBuffer = unserializer.getCurrentPos();
             newParticle -> getPosition() += realAbsoluteOffset;
 
-            particleField.addParticle(domain, newParticle);
+            particleField->addParticle(domain, newParticle);
         }
     }
 }
@@ -205,13 +227,13 @@ void DenseParticleDataTransfer3D<T,Descriptor>::attribute (
     receive(toDomain, buffer, kind, absoluteOffset);
 }
 
+
 /* *************** class DenseParticleField3D ********************** */
 
 template<typename T, template<typename U> class Descriptor>
 DenseParticleField3D<T,Descriptor>::DenseParticleField3D(plint nx, plint ny, plint nz)
-    : ParticleField3D<T,Descriptor>(nx,ny,nz),
-      particleGrid(nx,ny,nz),
-      dataTransfer(*this)
+    : ParticleField3D<T,Descriptor>(nx,ny,nz, new DenseParticleDataTransfer3D<T,Descriptor>() ),
+      particleGrid(nx,ny,nz)
 { }
 
 template<typename T, template<typename U> class Descriptor>
@@ -231,16 +253,14 @@ DenseParticleField3D<T,Descriptor>::~DenseParticleField3D()
 template<typename T, template<typename U> class Descriptor>
 DenseParticleField3D<T,Descriptor>::DenseParticleField3D(DenseParticleField3D const& rhs)
     : ParticleField3D<T,Descriptor>(rhs),
-      particleGrid(rhs.particleGrid.getNx(), rhs.particleGrid.getNy()),
-      dataTransfer(*this)
-      
+      particleGrid(rhs.particleGrid.getNx(), rhs.particleGrid.getNy(), rhs.particleGrid.getNz())
 {
     for (plint iX=0; iX<particleGrid.getNx(); ++iX) {
         for (plint iY=0; iY<particleGrid.getNy(); ++iY) {
             for (plint iZ=0; iZ<particleGrid.getNz(); ++iZ) {
                 particleGrid.get(iX,iY,iZ).resize(rhs.particleGrid.get(iX,iY,iZ).size());
                 for (pluint iParticle=0; iParticle<particleGrid.get(iX,iY,iZ).size(); ++iParticle) {
-                    particleGrid.get(iX,iY,iZ)[iParticle] = rhs.particleGrid.get(iX,iY,iZ)[iParticle].clone();
+                    particleGrid.get(iX,iY,iZ)[iParticle] = rhs.particleGrid.get(iX,iY,iZ)[iParticle]->clone();
                 }
             }
         }
@@ -380,6 +400,25 @@ void DenseParticleField3D<T,Descriptor>::velocityToParticleCoupling (
 }
 
 template<typename T, template<typename U> class Descriptor>
+void DenseParticleField3D<T,Descriptor>::velocityToParticleCoupling (
+        Box3D domain, NTensorField3D<T>& velocityField, T scaling )
+{
+    Box3D finalDomain;
+    if( intersect(domain, particleGrid.getBoundingBox(), finalDomain) )
+    {
+        for (plint iX=finalDomain.x0; iX<=finalDomain.x1; ++iX) {
+            for (plint iY=finalDomain.y0; iY<=finalDomain.y1; ++iY) {
+                for (plint iZ=finalDomain.z0; iZ<=finalDomain.z1; ++iZ) {
+                    for (pluint iParticle=0; iParticle<particleGrid.get(iX,iY,iZ).size(); ++iParticle) {
+                        particleGrid.get(iX,iY,iZ)[iParticle]->velocityToParticle(velocityField, scaling);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 void DenseParticleField3D<T,Descriptor>::rhoBarJtoParticleCoupling (
         Box3D domain, NTensorField3D<T>& rhoBarJfield, bool velIsJ, T scaling )
 {
@@ -466,16 +505,6 @@ void DenseParticleField3D<T,Descriptor>::advanceParticles(Box3D domain, T cutOff
 }
 
 template<typename T, template<typename U> class Descriptor>
-DenseParticleDataTransfer3D<T,Descriptor>& DenseParticleField3D<T,Descriptor>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T, template<typename U> class Descriptor>
-DenseParticleDataTransfer3D<T,Descriptor> const& DenseParticleField3D<T,Descriptor>::getDataTransfer() const {
-    return dataTransfer;
-}
-
-template<typename T, template<typename U> class Descriptor>
 std::string DenseParticleField3D<T,Descriptor>::getBlockName() {
     return std::string("DenseParticleField3D");
 }
@@ -494,10 +523,30 @@ std::string DenseParticleField3D<T,Descriptor>::descriptorType() {
 /* *************** class LightParticleDataTransfer3D ************************ */
 
 template<typename T, template<typename U> class Descriptor>
-LightParticleDataTransfer3D<T,Descriptor>::LightParticleDataTransfer3D (
-        LightParticleField3D<T,Descriptor>& particleField_)
-    : particleField(particleField_)
+LightParticleDataTransfer3D<T,Descriptor>::LightParticleDataTransfer3D()
+    : particleField(0),
+      constParticleField(0)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+void LightParticleDataTransfer3D<T,Descriptor>::setBlock(AtomicBlock3D& block) {
+    particleField = dynamic_cast<LightParticleField3D<T,Descriptor>*>(&block);
+    PLB_ASSERT(particleField);
+    constParticleField = particleField;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void LightParticleDataTransfer3D<T,Descriptor>::setConstBlock(AtomicBlock3D const& block) {
+    constParticleField = dynamic_cast<LightParticleField3D<T,Descriptor> const*>(&block);
+    PLB_ASSERT(constParticleField);
+}
+
+template<typename T, template<typename U> class Descriptor>
+LightParticleDataTransfer3D<T,Descriptor>* LightParticleDataTransfer3D<T,Descriptor>::clone() const
+{
+    return new LightParticleDataTransfer3D<T,Descriptor>(*this);
+}
+
 
 template<typename T, template<typename U> class Descriptor>
 plint LightParticleDataTransfer3D<T,Descriptor>::staticCellSize() const {
@@ -508,6 +557,7 @@ template<typename T, template<typename U> class Descriptor>
 void LightParticleDataTransfer3D<T,Descriptor>::send (
         Box3D domain, std::vector<char>& buffer, modif::ModifT kind ) const
 {
+    PLB_PRECONDITION( constParticleField );
     buffer.clear();
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the send procedure
@@ -516,8 +566,8 @@ void LightParticleDataTransfer3D<T,Descriptor>::send (
          (kind==modif::allVariables) ||
          (kind==modif::dataStructure) )
     {
-        std::vector<Particle3D<T,Descriptor>*> foundParticles;
-        particleField.findParticles(domain, foundParticles);
+        std::vector<Particle3D<T,Descriptor> const*> foundParticles;
+        constParticleField->findParticles(domain, foundParticles);
         for (pluint iParticle=0; iParticle<foundParticles.size(); ++iParticle) {
             // The serialize function automatically reallocates memory for buffer.
             serialize(*foundParticles[iParticle], buffer);
@@ -529,9 +579,10 @@ template<typename T, template<typename U> class Descriptor>
 void LightParticleDataTransfer3D<T,Descriptor>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind )
 {
-    PLB_PRECONDITION(contained(domain, particleField.getBoundingBox()));
+    PLB_PRECONDITION( particleField );
+    PLB_PRECONDITION(contained(domain, particleField->getBoundingBox()));
     // Clear the existing data before introducing the new data.
-    particleField.removeParticles(domain);
+    particleField->removeParticles(domain);
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the receive procedure
     //   is run whenever kind is one of the dynamic types.
@@ -546,7 +597,7 @@ void LightParticleDataTransfer3D<T,Descriptor>::receive (
             Particle3D<T,Descriptor>* newParticle =
                 meta::particleRegistration3D<T,Descriptor>().generate(unserializer);
             posInBuffer = unserializer.getCurrentPos();
-            particleField.addParticle(domain, newParticle);
+            particleField->addParticle(domain, newParticle);
         }
     }
 }
@@ -555,14 +606,15 @@ template<typename T, template<typename U> class Descriptor>
 void LightParticleDataTransfer3D<T,Descriptor>::receive (
         Box3D domain, std::vector<char> const& buffer, modif::ModifT kind, Dot3D absoluteOffset )
 {
+    PLB_PRECONDITION( particleField );
     if (absoluteOffset.x == 0 && absoluteOffset.y == 0 && absoluteOffset.z == 0) {
         receive(domain, buffer, kind);
         return;
     }
-    PLB_PRECONDITION(contained(domain, particleField.getBoundingBox()));
+    PLB_PRECONDITION(contained(domain, particleField->getBoundingBox()));
     Array<T,3> realAbsoluteOffset((T)absoluteOffset.x, (T)absoluteOffset.y, (T)absoluteOffset.z);
     // Clear the existing data before introducing the new data.
-    particleField.removeParticles(domain);
+    particleField->removeParticles(domain);
     // Particles, by definition, are dynamic data, and they need to
     //   be reconstructed in any case. Therefore, the receive procedure
     //   is run whenever kind is one of the dynamic types.
@@ -579,7 +631,7 @@ void LightParticleDataTransfer3D<T,Descriptor>::receive (
             posInBuffer = unserializer.getCurrentPos();
             newParticle -> getPosition() += realAbsoluteOffset;
 
-            particleField.addParticle(domain, newParticle);
+            particleField->addParticle(domain, newParticle);
         }
     }
 }
@@ -615,8 +667,7 @@ void LightParticleDataTransfer3D<T,Descriptor>::attribute (
 
 template<typename T, template<typename U> class Descriptor>
 LightParticleField3D<T,Descriptor>::LightParticleField3D(plint nx, plint ny, plint nz)
-    : ParticleField3D<T,Descriptor>(nx,ny,nz),
-      dataTransfer(*this)
+    : ParticleField3D<T,Descriptor>(nx,ny,nz, new LightParticleDataTransfer3D<T,Descriptor>() )
 { }
 
 template<typename T, template<typename U> class Descriptor>
@@ -629,11 +680,10 @@ LightParticleField3D<T,Descriptor>::~LightParticleField3D()
 
 template<typename T, template<typename U> class Descriptor>
 LightParticleField3D<T,Descriptor>::LightParticleField3D(LightParticleField3D const& rhs)
-    : ParticleField3D<T,Descriptor>(rhs),
-      dataTransfer(*this)
+    : ParticleField3D<T,Descriptor>(rhs)
 {
     for (pluint i=0; i<rhs.particles.size(); ++i) {
-        particles.push_back(rhs.particles[i].clone());
+        particles.push_back(rhs.particles[i]->clone());
     }
 }
 
@@ -751,6 +801,21 @@ void LightParticleField3D<T,Descriptor>::velocityToParticleCoupling (
 }
 
 template<typename T, template<typename U> class Descriptor>
+void LightParticleField3D<T,Descriptor>::velocityToParticleCoupling (
+        Box3D domain, NTensorField3D<T>& velocityField, T scaling )
+{
+    Box3D finalDomain;
+    if( intersect(domain, this->getBoundingBox(), finalDomain) )
+    {
+        for (pluint i=0; i<particles.size(); ++i) {
+            if (this->isContained(particles[i]->getPosition(),finalDomain)) {
+                particles[i]->velocityToParticle(velocityField, scaling);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
 void LightParticleField3D<T,Descriptor>::rhoBarJtoParticleCoupling (
         Box3D domain, NTensorField3D<T>& rhoBarJfield, bool velIsJ, T scaling )
 {
@@ -803,16 +868,6 @@ void LightParticleField3D<T,Descriptor>::advanceParticles(Box3D domain, T cutOff
         }
     }
     particles.swap(remainingParticles);
-}
-
-template<typename T, template<typename U> class Descriptor>
-LightParticleDataTransfer3D<T,Descriptor>& LightParticleField3D<T,Descriptor>::getDataTransfer() {
-    return dataTransfer;
-}
-
-template<typename T, template<typename U> class Descriptor>
-LightParticleDataTransfer3D<T,Descriptor> const& LightParticleField3D<T,Descriptor>::getDataTransfer() const {
-    return dataTransfer;
 }
 
 template<typename T, template<typename U> class Descriptor>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -95,8 +95,84 @@ void CopyConvertNTensorFunctional3D<T1,T2>::getTypeOfModification(std::vector<mo
 
 template<typename T1, typename T2>
 BlockDomain::DomainT CopyConvertNTensorFunctional3D<T1,T2>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
+
+/* ******** ConvertNTensorToScalarFunctional3D ************************************ */
+
+template<typename T>
+void ConvertNTensorToScalarFunctional3D<T>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> fields )
+{
+    PLB_PRECONDITION( fields.size()==2 );
+    NTensorField3D<T>& nTensor = *dynamic_cast<NTensorField3D<T>*>(fields[0]);
+    ScalarField3D<T>& scalar = *dynamic_cast<ScalarField3D<T>*>(fields[1]);
+    PLB_ASSERT( nTensor.getNdim()==1 );
+
+    Dot3D offset = computeRelativeDisplacement(nTensor, scalar);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                scalar.get(iX+offset.x,iY+offset.y,iZ+offset.z) = *nTensor.get(iX,iY,iZ);
+            }
+        }
+    }
+}
+
+template<typename T>
+ConvertNTensorToScalarFunctional3D<T>* ConvertNTensorToScalarFunctional3D<T>::clone() const {
+    return new ConvertNTensorToScalarFunctional3D<T>(*this);
+}
+
+template<typename T>
+void ConvertNTensorToScalarFunctional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;  // nTensor
+    modified[1] = modif::staticVariables;  // scalar
+}
+
+template<typename T>
+BlockDomain::DomainT ConvertNTensorToScalarFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
+
+/* ******** ConvertScalarToNTensorFunctional3D ************************************ */
+
+template<typename T>
+void ConvertScalarToNTensorFunctional3D<T>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> fields )
+{
+    PLB_PRECONDITION( fields.size()==2 );
+    ScalarField3D<T>& scalar = *dynamic_cast<ScalarField3D<T>*>(fields[0]);
+    NTensorField3D<T>& nTensor = *dynamic_cast<NTensorField3D<T>*>(fields[1]);
+    PLB_ASSERT( nTensor.getNdim()==1 );
+
+    Dot3D offset = computeRelativeDisplacement(scalar, nTensor);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                *nTensor.get(iX+offset.x,iY+offset.y,iZ+offset.z) = scalar.get(iX,iY,iZ);
+            }
+        }
+    }
+}
+
+template<typename T>
+ConvertScalarToNTensorFunctional3D<T>* ConvertScalarToNTensorFunctional3D<T>::clone() const {
+    return new ConvertScalarToNTensorFunctional3D<T>(*this);
+}
+
+template<typename T>
+void ConvertScalarToNTensorFunctional3D<T>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;  // scalar
+    modified[1] = modif::staticVariables;  // nTensor
+}
+
+template<typename T>
+BlockDomain::DomainT ConvertScalarToNTensorFunctional3D<T>::appliesTo() const {
+    return BlockDomain::bulk;
+}
+
 
 }  // namespace plb
 

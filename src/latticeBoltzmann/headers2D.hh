@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
  * Groups all the 2D template instantiation files for the directory latticeBoltzmann
  */
 #include "latticeBoltzmann/nearestNeighborLattices2D.hh"
+#include "latticeBoltzmann/extendedNeighborhoodLattices2D.hh"
 #include "latticeBoltzmann/advectionDiffusionLattices.hh"
 #include "latticeBoltzmann/mrtLattices.hh"
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -50,10 +50,11 @@ void LatticeToPassiveAdvDiff2D<T,FluidDescriptor,ScalarDescriptor>::process (
               BlockLattice2D<T,FluidDescriptor>& fluid,
               BlockLattice2D<T,ScalarDescriptor>& scalar )
 {
+    Dot2D offset = computeRelativeDisplacement(fluid, scalar);
     const int velOffset = ScalarDescriptor<T>::ExternalField::velocityBeginsAt;
     for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
         for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
-            T *u = scalar.get(iX,iY).getExternal(velOffset);
+            T *u = scalar.get(iX+offset.x,iY+offset.y).getExternal(velOffset);
             Array<T,2> velocity;
             fluid.get(iX,iY).computeVelocity(velocity);
             velocity *= scaling;

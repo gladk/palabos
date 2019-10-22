@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -299,8 +299,6 @@ int main(int argc, char* argv[])
     defineDynamics(*lattice, lattice->getBoundingBox(), dynamics->clone());
     delete dynamics;
     lattice->toggleInternalStatistics(false);
-
-    MultiBlockManagement3D sparseBlockManagement(lattice->getMultiBlockManagement());
 
     MultiScalarField3D<T> *rhoBar = generateMultiScalarField<T>((MultiBlock3D&) *lattice, largeEnvelopeWidth).release();
     rhoBar->toggleInternalStatistics(false);

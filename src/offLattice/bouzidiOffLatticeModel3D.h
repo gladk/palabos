@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -37,23 +37,21 @@ public:
     BouzidiOffLatticeModel3D(BoundaryShape3D<T,Array<T,3> >* shape_, int flowType_);
     virtual BouzidiOffLatticeModel3D<T,Descriptor>* clone() const;
     virtual plint getNumNeighbors() const;
+    virtual bool isExtrapolated() const;
     virtual void prepareCell (
             Dot3D const& cellLocation, AtomicContainerBlock3D& container );
     virtual void boundaryCompletion (
             AtomicBlock3D& lattice, AtomicContainerBlock3D& container,
-            std::vector<AtomicBlock3D const*> const& args );
+            std::vector<AtomicBlock3D *> const& args );
     void cellCompletion (
             BlockLattice3D<T,Descriptor>& lattice,
             Dot3D const& boundaryNode,
             std::vector<int> const& solidDirections, std::vector<plint> const& boundaryIds,
             std::vector<bool> const& hasFluidNeighbor, Dot3D const& absoluteOffset,
-            Array<T,3>& localForce, std::vector<AtomicBlock3D const*> const& args );
+            Array<T,3>& localForce, std::vector<AtomicBlock3D *> const& args );
     virtual ContainerBlockData* generateOffLatticeInfo() const;
     virtual Array<T,3> getLocalForce(AtomicContainerBlock3D& container) const;
-    void selectComputeStat(bool flag) { computeStat = flag; }
-    bool computesStat() const { return computeStat; }
 private:
-    bool computeStat;
     std::vector<T> invAB;
 private:
     /// Store the location of wall nodes, as well as the pattern of missing vs. known

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -115,6 +115,74 @@ bool bisect(Function const& function, T x0, T x1, T xacc, plint maxIter, T& resu
     }
 
     result = T();
+    return false;
+}
+
+template<typename T, class Function>
+bool brentSolve(Function const& func, T x0, T x1, T xacc, plint maxIter, T& result)
+{
+    result = x0;
+    plint iter;
+    T a=x0,b=x1,c=x1,d=0.,e=0.,min1,min2;
+    T fa=func(a),fb=func(b),fc,p,q,r,s,tol1,xm;
+    static const T eps = getEpsilon<T>();
+    if ((fa > 0.0 && fb > 0.0) || (fa < 0.0 && fb < 0.0))
+        return false;
+    fc=fb;
+    for (iter=0;iter<maxIter;iter++) {
+        if ((fb > 0.0 && fc > 0.0) || (fb < 0.0 && fc < 0.0)) {
+            c=a;
+            fc=fa;
+            e=d=b-a;
+        }
+        if (std::fabs(fc) < std::fabs(fb)) {
+            a=b;
+            b=c;
+            c=a;
+            fa=fb;
+            fb=fc;
+            fc=fa;
+        }
+        tol1=2.0*eps*std::fabs(b)+0.5*xacc;
+        xm=0.5*(c-b);
+        if (std::fabs(xm) <= tol1 || fb == 0.0) {
+            result = b;
+            return true;
+        }
+        if (std::fabs(e) >= tol1 && std::fabs(fa) > std::fabs(fb)) {
+            s=fb/fa;
+            if (a == c) {
+                p=2.0*xm*s;
+                q=1.0-s;
+            } else {
+                q=fa/fc;
+                r=fb/fc;
+                p=s*(2.0*xm*q*(q-r)-(b-a)*(r-1.0));
+                q=(q-1.0)*(r-1.0)*(s-1.0);
+            }
+            if (p > 0.0) q = -q;
+            p=std::fabs(p);
+            min1=3.0*xm*q-std::fabs(tol1*q);
+            min2=std::fabs(e*q);
+            if (2.0*p < (min1 < min2 ? min1 : min2)) {
+                e=d;
+                d=p/q;
+            } else {
+                d=xm;
+                e=d;
+            }
+        } else {
+            d=xm;
+            e=d;
+        }
+        a=b;
+        fa=fb;
+        if (std::fabs(d) > tol1)
+            b+=d;
+        else
+            b += xm >= 0.0 ? std::fabs(tol1) : -std::fabs(tol1);
+        fb=func(b);
+    }
     return false;
 }
 

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -170,6 +170,12 @@ namespace descriptors {
         static const char name[];
     };
 
+    template <typename T> struct RhoBarVelocityPiNeqOmegaD3Q15Descriptor
+        : public D3Q15DescriptorBase<T>, public RhoBarVelocityPiNeqOmegaDescriptorBase3D
+    {
+        static const char name[];
+    };
+
     template <typename T> struct ForcedRhoBarJD3Q15Descriptor
         : public D3Q15DescriptorBase<T>, public ForcedRhoBarJdescriptorBase3D
     {
@@ -196,6 +202,18 @@ namespace descriptors {
 
     template <typename T> struct RhoBarJD3Q19Descriptor
         : public D3Q19DescriptorBase<T>, public RhoBarJdescriptorBase3D
+    {
+        static const char name[];
+    };
+
+    template <typename T> struct RhoBarVelocityPiNeqOmegaD3Q19Descriptor
+        : public D3Q19DescriptorBase<T>, public RhoBarVelocityPiNeqOmegaDescriptorBase3D
+    {
+        static const char name[];
+    };
+
+    template <typename T> struct RhoBarVelocityPiNeqOmegaWithSourceD3Q19Descriptor
+        : public D3Q19DescriptorBase<T>, public RhoBarVelocityPiNeqOmegaWithSourceDescriptorBase3D
     {
         static const char name[];
     };

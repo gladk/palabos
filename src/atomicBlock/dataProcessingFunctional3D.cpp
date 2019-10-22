@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -124,6 +124,49 @@ int BoxProcessor3D::getStaticId() const {
 }
 
 
+/* *************** Class MultiBoxProcessor3D ************************************ */
+
+MultiBoxProcessor3D::MultiBoxProcessor3D (
+               BoxProcessingFunctional3D* functional_,
+               std::vector<Box3D> const& domains_, std::vector<AtomicBlock3D*> atomicBlocks_)
+    : functional(functional_), domains(domains_), atomicBlocks(atomicBlocks_)
+{ }
+
+MultiBoxProcessor3D::MultiBoxProcessor3D(MultiBoxProcessor3D const& rhs)
+    : functional(rhs.functional->clone()),
+      domains(rhs.domains), atomicBlocks(rhs.atomicBlocks)
+{ }
+
+MultiBoxProcessor3D& MultiBoxProcessor3D::operator=(MultiBoxProcessor3D const& rhs) {
+    delete functional; functional = rhs.functional->clone();
+    domains = rhs.domains;
+    atomicBlocks = rhs.atomicBlocks;
+    return *this;
+}
+
+MultiBoxProcessor3D::~MultiBoxProcessor3D() {
+    delete functional;
+}
+
+std::vector<Box3D> const& MultiBoxProcessor3D::getDomains() const {
+    return domains;
+}
+
+void MultiBoxProcessor3D::process() {
+    for (pluint i=0; i<domains.size(); ++i) {
+        functional -> processGenericBlocks(domains[i], atomicBlocks);
+    }
+}
+
+MultiBoxProcessor3D* MultiBoxProcessor3D::clone() const {
+    return new MultiBoxProcessor3D(*this);
+}
+
+int MultiBoxProcessor3D::getStaticId() const {
+    return functional->getStaticId();
+}
+
+
 /* *************** Class BoxProcessorGenerator3D *************************** */
 
 BoxProcessorGenerator3D::BoxProcessorGenerator3D(BoxProcessingFunctional3D* functional_, Box3D domain)
@@ -179,6 +222,67 @@ void BoxProcessorGenerator3D::serialize(Box3D& domain, std::string& data) const 
 }
 
 int BoxProcessorGenerator3D::getStaticId() const {
+    return functional->getStaticId();
+}
+
+
+/* *************** Class MultiBoxProcessorGenerator3D *************************** */
+
+MultiBoxProcessorGenerator3D::MultiBoxProcessorGenerator3D (
+        BoxProcessingFunctional3D* functional_,
+        std::vector<Box3D> const& domains )
+    : MultiBoxedDataProcessorGenerator3D(domains),
+      functional(functional_)
+{ }
+
+MultiBoxProcessorGenerator3D::~MultiBoxProcessorGenerator3D() {
+    delete functional;
+}
+
+MultiBoxProcessorGenerator3D::MultiBoxProcessorGenerator3D(MultiBoxProcessorGenerator3D const& rhs)
+    : MultiBoxedDataProcessorGenerator3D(rhs),
+      functional(rhs.functional->clone())
+{ }
+
+MultiBoxProcessorGenerator3D& MultiBoxProcessorGenerator3D::operator=(MultiBoxProcessorGenerator3D const& rhs) {
+    delete functional; functional = rhs.functional->clone();
+    return *this;
+}
+
+BlockDomain::DomainT MultiBoxProcessorGenerator3D::appliesTo() const {
+    return functional->appliesTo();
+}
+
+void MultiBoxProcessorGenerator3D::rescale(double dxScale, double dtScale) {
+    functional->rescale(dxScale, dtScale);
+}
+
+void MultiBoxProcessorGenerator3D::setscale(int dxScale, int dtScale) {
+    functional->setscale(dxScale, dtScale);
+}
+
+void MultiBoxProcessorGenerator3D::getModificationPattern(std::vector<bool>& isWritten) const {
+    functional->getModificationPattern(isWritten);
+}
+
+void MultiBoxProcessorGenerator3D::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    functional->getTypeOfModification(modified);
+}
+
+DataProcessor3D* MultiBoxProcessorGenerator3D::generate(std::vector<AtomicBlock3D*> atomicBlocks) const {
+    return new MultiBoxProcessor3D(functional->clone(), this->getDomains(), atomicBlocks);
+}
+
+MultiBoxProcessorGenerator3D* MultiBoxProcessorGenerator3D::clone() const {
+    return new MultiBoxProcessorGenerator3D(*this);
+}
+
+void MultiBoxProcessorGenerator3D::serialize(Box3D& domain, std::string& data) const {
+    MultiBoxedDataProcessorGenerator3D::serialize(domain, data);
+    functional->serialize(data);
+}
+
+int MultiBoxProcessorGenerator3D::getStaticId() const {
     return functional->getStaticId();
 }
 

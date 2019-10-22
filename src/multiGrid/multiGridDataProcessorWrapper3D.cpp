@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,7 +47,7 @@ void integrateProcessingFunctional(BoxProcessingFunctional3D* functional,
                                    plint referenceLevel, plint level)
 {
     addInternalProcessor( BoxProcessorGenerator3D(functional, domain),
-                          multiBlocks, level, referenceLevel );
+                          multiBlocks, referenceLevel, level);
 }
 
 
@@ -93,7 +93,7 @@ void integrateProcessingFunctional(BoundedBoxProcessingFunctional3D* functional,
     functional -> getGenerators(domain, boundaryWidth, generators);
     delete functional;
     for (pluint iGen=0; iGen<generators.size(); ++iGen) {
-        addInternalProcessor( *generators[iGen], multiBlocks, level, referenceLevel );
+        addInternalProcessor( *generators[iGen], multiBlocks, referenceLevel, level );
         delete generators[iGen];
     }
 }

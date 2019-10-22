@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -36,6 +36,8 @@
 #include "multiBlock/multiBlockGenerator3D.h"
 #include "core/plbTypenames.h"
 #include "core/multiBlockIdentifiers3D.h"
+#include "atomicBlock/dataField3D.h"
+#include "atomicBlock/dataField3D.hh"
 #include <vector>
 #include <algorithm>
 #include <limits>
@@ -60,7 +62,8 @@ MultiScalarField3D<T>::MultiScalarField3D (
         MultiScalarAccess3D<T>* multiScalarAccess_,
         T iniVal )
     : MultiBlock3D(multiBlockManagement_, blockCommunicator_, combinedStatistics_ ),
-      multiScalarAccess(multiScalarAccess_)
+      multiScalarAccess(multiScalarAccess_),
+      nTensorViewBlock(0)
 {
     allocateFields(iniVal);
 }
@@ -69,13 +72,17 @@ template<typename T>
 MultiScalarField3D<T>::MultiScalarField3D(plint nx, plint ny, plint nz, T iniVal)
       // Envelope-width defaults to 1.
     : MultiBlock3D(nx,ny,nz,1),
-      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>())
+      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>()),
+      nTensorViewBlock(0)
 {
     allocateFields(iniVal);
 }
 
 template<typename T>
 MultiScalarField3D<T>::~MultiScalarField3D() {
+    if (nTensorViewBlock) {
+        delete nTensorViewBlock;
+    }
     deAllocateFields();
     delete multiScalarAccess;
 }
@@ -84,7 +91,8 @@ template<typename T>
 MultiScalarField3D<T>::MultiScalarField3D(MultiScalarField3D<T> const& rhs)
     : ScalarFieldBase3D<T>(rhs),
       MultiBlock3D(rhs),
-      multiScalarAccess(rhs.multiScalarAccess->clone())
+      multiScalarAccess(rhs.multiScalarAccess->clone()),
+      nTensorViewBlock(0)
 {
     allocateFields();
     typename BlockMap::iterator it = fields.begin();
@@ -99,15 +107,37 @@ template<typename T>
 MultiScalarField3D<T>::MultiScalarField3D(MultiBlock3D const& rhs)
       // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
     : MultiBlock3D(rhs, rhs.getBoundingBox(), false),
-      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>())
+      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>()),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
 
 template<typename T>
+MultiScalarField3D<T>::MultiScalarField3D(MultiNTensorField3D<T>& rhs, bool shareMemory)
+      // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
+    : MultiBlock3D(rhs, rhs.getBoundingBox(), false),
+      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>()),
+      nTensorViewBlock(0)
+{
+    PLB_ASSERT( rhs.getNdim() == 1 );
+    if (shareMemory) {
+        for ( typename MultiNTensorField3D<T>::BlockMap::iterator it = rhs.fields.begin();
+              it != rhs.fields.end(); ++it)
+        {
+            fields[it->first] = new ScalarField3D<T>(*it->second);
+        }
+    }
+    else {
+        allocateFields();
+    }
+}
+
+template<typename T>
 MultiScalarField3D<T>::MultiScalarField3D(MultiBlock3D const& rhs, Box3D subDomain, bool crop)
     : MultiBlock3D(rhs, subDomain, crop),
-      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>())
+      multiScalarAccess(defaultMultiBlockPolicy3D().getMultiScalarAccess<T>()),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
@@ -132,7 +162,9 @@ MultiScalarField3D<T>* MultiScalarField3D<T>::clone(MultiBlockManagement3D const
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiScalarAccess->clone(), T() );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 
@@ -141,6 +173,7 @@ void MultiScalarField3D<T>::swap(MultiScalarField3D<T>& rhs) {
     MultiBlock3D::swap(rhs);
     fields.swap(rhs.fields);
     std::swap(multiScalarAccess, rhs.multiScalarAccess);
+    std::swap(nTensorViewBlock, rhs.nTensorViewBlock);
 }
 
 template<typename T>
@@ -256,6 +289,15 @@ std::string MultiScalarField3D<T>::basicType() {
 }
 
 template<typename T>
+MultiNTensorField3D<T>& MultiScalarField3D<T>::nTensorView() {
+    if (!nTensorViewBlock) {
+        bool shareMemory = true;
+        nTensorViewBlock = new MultiNTensorField3D<T>(*this, shareMemory);
+    }
+    return *nTensorViewBlock;
+}
+
+template<typename T>
 MultiScalarField3D<T>& findMultiScalarField3D(id_t id) {
     MultiBlock3D* multiBlock = multiBlockRegistration3D().find(id);
     if (!multiBlock || multiBlock->getStaticId() != MultiScalarField3D<T>::staticId) {
@@ -281,7 +323,8 @@ MultiTensorField3D<T,nDim>::MultiTensorField3D (
         CombinedStatistics* combinedStatistics_,
         MultiTensorAccess3D<T,nDim>* multiTensorAccess_ )
     : MultiBlock3D(multiBlockManagement_, blockCommunicator_, combinedStatistics_ ),
-      multiTensorAccess(multiTensorAccess_)
+      multiTensorAccess(multiTensorAccess_),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
@@ -294,7 +337,8 @@ MultiTensorField3D<T,nDim>::MultiTensorField3D (
         MultiTensorAccess3D<T,nDim>* multiTensorAccess_,
         Array<T,nDim> const& iniVal )
     : MultiBlock3D(multiBlockManagement_, blockCommunicator_, combinedStatistics_ ),
-      multiTensorAccess(multiTensorAccess_)
+      multiTensorAccess(multiTensorAccess_),
+      nTensorViewBlock(0)
 {
     allocateFields(iniVal);
 }
@@ -303,7 +347,8 @@ template<typename T, int nDim>
 MultiTensorField3D<T,nDim>::MultiTensorField3D(plint nx, plint ny, plint nz)
       // Envelope-width defaults to 1.
     : MultiBlock3D(nx,ny,nz,1),
-      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>())
+      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>()),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
@@ -313,13 +358,17 @@ MultiTensorField3D<T,nDim>::MultiTensorField3D( plint nx, plint ny, plint nz,
                                                 Array<T,nDim> const& iniVal )
       // Envelope-width defaults to 1.
     : MultiBlock3D(nx,ny,nz,1),
-      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>())
+      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>()),
+      nTensorViewBlock(0)
 {
     allocateFields(iniVal);
 }
 
 template<typename T, int nDim>
 MultiTensorField3D<T,nDim>::~MultiTensorField3D() {
+    if (nTensorViewBlock) {
+        delete nTensorViewBlock;
+    }
     deAllocateFields();
     delete multiTensorAccess;
 }
@@ -328,7 +377,8 @@ template<typename T, int nDim>
 MultiTensorField3D<T,nDim>::MultiTensorField3D(MultiTensorField3D<T,nDim> const& rhs)
     : TensorFieldBase3D<T,nDim>(rhs),
       MultiBlock3D(rhs),
-      multiTensorAccess(rhs.multiTensorAccess->clone())
+      multiTensorAccess(rhs.multiTensorAccess->clone()),
+      nTensorViewBlock(0)
 {
     allocateFields();
     typename BlockMap::iterator it = fields.begin();
@@ -343,15 +393,37 @@ template<typename T, int nDim>
 MultiTensorField3D<T,nDim>::MultiTensorField3D(MultiBlock3D const& rhs)
       // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
     : MultiBlock3D(rhs, rhs.getBoundingBox(), false),
-      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>())
+      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>()),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
 
 template<typename T, int nDim>
+MultiTensorField3D<T,nDim>::MultiTensorField3D(MultiNTensorField3D<T>& rhs, bool shareMemory)
+      // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
+    : MultiBlock3D(rhs, rhs.getBoundingBox(), false),
+      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>()),
+      nTensorViewBlock(0)
+{
+    PLB_ASSERT( rhs.getNdim() == nDim );
+    if (shareMemory) {
+        for ( typename MultiNTensorField3D<T>::BlockMap::iterator it = rhs.fields.begin();
+              it != rhs.fields.end(); ++it)
+        {
+            fields[it->first] = new TensorField3D<T, nDim>(*it->second);
+        }
+    }
+    else {
+        allocateFields();
+    }
+}
+
+template<typename T, int nDim>
 MultiTensorField3D<T,nDim>::MultiTensorField3D(MultiBlock3D const& rhs, Box3D subDomain, bool crop)
     : MultiBlock3D(rhs, subDomain, crop),
-      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>())
+      multiTensorAccess(defaultMultiBlockPolicy3D().getMultiTensorAccess<T,nDim>()),
+      nTensorViewBlock(0)
 {
     allocateFields();
 }
@@ -377,7 +449,9 @@ MultiTensorField3D<T,nDim>* MultiTensorField3D<T,nDim>::clone(MultiBlockManageme
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiTensorAccess->clone(), iniVal );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 
@@ -386,6 +460,7 @@ void MultiTensorField3D<T,nDim>::swap(MultiTensorField3D<T,nDim>& rhs) {
     MultiBlock3D::swap(rhs);
     fields.swap(rhs.fields);
     std::swap(multiTensorAccess, rhs.multiTensorAccess);
+    std::swap(nTensorViewBlock, rhs.nTensorViewBlock);
 }
 
 template<typename T, int nDim>
@@ -502,12 +577,23 @@ std::vector<std::string> MultiTensorField3D<T,nDim>::getTypeInfo() const {
 
 template<typename T, int nDim>
 std::string MultiTensorField3D<T,nDim>::blockName() {
-    return std::string("TensorField3D");
+    std::stringstream ss;
+    ss << nDim;
+    return std::string("TensorField3D_" + ss.str());
 }
 
 template<typename T, int nDim>
 std::string MultiTensorField3D<T,nDim>::basicType() {
     return NativeType<T>::getName();
+}
+
+template<typename T, int nDim>
+MultiNTensorField3D<T>& MultiTensorField3D<T,nDim>::nTensorView() {
+    if (!nTensorViewBlock) {
+        bool shareMemory = true;
+        nTensorViewBlock = new MultiNTensorField3D<T>(*this, shareMemory);
+    }
+    return *nTensorViewBlock;
 }
 
 template<typename T, int nDim>
@@ -538,7 +624,8 @@ MultiNTensorField3D<T>::MultiNTensorField3D (
         MultiNTensorAccess3D<T>* multiNTensorAccess_ )
     : NTensorFieldBase3D<T>(ndim),
       MultiBlock3D(multiBlockManagement_, blockCommunicator_, combinedStatistics_ ),
-      multiNTensorAccess(multiNTensorAccess_)
+      multiNTensorAccess(multiNTensorAccess_),
+      scalarOrTensorView(0)
 {
     allocateFields();
 }
@@ -552,7 +639,8 @@ MultiNTensorField3D<T>::MultiNTensorField3D (
         MultiNTensorAccess3D<T>* multiNTensorAccess_ )
     : NTensorFieldBase3D<T>(ndim),
       MultiBlock3D(multiBlockManagement_, blockCommunicator_, combinedStatistics_ ),
-      multiNTensorAccess(multiNTensorAccess_)
+      multiNTensorAccess(multiNTensorAccess_),
+      scalarOrTensorView(0)
 {
     allocateFields(iniVal);
 }
@@ -562,7 +650,8 @@ MultiNTensorField3D<T>::MultiNTensorField3D(plint nx, plint ny, plint nz, plint 
     : NTensorFieldBase3D<T>(ndim),
       // Envelope-width defaults to 1.
       MultiBlock3D(nx,ny,nz,1),
-      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>())
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
 {
     allocateFields();
 }
@@ -572,13 +661,17 @@ MultiNTensorField3D<T>::MultiNTensorField3D(plint nx, plint ny, plint nz, plint 
     : NTensorFieldBase3D<T>(ndim),
       // Envelope-width defaults to 1.
       MultiBlock3D(nx,ny,nz,1),
-      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>())
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
 {
     allocateFields(iniVal);
 }
 
 template<typename T>
 MultiNTensorField3D<T>::~MultiNTensorField3D() {
+    if (scalarOrTensorView) {
+        delete scalarOrTensorView;
+    }
     deAllocateFields();
     delete multiNTensorAccess;
 }
@@ -588,7 +681,8 @@ MultiNTensorField3D<T>::MultiNTensorField3D(MultiNTensorField3D<T> const& rhs)
     : NTensorFieldBase3D<T>(rhs),
       // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
       MultiBlock3D(rhs, rhs.getBoundingBox(), false),
-      multiNTensorAccess(rhs.multiNTensorAccess->clone())
+      multiNTensorAccess(rhs.multiNTensorAccess->clone()),
+      scalarOrTensorView(0)
 {
     allocateFields();
     typename BlockMap::iterator it = fields.begin();
@@ -600,10 +694,53 @@ MultiNTensorField3D<T>::MultiNTensorField3D(MultiNTensorField3D<T> const& rhs)
 }
 
 template<typename T>
+MultiNTensorField3D<T>::MultiNTensorField3D(MultiScalarField3D<T>& rhs, bool shareMemory)
+    : NTensorFieldBase3D<T>(1),
+      // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
+      MultiBlock3D(rhs, rhs.getBoundingBox(), false),
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
+{
+    if (shareMemory) {
+        for ( typename MultiScalarField3D<T>::BlockMap::iterator it = rhs.fields.begin();
+              it != rhs.fields.end(); ++it)
+        {
+            fields[it->first] = new NTensorField3D<T>(*it->second);
+        }
+    }
+    else {
+        allocateFields();
+    }
+}
+
+template<typename T>
+template <int nDim>
+MultiNTensorField3D<T>::MultiNTensorField3D(MultiTensorField3D<T,nDim>& rhs, bool shareMemory)
+    : NTensorFieldBase3D<T>(nDim),
+      // Use MultiBlock's sub-domain constructor to avoid that the data-processors are copied
+      MultiBlock3D(rhs, rhs.getBoundingBox(), false),
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
+{
+    if (shareMemory) {
+        for ( typename MultiTensorField3D<T,nDim>::BlockMap::iterator it = rhs.fields.begin();
+              it != rhs.fields.end(); ++it)
+        {
+            fields[it->first] = new NTensorField3D<T>(*it->second);
+        }
+    }
+    else {
+        allocateFields();
+    }
+}
+
+
+template<typename T>
 MultiNTensorField3D<T>::MultiNTensorField3D(plint ndim, MultiBlock3D const& rhs)
     : NTensorFieldBase3D<T>(ndim),
       MultiBlock3D(rhs),
-      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>())
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
 {
     allocateFields();
 }
@@ -612,7 +749,8 @@ template<typename T>
 MultiNTensorField3D<T>::MultiNTensorField3D(plint ndim, MultiBlock3D const& rhs, Box3D subDomain, bool crop)
     : NTensorFieldBase3D<T>(ndim),
       MultiBlock3D(rhs, subDomain, crop),
-      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>())
+      multiNTensorAccess(defaultMultiBlockPolicy3D().getMultiNTensorAccess<T>()),
+      scalarOrTensorView(0)
 {
     allocateFields();
 }
@@ -638,7 +776,9 @@ MultiNTensorField3D<T>* MultiNTensorField3D<T>::clone(MultiBlockManagement3D con
         this->getBlockCommunicator().clone(),
         this->getCombinedStatistics().clone(),
         multiNTensorAccess->clone() );
-    copy(*this, this->getBoundingBox(), *newField, newField->getBoundingBox());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newField->getBoundingBox(), *newField, newField->getBoundingBox());
     return newField;
 }
 
@@ -648,6 +788,7 @@ void MultiNTensorField3D<T>::swap(MultiNTensorField3D<T>& rhs) {
     MultiBlock3D::swap(rhs);
     fields.swap(rhs.fields);
     std::swap(multiNTensorAccess, rhs.multiNTensorAccess);
+    std::swap(scalarOrTensorView, rhs.scalarOrTensorView);
 }
 
 template<typename T>
@@ -770,6 +911,27 @@ std::string MultiNTensorField3D<T>::blockName() {
 template<typename T>
 std::string MultiNTensorField3D<T>::basicType() {
     return NativeType<T>::getName();
+}
+
+template<typename T>
+MultiScalarField3D<T>& MultiNTensorField3D<T>::scalarView() {
+    PLB_ASSERT( this->getNdim()==1 );
+    if (!scalarOrTensorView) {
+        bool shareMemory = true;
+        scalarOrTensorView = new MultiScalarField3D<T>(*this, shareMemory);
+    }
+    return *dynamic_cast<MultiScalarField3D<T>*>(scalarOrTensorView);
+}
+
+template<typename T>
+template<int nDim>
+MultiTensorField3D<T,nDim>& MultiNTensorField3D<T>::tensorView() {
+    PLB_ASSERT( this->getNdim()>1 && this->getNdim() == nDim );
+    if (!scalarOrTensorView) {
+        bool shareMemory = true;
+        scalarOrTensorView = new MultiTensorField3D<T,nDim>(*this, shareMemory);
+    }
+    return *dynamic_cast<MultiTensorField3D<T,nDim>*>(scalarOrTensorView);
 }
 
 template<typename T>

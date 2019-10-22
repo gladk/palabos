@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,7 +33,6 @@
 #include <algorithm>
 
 namespace plb {
-
 
 MultiBlockManagement3D::MultiBlockManagement3D (
         SparseBlockStructure3D const& sparseBlock_,
@@ -192,6 +191,29 @@ plint MultiBlockManagement3D::getRefinementLevel() const {
 
 void MultiBlockManagement3D::setRefinementLevel(plint newLevel) {
     refinementLevel = newLevel;
+}
+
+void MultiBlockManagement3D::changeEnvelopeWidth(plint newEnvelopeWidth) {
+    envelopeWidth = newEnvelopeWidth;
+    localInfo = LocalMultiBlockInfo3D(sparseBlock, getThreadAttribution(), envelopeWidth);
+}
+
+bool MultiBlockManagement3D::equivalentTo(MultiBlockManagement3D const& rhs) const {
+    std::map<plint,Box3D> const& bulks = sparseBlock.getBulks();
+    std::map<plint,Box3D>::const_iterator it = bulks.begin();
+    bool equalThreadAttribution = true;
+    for (; it != bulks.end(); ++it) {
+        plint blockId = it->first;
+        if (threadAttribution->getMpiProcess(blockId) != rhs.threadAttribution->getMpiProcess(blockId) ||
+            threadAttribution->getLocalThreadId(blockId) != rhs.threadAttribution->getLocalThreadId(blockId))
+        {
+            equalThreadAttribution = false;
+            break;
+        }
+    }
+    return sparseBlock.equals(rhs.sparseBlock) &&
+           equalThreadAttribution &&
+           refinementLevel == rhs.refinementLevel;
 }
 
 MultiBlockManagement3D scale(MultiBlockManagement3D const& originalManagement, plint relativeLevel)

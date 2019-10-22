@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -23,8 +23,9 @@
 */
 
 /** \file
- * Helper functions for domain initialization -- header file.
+ * Helper functions for finite differences -- header file.
  */
+
 #ifndef FINITE_DIFFERENCE_WRAPPER_2D_H
 #define FINITE_DIFFERENCE_WRAPPER_2D_H
 
@@ -34,10 +35,17 @@
 #include "multiBlock/multiBlockLattice2D.h"
 #include "multiBlock/multiDataField2D.h"
 #include "dataProcessors/dataAnalysisFunctional2D.h"
+#include "finiteDifference/fdWeights.h"
 #include <memory>
 
 
 namespace plb {
+
+template<typename T>
+void computeLaplacian(MultiScalarField2D<T>& value, MultiScalarField2D<T>& laplacian, Box2D const& domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computeLaplacian(MultiScalarField2D<T>& value, Box2D const& domain);
 
 template<typename T>
 void computeXderivative(MultiScalarField2D<T>& value, MultiScalarField2D<T>& derivative, Box2D const& domain);
@@ -132,8 +140,32 @@ template<typename T>
 std::vector<MultiScalarField2D<T>* > fullMultiGrid( MultiScalarField2D<T>& initialValue, MultiScalarField2D<T>& rhs,
                                                     Box2D const& domain, plint gridLevels=2 );
 
-                                                    
-                      
+
+// General Stencils.
+
+// Compute the X/Y derivative of a data field. The order of the derivative to be approximated
+// is provided by the template parameter "order". The specific stencil is defined by "width"
+// and "position". The value of the argument "width" cannot be greater than that of the template parameter
+// "maxWidth". For best efficiency, one should use these functions with a fixed "maxWidth". This means that
+// if one wants to use many widths, he should fix "maxWidth", and vary "width". The returned derivative
+// value is computed on the local grid point (iX, iY) of the atomic-block.
+
+template<typename T, int order, int maxWidth>
+T computeScalarXderivative(ScalarField2D<T> const& scalar, int width, int position,
+        plint iX, plint iY);
+
+template<typename T, int order, int maxWidth>
+T computeScalarYderivative(ScalarField2D<T> const& scalar, int width, int position,
+        plint iX, plint iY);
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorXderivative(TensorField2D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY);
+
+template<typename T, int nDim, int order, int maxWidth>
+Array<T,nDim> computeTensorYderivative(TensorField2D<T,nDim> const& tensor, int width, int position,
+        plint iX, plint iY);
+
 }  // namespace plb
 
 #endif  // FINITE_DIFFERENCE_WRAPPER_2D_H

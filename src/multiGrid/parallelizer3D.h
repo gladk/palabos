@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  */
 
 #ifndef PARALLELIZER_3D_H
@@ -70,11 +70,12 @@ class Parallelizer3D
 };
 
 
-/// Parallelize by making an approximative load balancing
+/// Parallelize by cubes
 class ParallellizeByCubes3D : public Parallelizer3D {
     public:
         ParallellizeByCubes3D(std::vector<std::vector<Box3D> > const& originalBlocks_, Box3D finestBoundingBox_,
-                                plint xTiles_, plint yTiles_, plint zTiles_);
+                                plint xTiles_, plint yTiles_, plint zTiles_,
+                                bool optimiseDivision=false);
                                 
         virtual ~ParallellizeByCubes3D(){}
         
@@ -82,12 +83,14 @@ class ParallellizeByCubes3D : public Parallelizer3D {
         virtual void parallelize();
         
         virtual Parallelizer3D* clone(){
-            return new ParallellizeByCubes3D(originalBlocks,finestBoundingBox, xTiles, yTiles,zTiles);
+            return new ParallellizeByCubes3D(originalBlocks,finestBoundingBox,
+                                             xTiles, yTiles,zTiles);
         }
         
     private:
         /// Create a regular division of the finest Box3D in nx x ny squares
         void computeFinestDivision();
+        void computeDivision();
         
     private:
         std::vector<std::vector<Box3D> > const& originalBlocks;
@@ -103,6 +106,32 @@ class ParallellizeByCubes3D : public Parallelizer3D {
         // distribution w.r.t. finest division (same structure)
         std::vector<plint> mpiDistribution;
 };
+
+/// Parallelize by making an approximative load balancing
+//class ParallellizeByLoadBalancing3D : public Parallelizer3D {
+//    public:
+//        ParallellizeByLoadBalancing3D(std::vector<std::vector<Box3D> > const& originalBlocks_,
+//                                      Box3D finestBoundingBox_);
+
+//        virtual ~ParallellizeByLoadBalancing3D(){}
+
+//        /// Compute the new distribution of the blocks in the management
+//        virtual void parallelize();
+
+//        virtual Parallelizer3D* clone(){
+//            return new ParallellizeByLoadBalancing3D(
+//                        originalBlocks,finestBoundingBox);
+//        }
+
+//private:
+//        void splitBlockInTwo(Box3D originalBox, Box3D& box1, Box3D& box2);
+
+//    private:
+//        std::vector<std::vector<Box3D> > const& originalBlocks;
+//        Box3D finestBoundingBox;
+
+//        plint processorNumber;
+//};
 
 } // namespace plb
 

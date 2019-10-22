@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -118,6 +118,30 @@ public:
         modified[8] = modif::nothing;          // Curvature.
         modified[9] = modif::nothing;          // Outside density.
     }
+};
+
+template<typename T, template<typename U> class Descriptor>
+class FreeSurfaceSpongeZone3D : public BoxProcessingFunctional3D {
+public:
+    // Constructor for the tanh sponge function.
+    //   Nice value for the translation parameters is 0.5.
+    //   Nice value for the scale parameters is 0.12.
+    FreeSurfaceSpongeZone3D(plint nx_, plint ny_, plint nz_, Array<plint,6> const& numSpongeCells_,
+            Array<T,6> const& translationParameters_, Array<T,6> const& scaleParameters_,
+            bool incompressibleModel_);
+    // Constructor for the cos sponge function.
+    FreeSurfaceSpongeZone3D(plint nx_, plint ny_, plint nz_, Array<plint,6> const& numSpongeCells_,
+            bool incompressibleModel_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual FreeSurfaceSpongeZone3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint nx, ny, nz;                   // Lattice dimensions (taken periodicity under account).
+    Array<plint,6> numSpongeCells;      // Width of the sponge zones.
+    Array<T,6> translationParameters;   // Translation parameters of the tanh sponge functions.
+    Array<T,6> scaleParameters;         // Scaling parameters of the tanh sponge functions.
+    bool incompressibleModel;           // Is the dynamics comressible or incompressible?
+    bool useTanhSpongeFunction;         // Use a tanh sponge function, or a cos sponge function.
 };
 
 }  // namespace plb

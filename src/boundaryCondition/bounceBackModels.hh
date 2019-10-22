@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,6 +33,7 @@
 #include "core/cell.h"
 #include "latticeBoltzmann/dynamicsTemplates.h"
 #include "latticeBoltzmann/momentTemplates.h"
+#include "latticeBoltzmann/indexTemplates.h"
 #include "core/latticeStatistics.h"
 #include "core/array.h"
 #include <algorithm>
@@ -53,7 +54,7 @@ MomentumExchangeBounceBack<T,Descriptor>::MomentumExchangeBounceBack (
 template<typename T, template<typename U> class Descriptor>
 MomentumExchangeBounceBack<T,Descriptor>::MomentumExchangeBounceBack(HierarchicUnserializer& unserializer)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 
@@ -74,26 +75,26 @@ int MomentumExchangeBounceBack<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void MomentumExchangeBounceBack<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    Dynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue(rho);
     serializer.addValue((int)(fluidDirections.size()));
     serializer.addValues(fluidDirections);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         serializer.addValue(forceIds[iDim]);
     }
-//     Dynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void MomentumExchangeBounceBack<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer) 
 {
     PLB_PRECONDITION( unserializer.getId() == this->getId() );
+    Dynamics<T,Descriptor>::unserialize(unserializer);
     unserializer.readValue(rho);
     fluidDirections.resize(unserializer.readValue<int>());
     unserializer.readValues(fluidDirections);
     for (plint iDim=0; iDim<Descriptor<T>::d; ++iDim) {
         unserializer.readValue(forceIds[iDim]);
     }
-//     Dynamics<T,Descriptor>::unserialize(unserializer);
 }
  
 template<typename T, template<typename U> class Descriptor>
@@ -268,6 +269,11 @@ template<typename T, template<typename U> class Descriptor>
 void MomentumExchangeBounceBack<T,Descriptor>::rescale (
         std::vector<T>& rawData, T xDxInv, T xDt, plint order ) const
 { }
+
+template<typename T, template<typename U> class Descriptor>
+bool MomentumExchangeBounceBack<T,Descriptor>::hasMoments() const {
+    return false;
+}
 
 template<typename T, template<typename U> class Descriptor>
 void MomentumExchangeBounceBack<T,Descriptor>::setFluidDirections (

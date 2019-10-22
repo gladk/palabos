@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -64,12 +64,14 @@ FineGridBoundaryDynamics<T,Descriptor>::FineGridBoundaryDynamics(HierarchicUnser
       decomposedValuesT0(),
       decomposedValuesT1()
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void FineGridBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
+    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
+
     serializer.addValue(timeCounter);
     serializer.addValue(numTimeSteps);
     serializer.addValue(orderOfDecomposition);
@@ -77,12 +79,13 @@ void FineGridBoundaryDynamics<T,Descriptor>::serialize(HierarchicSerializer& ser
     serializer.addValues(decomposedValuesT0);
     serializer.addValue(decomposedValuesT1.size());
     serializer.addValues(decomposedValuesT1);
-    BoundaryCompositeDynamics<T,Descriptor>::serialize(serializer);
 }
 
 template<typename T, template<typename U> class Descriptor>
 void FineGridBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
 {
+    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
+
     unserializer.readValue(timeCounter);
     unserializer.readValue(numTimeSteps);
     unserializer.readValue(orderOfDecomposition);
@@ -96,7 +99,6 @@ void FineGridBoundaryDynamics<T,Descriptor>::unserialize(HierarchicUnserializer&
     decomposedValuesT1.resize(t1Size);
     unserializer.readValues(decomposedValuesT1);
 
-    BoundaryCompositeDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -885,6 +885,7 @@ std::auto_ptr<TensorField2D<T,nDim> > computeSqrt(TensorField2D<T,nDim>& A)
 }
 
 
+
 /* *************** Squared vector-norm of each cell in the field ******** */
 
 template<typename T, int nDim>
@@ -1309,6 +1310,18 @@ T computeMin(MultiScalarField2D<T>& scalarField) {
     return computeMin(scalarField, scalarField.getBoundingBox());
 }
 
+template<typename T>
+T computeMin(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag, Box2D domain) {
+    MaskedBoxScalarMinFunctional2D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getMinScalar();
+}
+
+template<typename T>
+T computeMin(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag) {
+    return computeMin(scalarField, mask, flag, scalarField.getBoundingBox());
+}
+
 
 template<typename T>
 T computeMax(MultiScalarField2D<T>& scalarField, Box2D domain) {
@@ -1320,6 +1333,18 @@ T computeMax(MultiScalarField2D<T>& scalarField, Box2D domain) {
 template<typename T>
 T computeMax(MultiScalarField2D<T>& scalarField) {
     return computeMax(scalarField, scalarField.getBoundingBox());
+}
+
+template<typename T>
+T computeMax(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag, Box2D domain) {
+    MaskedBoxScalarMaxFunctional2D<T> functional(flag);
+    applyProcessingFunctional(functional, domain, scalarField, mask);
+    return functional.getMaxScalar();
+}
+
+template<typename T>
+T computeMax(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag) {
+    return computeMax(scalarField, mask, flag, scalarField.getBoundingBox());
 }
 
 
@@ -2427,6 +2452,39 @@ std::auto_ptr<MultiScalarField2D<T> > computeSqrt(MultiScalarField2D<T>& A)
     return computeSqrt(A, A.getBoundingBox());
 }
 
+
+// =============  compute pow of each cell ========================= //
+
+template<typename T>
+void computePower(MultiScalarField2D<T>& A, MultiScalarField2D<T>& result, T power, Box2D domain)
+{
+    applyProcessingFunctional (
+        new ComputeScalarPowFunctional2D<T>(power), domain, A, result );
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computePower(MultiScalarField2D<T>& A, T power, Box2D domain)
+{
+    std::auto_ptr<MultiScalarField2D<T> > result = generateMultiScalarField<T>(A, domain);
+
+    // The domain needs to be extended to the outer envelopes, for the following reason. Imagine that the domain
+    // is smaller than the bounding-box. Given that the ComputeScalarSqrtFunctional2D() acts on both bulk and envelope,
+    // you would expect the envelope layer around the domain, on the result multi-block, to be assigned some
+    // proper values too. By default, this is however not what happens, because the physical space occupied by
+    // these envelopes does not intersect with the domain "domain". We work around this issue by extending
+    // the domain. There's no problem if the enlarged domain gets beyond the actual extent of the lattice,
+    // because Palabos handles these situations properly.
+
+    computePower(A, *result, power, domain.enlarge(A.getMultiBlockManagement().getEnvelopeWidth()));
+    return result;
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computePower(MultiScalarField2D<T>& A, T power)
+{
+    return computePower(A, power, A.getBoundingBox());
+}
+
 template<typename T>
 void computeLog(MultiScalarField2D<T>& A, MultiScalarField2D<T>& result, Box2D domain)
 {
@@ -2889,6 +2947,30 @@ template<typename T, int nDim>
 std::auto_ptr<MultiScalarField2D<T> > computeNormSqr(MultiTensorField2D<T,nDim>& tensorField)
 {
     return computeNormSqr(tensorField, tensorField.getBoundingBox());
+}
+
+/* *************** Max element of each array of each cell *************** */
+
+template<typename T, int nDim>
+void computeMaximumElement(MultiTensorField2D<T,nDim>& A, MultiScalarField2D<T>& result, Box2D domain)
+{
+    applyProcessingFunctional (
+        new BoxLocalMaximumPerComponentFunctional2D<T, nDim>(), domain, result, A );
+}
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField2D<T> > computeMaximumElement(MultiTensorField2D<T,nDim>& A, Box2D domain)
+{
+    std::auto_ptr<MultiScalarField2D<T> > result = generateMultiScalarField<T>(A, domain);
+
+    computeMaximumElement(A, *result, domain);
+    return result;
+}
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField2D<T> > computeMaximumElement(MultiTensorField2D<T,nDim>& A)
+{
+    return computeMaximumElement(A, A.getBoundingBox());
 }
 
 

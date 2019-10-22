@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,6 +60,7 @@ class BGKCarreauDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     BGKCarreauDynamics(T omega=(T)1);
+    BGKCarreauDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual BGKCarreauDynamics<T,Descriptor,N>* clone() const;
@@ -89,6 +90,7 @@ class RegularizedBGKCarreauDynamics : public IsoThermalBulkDynamics<T,Descriptor
 public:
 /* *************** Construction / Destruction ************************ */
     RegularizedBGKCarreauDynamics(T omega=(T)1);
+    RegularizedBGKCarreauDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual RegularizedBGKCarreauDynamics<T,Descriptor,N>* clone() const;

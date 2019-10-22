@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define BENCHMARK_UTIL_HH
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "io/parallelIO.h"
 #include "algorithm/benchmarkUtil.h"
 #include <iostream>
@@ -60,7 +61,7 @@ plint ValueTracer<T>::getDeltaT() const {
 template<typename T>
 void ValueTracer<T>::takeValue(T val, bool doPrint) {
     values.push_back(val);
-    if ((plint)values.size() > abs(deltaT)) {
+    if ((plint)values.size() > std::abs(deltaT)) {
         values.erase(values.begin());
         if (doPrint && t%deltaT==0) {
             T average = computeAverage();
@@ -75,7 +76,7 @@ template<typename T>
 void ValueTracer<T>::resetScale(T u, T L) {
     t = t%deltaT;
     deltaT = (plint) (L/u/2.);
-    if ( (plint)values.size() > abs(deltaT) ) {
+    if ( (plint)values.size() > std::abs(deltaT) ) {
         values.erase(values.begin(), values.begin() + (values.size()-deltaT) );
     }
 }
@@ -90,13 +91,13 @@ void ValueTracer<T>::resetValues() {
 
 template<typename T>
 bool ValueTracer<T>::hasConverged() const {
-    if ((plint)values.size() < abs(deltaT)) {
+    if ((plint)values.size() < std::abs(deltaT)) {
         return false;
     }
     else {
         T average = computeAverage();
         T stdDev = computeStdDev(average);
-        if (!std::isnan(stdDev/average))
+        if (!util::isNaN(stdDev/average))
             return std::fabs(stdDev/average) < epsilon;
         else {
             pcout << "simulation diverged.\n";
@@ -107,7 +108,7 @@ bool ValueTracer<T>::hasConverged() const {
 
 template<typename T>
 bool ValueTracer<T>::hasConvergedMinMax() const {
-    if ((plint)values.size() < abs(deltaT)) {
+    if ((plint)values.size() < std::abs(deltaT)) {
         return false;
     }
     else {

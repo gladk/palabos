@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -137,6 +137,9 @@ public:
 
     /// Nothing happens here.
     virtual void rescale(std::vector<T>& rawData, T xDxInv, T xDt, plint order) const;
+
+    /// For MomentumExchangeBounceBack the moments of the populations have no meaning.
+    virtual bool hasMoments() const;
 
 /* *************** Additional moments, intended for internal use ***** */
 

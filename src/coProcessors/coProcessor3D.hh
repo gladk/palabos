@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,7 +34,7 @@ namespace plb {
 template<typename T>
 int D3Q19ExampleCoProcessor3D<T>::addDomain(plint nx, plint ny, plint nz, T omega, int& domainHandle)
 {
-    PLB_ASSERT( domains.size() < std::numeric_limits<int>::max() );
+    PLB_ASSERT( (int)domains.size() < std::numeric_limits<int>::max() );
     domainHandle = (int)domains.size();
     Dynamics<T,descriptors::D3Q19Descriptor>* dynamics =
         new BGKdynamics<T,descriptors::D3Q19Descriptor>(omega);

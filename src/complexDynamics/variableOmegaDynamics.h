@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,15 +38,13 @@ namespace plb {
  *  used during collision is omega=omega0+deltaOmega. When you refer to an object "o" of
  *  type VariableOmegaDynamics, the "omega" used in "o.setOmega()" and "o.getOmega()" is
  *  omega0, whereas the "omega" in "o.getBaseDynamics().setOmega()" and in
- *  "o.getBaseDynamics().getOemga()" is omega0+deltaOmega.
+ *  "o.getBaseDynamics().getOmega()" is omega0+deltaOmega.
  **/
 template<typename T, template<typename U> class Descriptor>
 class VariableOmegaDynamics : public CompositeDynamics<T,Descriptor> {
 public:
     VariableOmegaDynamics(Dynamics<T,Descriptor>* baseDynamics_,
                           bool automaticPrepareCollision_=true);
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     virtual void prepareCollision(Cell<T,Descriptor>& cell);
     virtual T getOmegaFromCell(Cell<T,Descriptor> const& cell) const =0;
 };
@@ -60,8 +58,6 @@ class OmegaFromPiDynamics : public VariableOmegaDynamics<T,Descriptor> {
 public:
     OmegaFromPiDynamics(Dynamics<T,Descriptor>* baseDynamics_,
                         bool automaticPrepareCollision_=true);
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     virtual T getOmegaFromCell(Cell<T,Descriptor> const& cell) const;
     virtual T getOmegaFromPiAndRhoBar(Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T rhoBar) const =0;
 };

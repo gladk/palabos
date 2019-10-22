@@ -17,12 +17,13 @@
 # Leading directory of the Palabos source code
 palabosRoot  = ../../..
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = rayleighTaylor3D.cpp
+#projectFiles = rayleighTaylor3D.cpp
+projectFiles = multiPhaseMixer3D.cpp
 
 # Set optimization flags on/off
 optimize     = true
 # Set debug mode and debug flags on/off
-debug        = false
+debug        = true
 # Set profiling flags on/off
 profile      = false
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
@@ -34,6 +35,8 @@ SMPparallel  = false
 #   emulated (such as with Cygwin).
 usePOSIX     = true
 
+# Path to external source files (other than Palabos)
+srcPaths =
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
@@ -46,7 +49,7 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor -Wno-deprecated-declarations #-DPLB_BSD
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
@@ -79,6 +82,7 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
             profileFlags="$(profileFlags)" \
+            srcPaths="$(srcPaths)" \
             libraryPaths="$(libraryPaths)" \
             includePaths="$(includePaths)" \
             libraries="$(libraries)"

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -98,9 +98,9 @@ public:
         return rawData[ind];
     }
     /// Get access to data transfer between blocks
-    virtual ScalarFieldDataTransfer2D<T>& getDataTransfer();
+    virtual BlockDataTransfer2D& getDataTransfer();
     /// Get access to data transfer between blocks (const version)
-    virtual ScalarFieldDataTransfer2D<T> const& getDataTransfer() const;
+    virtual BlockDataTransfer2D const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();
@@ -173,9 +173,9 @@ public:
         return rawData[ind];
     }
     /// Get access to data transfer between blocks
-    virtual TensorFieldDataTransfer2D<T,nDim>& getDataTransfer();
+    virtual BlockDataTransfer2D& getDataTransfer();
     /// Get access to data transfer between blocks (const version)
-    virtual TensorFieldDataTransfer2D<T,nDim> const& getDataTransfer() const;
+    virtual BlockDataTransfer2D const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();
@@ -246,9 +246,9 @@ public:
         return rawData[ind];
     }
     /// Get access to data transfer between blocks
-    virtual NTensorFieldDataTransfer2D<T>& getDataTransfer();
+    virtual BlockDataTransfer2D& getDataTransfer();
     /// Get access to data transfer between blocks (const version)
-    virtual NTensorFieldDataTransfer2D<T> const& getDataTransfer() const;
+    virtual BlockDataTransfer2D const& getDataTransfer() const;
 private:
     void allocateMemory();
     void releaseMemory();

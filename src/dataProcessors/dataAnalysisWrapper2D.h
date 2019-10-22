@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -963,12 +963,24 @@ T computeMin(MultiScalarField2D<T>& scalarField, Box2D domain);
 template<typename T>
 T computeMin(MultiScalarField2D<T>& scalarField);
 
+template<typename T>
+T computeMin(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag, Box2D domain);
+
+template<typename T>
+T computeMin(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag);
+
 
 template<typename T>
 T computeMax(MultiScalarField2D<T>& scalarField, Box2D domain);
 
 template<typename T>
 T computeMax(MultiScalarField2D<T>& scalarField);
+
+template<typename T>
+T computeMax(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag, Box2D domain);
+
+template<typename T>
+T computeMax(MultiScalarField2D<T>& scalarField, MultiScalarField2D<int>& mask, int flag);
 
 
 template<typename T>
@@ -1171,6 +1183,15 @@ std::auto_ptr<MultiScalarField2D<T> > computeAbsoluteValue(MultiScalarField2D<T>
 template<typename T>
 std::auto_ptr<MultiScalarField2D<T> > computeAbsoluteValue(MultiScalarField2D<T>& field);
 
+template<typename T>
+void computePower(MultiScalarField2D<T>& field, MultiScalarField2D<T>& result, T power, Box2D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computeSqrt(MultiScalarField2D<T>& field, T power, Box2D domain);
+
+template<typename T>
+std::auto_ptr<MultiScalarField2D<T> > computeSqrt(MultiScalarField2D<T>& field, T power);
+
 
 /* *************** MultiScalarField - Scalar inplace operations *************** */
 
@@ -1362,6 +1383,17 @@ std::auto_ptr<MultiScalarField2D<T> > computeNormSqr(MultiTensorField2D<T,nDim>&
 
 template<typename T, int nDim>
 std::auto_ptr<MultiScalarField2D<T> > computeNormSqr(MultiTensorField2D<T,nDim>& tensorField);
+
+/* *************** Max element of each array of each cell *************** */
+
+template<typename T, int nDim>
+void computeMaximumElement(MultiTensorField2D<T,nDim>& A, MultiScalarField2D<T>& result, Box2D domain);
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField2D<T> > computeMaximumElement(MultiTensorField2D<T,nDim>& A, Box2D domain);
+
+template<typename T, int nDim>
+std::auto_ptr<MultiScalarField2D<T> > computeMaximumElement(MultiTensorField2D<T,nDim>& A);
 
 
 /* *************** Tensor-norm of each symmetric tensor of a field ***** */

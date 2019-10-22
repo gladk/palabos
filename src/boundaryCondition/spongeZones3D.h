@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,25 +42,25 @@ namespace plb {
 // the user must make sure in the construction of the MultiBlockLattice3D that
 // each node has its own dynamics object.
 template<typename T, template<typename U> class Descriptor>
-class ViscositySpongeZone : public BoxProcessingFunctional3D
+class ViscositySpongeZone3D : public BoxProcessingFunctional3D
 {
 public:
     // Constructor for the tanh sponge function.
     //   Nice value for the translation parameters is 0.5.
     //   Nice value for the scale parameters is 0.12.
-    ViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+    ViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
             Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
             Array<T,6> const& scaleParameters_);
 
     // Constructor for the cos sponge function.
-    ViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_,
+    ViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_,
                         Array<plint,6> const& numSpongeCells_);
 
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
 
-    virtual ViscositySpongeZone<T,Descriptor>* clone() const
+    virtual ViscositySpongeZone3D<T,Descriptor>* clone() const
     {
-        return new ViscositySpongeZone<T,Descriptor>(*this);
+        return new ViscositySpongeZone3D<T,Descriptor>(*this);
     }
 
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
@@ -78,25 +78,25 @@ private:
 
 
 template<typename T, template<typename U> class Descriptor>
-class MaskedViscositySpongeZone : public BoxProcessingFunctional3D
+class MaskedViscositySpongeZone3D : public BoxProcessingFunctional3D
 {
 public:
     // Constructor for the tanh sponge function.
     //   Nice value for the translation parameters is 0.5.
     //   Nice value for the scale parameters is 0.12.
-    MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
+    MaskedViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
             Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
             Array<T,6> const& scaleParameters_);
 
     // Constructor for the cos sponge function.
-    MaskedViscositySpongeZone(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
+    MaskedViscositySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkOmega_, int flag_,
                         Array<plint,6> const& numSpongeCells_);
 
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
 
-    virtual MaskedViscositySpongeZone<T,Descriptor>* clone() const
+    virtual MaskedViscositySpongeZone3D<T,Descriptor>* clone() const
     {
-        return new MaskedViscositySpongeZone<T,Descriptor>(*this);
+        return new MaskedViscositySpongeZone3D<T,Descriptor>(*this);
     }
 
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
@@ -122,25 +122,25 @@ private:
 // the user must make sure in the construction of the MultiBlockLattice3D that
 // each node has its own dynamics object.
 template<typename T, template<typename U> class Descriptor>
-class SmagorinskySpongeZone : public BoxProcessingFunctional3D
+class SmagorinskySpongeZone3D : public BoxProcessingFunctional3D
 {
 public:
     // Constructor for the tanh sponge function.
     //   Nice value for the translation parameters is 0.5.
     //   Nice value for the scale parameters is 0.12.
-    SmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
+    SmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
             Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
             Array<T,6> const& scaleParameters_);
 
     // Constructor for the cos sponge function.
-    SmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
+    SmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_,
             Array<plint,6> const& numSpongeCells_);
 
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
 
-    virtual SmagorinskySpongeZone<T,Descriptor>* clone() const
+    virtual SmagorinskySpongeZone3D<T,Descriptor>* clone() const
     {
-        return new SmagorinskySpongeZone<T,Descriptor>(*this);
+        return new SmagorinskySpongeZone3D<T,Descriptor>(*this);
     }
 
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const
@@ -158,25 +158,25 @@ private:
 
 
 template<typename T, template<typename U> class Descriptor>
-class MaskedSmagorinskySpongeZone : public BoxProcessingFunctional3D
+class MaskedSmagorinskySpongeZone3D : public BoxProcessingFunctional3D
 {
 public:
     // Constructor for the tanh sponge function.
     //   Nice value for the translation parameters is 0.5.
     //   Nice value for the scale parameters is 0.12.
-    MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
+    MaskedSmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
             Array<plint,6> const& numSpongeCells_, Array<T,6> const& translationParameters_,
             Array<T,6> const& scaleParameters_);
 
     // Constructor for the cos sponge function.
-    MaskedSmagorinskySpongeZone(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
+    MaskedSmagorinskySpongeZone3D(plint nx_, plint ny_, plint nz_, T bulkCSmago_, T targetCSmago_, int flag_,
             Array<plint,6> const& numSpongeCells_);
 
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
 
-    virtual MaskedSmagorinskySpongeZone<T,Descriptor>* clone() const
+    virtual MaskedSmagorinskySpongeZone3D<T,Descriptor>* clone() const
     {
-        return new MaskedSmagorinskySpongeZone<T,Descriptor>(*this);
+        return new MaskedSmagorinskySpongeZone3D<T,Descriptor>(*this);
     }
 
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const

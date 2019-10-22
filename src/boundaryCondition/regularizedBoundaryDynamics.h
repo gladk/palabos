@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -51,8 +51,28 @@ public:
     /// Return a unique ID for this class.
     virtual int getId() const;
 
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
+    /// Execute completion scheme before base collision
+    virtual void completePopulations(Cell<T,Descriptor>& cell) const;
+private:
+    static int id;
+};
+
+/// Regularized velocity boundary dynamics for a straight wall
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+class RegularizedVelocityConstRhoBoundaryDynamics :
+    public VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>
+{
+public:
+    RegularizedVelocityConstRhoBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics_,
+                                        bool automaticPrepareCollision_=true);
+    RegularizedVelocityConstRhoBoundaryDynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object, based on its dynamic type
+    virtual RegularizedVelocityConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
 
     /// Execute completion scheme before base collision
     virtual void completePopulations(Cell<T,Descriptor>& cell) const;
@@ -75,9 +95,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Execute completion scheme before base collision
     virtual void completePopulations(Cell<T,Descriptor>& cell) const;

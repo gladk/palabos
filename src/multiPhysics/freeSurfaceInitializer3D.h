@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,21 +25,28 @@
 #ifndef FREE_SURFACE_INITIALIZER_3D_H
 #define FREE_SURFACE_INITIALIZER_3D_H
 
+#include "core/array.h"
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
 #include "multiPhysics/freeSurfaceUtil3D.h"
+#include "latticeBoltzmann/geometricOperationTemplates.h"
 
 namespace plb {
 
 template< typename T,template<typename U> class Descriptor>
 class DefaultInitializeFreeSurface3D : public BoxProcessingFunctional3D {
 public:
-    DefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_, Array<T,3> g_, T rhoIni_, bool useRhoIni_)
-        : dynamicsTemplate(dynamicsTemplate_), g(g_), rhoIni(rhoIni_), useRhoIni(useRhoIni_)
+    DefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_,
+            Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_, T rhoIni_=(T)1., bool useRhoIni_ = true,
+            bool useZeroMomentum_ = true, bool initializeCell_ = true)
+        : dynamicsTemplate(dynamicsTemplate_), force(force_), rhoIni(rhoIni_), useRhoIni(useRhoIni_),
+          useZeroMomentum(useZeroMomentum_), initializeCell(initializeCell_)
     { }
     DefaultInitializeFreeSurface3D(DefaultInitializeFreeSurface3D<T,Descriptor> const& rhs)
         : dynamicsTemplate(rhs.dynamicsTemplate->clone()),
-          g(rhs.g), rhoIni(rhs.rhoIni), useRhoIni(rhs.useRhoIni)
+          force(rhs.force), rhoIni(rhs.rhoIni), useRhoIni(rhs.useRhoIni), useZeroMomentum(rhs.useZeroMomentum),
+          initializeCell(rhs.initializeCell)
     { }
     DefaultInitializeFreeSurface3D<T,Descriptor>* operator=(DefaultInitializeFreeSurface3D<T,Descriptor> const& rhs)
     { 
@@ -48,9 +55,11 @@ public:
     }
     void swap(DefaultInitializeFreeSurface3D<T,Descriptor>& rhs) {
         std::swap(dynamicsTemplate, rhs.dynamicsTemplate);
-        std::swap(g, rhs.g);
+        std::swap(force, rhs.force);
         std::swap(rhoIni, rhs.rhoIni);
         std::swap(useRhoIni, rhs.useRhoIni);
+        std::swap(useZeroMomentum, rhs.useZeroMomentum);
+        std::swap(initializeCell, rhs.initializeCell);
     }
     virtual ~DefaultInitializeFreeSurface3D() {
         delete dynamicsTemplate;
@@ -70,26 +79,29 @@ public:
         modified[6] = modif::nothing;          // Normal.
         modified[7] = modif::nothing;          // Interface lists
         modified[8] = modif::nothing;          // Curvature.
-        modified[9] = modif::nothing;          // Outside density.
+        modified[9] = modif::staticVariables;  // Outside density.
     }
 private:
     Dynamics<T,Descriptor>* dynamicsTemplate;
-    Array<T,3> g;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force;
     T rhoIni;
-    bool useRhoIni;
+    bool useRhoIni, useZeroMomentum, initializeCell;
 };
 
 // Same as DefaultInitializeFreeSurface, but without initializing the Volume-fraction.
 template< typename T,template<typename U> class Descriptor>
 class PartiallyDefaultInitializeFreeSurface3D : public BoxProcessingFunctional3D {
 public:
-    PartiallyDefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_, Array<T,3> g_, T rhoIni_=(T)1.)
-        : dynamicsTemplate(dynamicsTemplate_), g(g_), rhoIni(rhoIni_)
+    PartiallyDefaultInitializeFreeSurface3D(Dynamics<T,Descriptor>* dynamicsTemplate_,
+            Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_, T rhoIni_=(T)1., bool useRhoIni_ = true,
+            bool useZeroMomentum_ = true, bool initializeCell_ = true)
+        : dynamicsTemplate(dynamicsTemplate_), force(force_), rhoIni(rhoIni_), useRhoIni(useRhoIni_),
+          useZeroMomentum(useZeroMomentum_), initializeCell(initializeCell_)
     { }
     PartiallyDefaultInitializeFreeSurface3D(PartiallyDefaultInitializeFreeSurface3D<T,Descriptor> const& rhs)
         : dynamicsTemplate(rhs.dynamicsTemplate->clone()),
-          g(rhs.g),
-          rhoIni(rhs.rhoIni)
+          force(rhs.force), rhoIni(rhs.rhoIni), useRhoIni(rhs.useRhoIni), useZeroMomentum(rhs.useZeroMomentum),
+          initializeCell(rhs.initializeCell)
     { }
     PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>* operator= (
             PartiallyDefaultInitializeFreeSurface3D<T,Descriptor> const& rhs )
@@ -99,8 +111,11 @@ public:
     }
     void swap(PartiallyDefaultInitializeFreeSurface3D<T,Descriptor>& rhs) {
         std::swap(dynamicsTemplate, rhs.dynamicsTemplate);
-        std::swap(g, rhs.g);
+        std::swap(force, rhs.force);
         std::swap(rhoIni, rhs.rhoIni);
+        std::swap(useRhoIni, rhs.useRhoIni);
+        std::swap(useZeroMomentum, rhs.useZeroMomentum);
+        std::swap(initializeCell, rhs.initializeCell);
     }
     virtual ~PartiallyDefaultInitializeFreeSurface3D() {
         delete dynamicsTemplate;
@@ -120,12 +135,13 @@ public:
         modified[6] = modif::nothing;          // Normal.
         modified[7] = modif::nothing;          // Interface lists
         modified[8] = modif::nothing;          // Curvature.
-        modified[9] = modif::nothing;          // Outside density.
+        modified[9] = modif::staticVariables;  // Outside density.
     }
 private:
     Dynamics<T,Descriptor>* dynamicsTemplate;
-    Array<T,3> g;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force;
     T rhoIni;
+    bool useRhoIni, useZeroMomentum, initializeCell;
 };
 
 template<typename T,class InsideFunction>
@@ -150,6 +166,11 @@ private:
     InsideFunction const& insideFunction;
     plint subDivision;
 };
+
+template<typename T, class InsideFunction>
+void analyticalIniVolumeFraction (
+        MultiScalarField3D<T>& volumeFraction, MultiScalarField3D<int>& flagStatus,
+        InsideFunction const& insideFunction, Box3D domain, plint subDivision = 5 );
 
 template<typename T, class InsideFunction>
 void analyticalIniVolumeFraction (
@@ -214,6 +235,33 @@ private:
 };
 
 template<typename T, template<typename U> class Descriptor>
+class MaskedInletConstVolumeFraction3D : public BoxProcessingFunctional3D {
+public:
+    MaskedInletConstVolumeFraction3D(T volumeFraction_, int whichFlag_)
+        : volumeFraction(volumeFraction_),
+          whichFlag(whichFlag_)
+    { }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual MaskedInletConstVolumeFraction3D<T,Descriptor>* clone() const
+    {
+        return new MaskedInletConstVolumeFraction3D<T,Descriptor>(*this);
+    }
+    virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const
+    {
+        modified[0] = modif::nothing;         // rhoBar.
+        modified[1] = modif::staticVariables; // mass.
+        modified[2] = modif::nothing;         // mask.
+    }
+private:
+    T volumeFraction;
+    int whichFlag;
+};
+
+template<typename T, template<typename U> class Descriptor>
+void maskedInletConstVolumeFraction3D(MultiScalarField3D<T>& rhoBar, MultiScalarField3D<T>& mass,
+        MultiScalarField3D<int>& mask, T volumeFraction, int whichFlag, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor>
 class OutletMaximumVolumeFraction3D : public BoxProcessingFunctional3D {
 public:
     OutletMaximumVolumeFraction3D(T volumeFraction_)
@@ -239,7 +287,6 @@ public:
 private:
     T volumeFraction;
 };
-
 
 template<typename T, template<typename U> class Descriptor>
 class OutletVolumeFractionInRange3D : public BoxProcessingFunctional3D {
@@ -337,7 +384,7 @@ public:
     }
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
-        modified[0] = modif::staticVariables; // Fluid.
+        modified[0] = modif::dataStructure;   // Fluid.
         modified[1] = modif::staticVariables; // rhoBar.
         modified[2] = modif::staticVariables; // j.
         modified[3] = modif::staticVariables; // Mass.
@@ -345,7 +392,7 @@ public:
         modified[5] = modif::staticVariables; // Flag-status.
         modified[6] = modif::nothing;         // Normal.
         modified[7] = modif::nothing;         // Interface-lists.
-        modified[8] = modif::staticVariables; // Curvature.
+        modified[8] = modif::nothing;         // Curvature.
         modified[9] = modif::staticVariables; // Outside density.
     }
 private:
@@ -371,7 +418,7 @@ public:
     }
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
-        modified[0] = modif::staticVariables; // Fluid.
+        modified[0] = modif::dataStructure;   // Fluid.
         modified[1] = modif::staticVariables; // rhoBar.
         modified[2] = modif::staticVariables; // j.
         modified[3] = modif::staticVariables; // Mass.
@@ -379,7 +426,7 @@ public:
         modified[5] = modif::staticVariables; // Flag-status.
         modified[6] = modif::nothing;         // Normal.
         modified[7] = modif::nothing;         // Interface-lists.
-        modified[8] = modif::staticVariables; // Curvature.
+        modified[8] = modif::nothing;         // Curvature.
         modified[9] = modif::staticVariables; // Outside density.
     }
 private:
@@ -412,16 +459,6 @@ public:
     }
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
-        modified[0] = modif::staticVariables; // Fluid.
-        modified[1] = modif::staticVariables; // rhoBar.
-        modified[2] = modif::staticVariables; // j.
-        modified[3] = modif::staticVariables; // Mass.
-        modified[4] = modif::staticVariables; // Volume-fraction.
-        modified[5] = modif::staticVariables; // Flag-status.
-        modified[6] = modif::nothing;         // Normal.
-        modified[7] = modif::nothing;         // Interface-lists.
-        modified[8] = modif::staticVariables; // Curvature.
-        modified[9] = modif::staticVariables; // Outside density.
     }
 private:
     Array<T,3> center;

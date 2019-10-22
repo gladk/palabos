@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 #ifndef MULTI_GRID_LATTICE_3D_HH
@@ -175,7 +175,10 @@ void MultiGridLattice3D<T,Descriptor>::initialize()
 {
     // create the interfaces
     this->createInterfaces();
-    
+
+    // eliminate the statistics in the refinement overlap
+    this->eliminateStatisticsInOverlap();
+
     // Execute this data processor once, because this allocates memory on the fine grid dynamcis
     //   for time t0 (after we have values for t1)
     lattices[0]->executeInternalProcessors();
@@ -191,13 +194,14 @@ void MultiGridLattice3D<T,Descriptor>::initialize()
                 levelInterfaces[iInterf].multiply(2),
                 *lattices[iLevel] );
         }
-        
-        lattices[iLevel]->executeInternalProcessors();
+
+        lattices[iLevel]->initialize();
+        //lattices[iLevel]->executeInternalProcessors();
     }
-    
+
     // toggle all stats on
     for (int iLevel = 0; iLevel < (plint)lattices.size(); ++iLevel){
-        lattices[iLevel]->initialize();
+        //lattices[iLevel]->initialize();
         lattices[iLevel]->toggleInternalStatistics(true);
     }
     
@@ -207,7 +211,35 @@ template <typename T, template <typename U> class Descriptor>
 void MultiGridLattice3D<T,Descriptor>::createInterfaces(){
     plb::createInterfaces( lattices,
                            this->getMultiGridManagement() );
-};
+}
+
+/** Use the information contained in manualGridRefiner to avoid the
+ *  computation of statistics in the overlapping regions between the coarse
+ *  and fine grids.
+ */
+template <typename T, template <typename U> class Descriptor>
+void MultiGridLattice3D<T,Descriptor>::eliminateStatisticsInOverlap(){
+    // the fine interface is the region inside the fine grid that overlaps with the coarse
+    //   grid. It is therefore there that we need to turn off the statistics in the
+    //   coarse grid.
+    std::vector<std::vector<Box3D> > fineOverlaps = this->getMultiGridManagement().getFineInterface();
+    for (plint iLevel = 0; iLevel < (plint)lattices.size()-1; ++iLevel){
+        for (plint iOv = 0; iOv < (plint)fineOverlaps[iLevel].size(); ++iOv){
+            Box3D currentOverlap = (fineOverlaps[iLevel])[iOv];
+            lattices[iLevel]->specifyStatisticsStatus(currentOverlap, false);
+        }
+    }
+    // it is also necessary to avoid computation in the coarse interface, as the refinement
+    //   overlap is two coarse sites
+    std::vector<std::vector<Box3D> > coarseOverlaps = this->getMultiGridManagement().getCoarseInterface();
+    for (plint iLevel = 0; iLevel < (plint)lattices.size()-1; ++iLevel){
+        for (plint iOv = 0; iOv < (plint)coarseOverlaps[iLevel].size(); ++iOv){
+            Box3D currentOverlap = (coarseOverlaps[iLevel])[iOv];
+            lattices[iLevel]->specifyStatisticsStatus(currentOverlap, false);
+        }
+    }
+
+}
 
 /** Interpolate and decimate the multi blocks that form the MultiGridLattice3D
  *   in order to have several multi blocks of the same level. Then join them by 
@@ -415,8 +447,9 @@ void MultiGridLattice3D<T,Descriptor>::collideAndStream(){
     this->evaluateStatistics();
 }
 
+
 /** This function does not have a sense in the multigrid case. It is 
- *  therefore void but implemented to complain with the BlockLatticeBase3D interface
+ *  therefore void but implemented to comply with the BlockLatticeBase3D interface
  */
 template <typename T, template <typename U> class Descriptor>
 void MultiGridLattice3D<T,Descriptor>::incrementTime()

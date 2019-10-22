@@ -1,0 +1,160 @@
+# This file is a template, and might need editing before it works on your project.
+# use the official gcc image, based on debian
+# can use verions as well, like gcc:5.2
+# see https://hub.docker.com/_/gcc/
+image: registry.gitlab.com/flowkit/palabos:latest
+    
+cache:
+    untracked: true
+    
+stages:
+    - buildShowCases
+    - buildTutorials
+    - buildCodesByTopic
+    - buildStl
+
+#test_pypal:
+#    stage: build
+#    
+#    script: 
+#        - apt-get update
+#        - apt-get install -y swig python-dev
+#        - export PALABOS_ROOT=`pwd`
+#        - git clone git@gitlab.com:flowkit/pypal-web.git
+#        - cd pypal-web/scripted-palabos/src
+#        - export PYPAL_ROOT=`pwd`
+#        - make
+        
+## Test compilation in the examples/showCases directory
+showCases:
+    stage: buildShowCases
+    
+    script: 
+        - pwd
+        - cd examples/showCases/cavity3d
+        - make
+        - cd ../womersley
+        - make
+        - cd ../rectangularChannel3d
+        - make
+        - cd ../poiseuille
+        - make
+        - cd ../carreauPoiseuille
+        - make
+        - cd ../boussinesqThermal3d
+        - make
+        - cd ../rectangularChannel3d
+        - make
+        - cd ../boussinesqThermal2d
+        - make
+        - cd ../collidingBubbles3d
+        - make
+        - cd ../movingWall
+        - make
+        - cd ../multiComponent3d
+        - make
+        - cd ../multiComponent2d
+        - make
+        - cd ../cavity2d
+        - make
+        - cd ../externalFlowAroundObstacle
+        - make
+        - cd ../aneurysm
+        - make
+        - cd ../particlesInCone
+        - make
+        - cd ../heatedObjectInChannel
+        - make
+        - cd ../cylinder2d
+        - make
+        - cd ../generalExternalFlow
+        - make
+        - cd ../vofMultiPhase
+        - make
+
+## Test compilation in the examples/tutorial directory
+tutorial:
+    stage: buildTutorials
+    
+    script: 
+        - pwd
+        - cd examples/tutorial/permeability
+        - make
+        - cd ../tutorial_1
+        - make
+        - cd ../tutorial_2
+        - make
+
+## Test compilation in the examples/codesByTopic directory
+codesByTopic:
+    stage: buildCodesByTopic
+    
+    script: 
+        - pwd
+        - cd examples/codesByTopic/coProcessor
+        - make
+        - cd ../transientStatistics
+        - make
+        - cd ../particlesInTube
+        - make
+        - cd ../marchingCube
+        - make
+        - cd ../complexNumbers
+        - make
+        - cd ../couplings
+        - make
+        - cd ../io
+        - make
+        - cd ../shanChenMultiPhase
+        - make
+        - cd ../copying
+        - make
+        - cd ../dynamicsInfo
+        - make
+        - cd ../navierStokesModels
+        - make
+        - cd ../bounceBack
+        - make
+        - cd ../dotList
+        - make
+        - cd ../externalMacroscopicVariables
+        - make
+        - cd ../asinariDynamics
+        - make
+        - cd ../scalarField
+        - make
+        - cd ../dataAnalysis
+        - make
+        - cd ../boundaryCondition
+        - make
+        - cd ../d3q13
+        - make
+        - cd ../linearAlgebra
+        - make
+        - cd ../userInput
+        - make
+        - cd ../multiBlock
+        - make
+        - cd ../smagorinskyModel
+        - make
+        - cd ../cutTriangularSurface
+        - make
+        - cd ../reparallelize
+        - make
+        
+## Test compilation in the examples/showCases directory
+stl:
+    stage: buildStl
+    
+    script: 
+        - pwd
+        - cd utility/stl
+        - sh buildAll.sh
+
+
+
+# run tests using the binary built before
+#test:
+#  stage: test
+#  script:
+#    - ./runmytests.sh

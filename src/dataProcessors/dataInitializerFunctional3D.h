@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #include "core/globalDefs.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
 #include "core/dynamics.h"
+#include "sitmo/prng_engine.hpp"
 
 namespace plb {
 
@@ -53,6 +54,16 @@ struct OneCellIndexedFunctional3D {
     virtual ~OneCellIndexedFunctional3D();
     virtual OneCellIndexedFunctional3D<T,Descriptor>* clone() const =0;
     virtual void execute(plint iX, plint iY, plint iZ, Cell<T,Descriptor>& cell) const =0;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual void setscale(int dxScale, int dtScale);
+};
+
+template<typename T, template<class U> class Descriptor>
+struct OneCellIndexedWithRandFunctional3D {
+    virtual ~OneCellIndexedWithRandFunctional3D();
+    virtual OneCellIndexedWithRandFunctional3D<T,Descriptor>* clone() const =0;
+    virtual void execute(plint iX, plint iY, plint iZ, T randVal, Cell<T,Descriptor>& cell) const =0;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual void setscale(int dxScale, int dtScale);
@@ -98,6 +109,26 @@ private:
     OneCellIndexedFunctional3D<T,Descriptor>* f;
 };
 
+template<typename T, template<class U> class Descriptor>
+class GenericIndexedWithRandLatticeFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    GenericIndexedWithRandLatticeFunctional3D( OneCellIndexedWithRandFunctional3D<T,Descriptor>* f_,
+                                               Box3D boundingBox, sitmo::prng_engine eng_ );
+    GenericIndexedWithRandLatticeFunctional3D(GenericIndexedWithRandLatticeFunctional3D<T,Descriptor> const& rhs);
+    virtual ~GenericIndexedWithRandLatticeFunctional3D();
+    GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>& operator=(GenericIndexedWithRandLatticeFunctional3D<T,Descriptor> const& rhs);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual GenericIndexedWithRandLatticeFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void setscale(int dxScale, int dtScale);
+private:
+    OneCellIndexedWithRandFunctional3D<T,Descriptor>* f;
+    plint nY, nZ;
+    sitmo::prng_engine eng;
+};
+
 
 /* *************** Class InstantiateDynamicsFunctional3D ************* */
 
@@ -116,6 +147,35 @@ public:
 private:
     Dynamics<T,Descriptor>* dynamics;
 };
+
+
+/* *************** Class InstantiateDynamicsInBulkAndEnvelopeFunctional3D ************* */
+
+// The following data processor is a "low-level" one to be used only in very specific cases, where
+// one wants to assign the dynamics inside the envelope, and the standard "InstantiateDynamicsFunctional3D"
+// functional (which is applied only in the bulk) will not be adequate because of an "irregular" sparse block
+// decomposition. What we mean by that is, that sometimes the sparse block structure is such, that
+// after communication, the envelopes will not have the desired values. In such cases the standard
+// "InstantiateDynamicsFunctional3D" functional will not be sufficient, and the use of the following
+// "InstantiateDynamicsInBulkAndEnvelopeFunctional3D" will be preferred.
+// This data processor is the same as InstantiateDynamicsFunctional3D, except from the implementation
+// of the "appliesTo" function.
+template<typename T, template<typename U> class Descriptor>
+class InstantiateDynamicsInBulkAndEnvelopeFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor> {
+public:
+    InstantiateDynamicsInBulkAndEnvelopeFunctional3D(Dynamics<T,Descriptor>* dynamics_);
+    InstantiateDynamicsInBulkAndEnvelopeFunctional3D(InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor> const& rhs);
+    InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>& operator= (
+            InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor> const& rhs );
+    virtual ~InstantiateDynamicsInBulkAndEnvelopeFunctional3D();
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual InstantiateDynamicsInBulkAndEnvelopeFunctional3D<T,Descriptor>* clone() const ;
+private:
+    Dynamics<T,Descriptor>* dynamics;
+};
+
 
 /* ************* Class InstantiateComplexDomainDynamicsFunctional3D ** */
 
@@ -275,6 +335,37 @@ private:
     Array<T,Descriptor<T>::d> u;
 };
 
+/* ************* Class SetConstBoundaryVelocityWithTensorForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class SetConstBoundaryVelocityWithTensorForceFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    SetConstBoundaryVelocityWithTensorForceFunctional3D(Array<T,Descriptor<T>::d> velocity);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force);
+    virtual SetConstBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> u;
+};
+
+/* ************* Class SetConstBoundaryVelocityWithForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class SetConstBoundaryVelocityWithForceFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    SetConstBoundaryVelocityWithForceFunctional3D(Array<T,Descriptor<T>::d> force, Array<T,Descriptor<T>::d> velocity);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual SetConstBoundaryVelocityWithForceFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> f;
+    Array<T,Descriptor<T>::d> u;
+};
+
 
 /* ************* Class SetCustomBoundaryVelocityFunctional3D ******************* */
 
@@ -289,6 +380,52 @@ public:
 private:
     VelocityFunction f;
     T velocityScale;
+};
+
+/* ************* Class SetCustomBoundaryVelocityWithTensorForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+class SetCustomBoundaryVelocityWithTensorForceFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    SetCustomBoundaryVelocityWithTensorForceFunctional3D(VelocityFunction f_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force);
+    virtual SetCustomBoundaryVelocityWithTensorForceFunctional3D<T,Descriptor,VelocityFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    VelocityFunction f;
+};
+
+/* ************* Class SetCustomBoundaryVelocityWithForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class VelocityFunction>
+class SetCustomBoundaryVelocityWithForceFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    SetCustomBoundaryVelocityWithForceFunctional3D(Array<T,Descriptor<T>::d> force_, VelocityFunction f_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual SetCustomBoundaryVelocityWithForceFunctional3D<T,Descriptor,VelocityFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> force;
+    VelocityFunction f;
+};
+
+/* ************* Class SetCustomBoundaryVelocityWithCustomForceFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class ForceVelocityFunction>
+class SetCustomBoundaryVelocityWithCustomForceFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    SetCustomBoundaryVelocityWithCustomForceFunctional3D(ForceVelocityFunction f_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual SetCustomBoundaryVelocityWithCustomForceFunctional3D<T,Descriptor,ForceVelocityFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    ForceVelocityFunction f;
 };
 
 
@@ -328,15 +465,139 @@ template<typename T, template<typename U> class Descriptor>
 class IniConstEquilibriumFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
 {
 public:
-    IniConstEquilibriumFunctional3D(T density_, Array<T,Descriptor<T>::d> velocity, T temperature);
+    IniConstEquilibriumFunctional3D(T density, Array<T,Descriptor<T>::d> velocity, T temperature);
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
     virtual IniConstEquilibriumFunctional3D<T,Descriptor>* clone() const;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
+    T rho;
     T rhoBar;
-    Array<T,Descriptor<T>::d> j;
-    T jSqr;
+    Array<T,Descriptor<T>::d> u;
+    T thetaBar;
+};
+
+
+/* ************* Class MaskedIniConstEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class MaskedIniConstEquilibriumFunctional3D : public BoxProcessingFunctional3D_LS<T,Descriptor,int>
+{
+public:
+    MaskedIniConstEquilibriumFunctional3D(T density, Array<T,Descriptor<T>::d> velocity, T temperature, int whichFlag_);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual MaskedIniConstEquilibriumFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T rho;
+    T rhoBar;
+    Array<T,Descriptor<T>::d> u;
+    T thetaBar;
+    int whichFlag;
+};
+
+/* ************* Class IniConstTensorForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class IniConstTensorForceEquilibriumFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    IniConstTensorForceEquilibriumFunctional3D(T density, Array<T,Descriptor<T>::d> velocity, T temperature);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force);
+    virtual IniConstTensorForceEquilibriumFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T rho;
+    T rhoBar;
+    Array<T,Descriptor<T>::d> u;
+    T thetaBar;
+};
+
+/* ************* Class IniCustomTensorForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+class IniCustomTensorForceEquilibriumFunctional3D : public BoxProcessingFunctional3D_LT<T,Descriptor,T,Descriptor<T>::d>
+{
+public:
+    IniCustomTensorForceEquilibriumFunctional3D(RhoUFunction f_, T temperature);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, TensorField3D<T,Descriptor<T>::d>& force);
+    virtual IniCustomTensorForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    RhoUFunction f;
+    T thetaBar;
+};
+
+/* ************* Class IniCustomTensorForceRandomEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+class IniCustomTensorForceRandomEquilibriumFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    IniCustomTensorForceRandomEquilibriumFunctional3D(RhoUFunction f_, T temperature);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual IniCustomTensorForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    RhoUFunction f;
+    T thetaBar;
+};
+
+/* ************* Class IniConstForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class IniConstForceEquilibriumFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    IniConstForceEquilibriumFunctional3D(Array<T,Descriptor<T>::d> force, T density, Array<T,Descriptor<T>::d> velocity,
+            T temperature);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual IniConstForceEquilibriumFunctional3D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> f;
+    T rho;
+    T rhoBar;
+    Array<T,Descriptor<T>::d> u;
+    T thetaBar;
+};
+
+/* ************* Class IniCustomForceEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+class IniCustomForceEquilibriumFunctional3D : public BoxProcessingFunctional3D_L<T,Descriptor>
+{
+public:
+    IniCustomForceEquilibriumFunctional3D(Array<T,Descriptor<T>::d> force_, RhoUFunction f_, T temperature);
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual IniCustomForceEquilibriumFunctional3D<T,Descriptor,RhoUFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> force;
+    RhoUFunction f;
+    T thetaBar;
+};
+
+/* ************* Class IniCustomForceRandomEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+class IniCustomForceRandomEquilibriumFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    IniCustomForceRandomEquilibriumFunctional3D(Array<T,Descriptor<T>::d> force_, RhoUFunction f_, T temperature);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual IniCustomForceRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Array<T,Descriptor<T>::d> force;
+    RhoUFunction f;
     T thetaBar;
 };
 
@@ -347,15 +608,15 @@ class IniConstEquilibriumOnDomainFunctional3D : public BoxProcessingFunctional3D
 {
 public:
     IniConstEquilibriumOnDomainFunctional3D (
-            T density_, Array<T,Descriptor<T>::d> velocity, T temperature,
+            T density, Array<T,Descriptor<T>::d> velocity, T temperature,
             DomainFunctional const& domain_ );
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
     virtual IniConstEquilibriumOnDomainFunctional3D<T,Descriptor,DomainFunctional>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
+    T rho;
     T rhoBar;
-    Array<T,Descriptor<T>::d> j;
-    T jSqr;
+    Array<T,Descriptor<T>::d> u;
     T thetaBar;
     DomainFunctional domain;
 };
@@ -374,6 +635,34 @@ public:
 private:
     RhoUFunction f;
     T velocityScale;
+};
+
+/* ************* Class IniCustomRandomEquilibriumFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class RhoUFunction>
+class IniCustomRandomEquilibriumFunctional3D : public OneCellIndexedWithRandFunctional3D<T,Descriptor>
+{
+public:
+    IniCustomRandomEquilibriumFunctional3D(RhoUFunction f_);
+    virtual void execute(plint iX, plint iY, plint iZ, T randVal, Cell<T,Descriptor>& cell) const;
+    virtual IniCustomRandomEquilibriumFunctional3D<T,Descriptor,RhoUFunction>* clone() const;
+    virtual void setscale(int dxScale, int dtScale);
+private:
+    RhoUFunction f;
+    T velocityScale;
+};
+
+/* ************* Class SetCustomOmegaFunctional3D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+class SetCustomOmegaFunctional3D : public OneCellIndexedFunctional3D<T,Descriptor>
+{
+public:
+    SetCustomOmegaFunctional3D(OmegaFunction f_);
+    virtual void execute(plint iX, plint iY, plint iZ, Cell<T,Descriptor>& cell) const;
+    virtual SetCustomOmegaFunctional3D<T,Descriptor,OmegaFunction>* clone() const;
+private:
+    OmegaFunction f;
 };
 
 /* ************* Class IniCustomThermalEquilibriumFunctional3D ******************* */
@@ -648,6 +937,21 @@ private:
     T value;
 };
 
+template<typename T>
+class MaskedIniConstScalarFunctional3D_N : public BoxProcessingFunctional3D_SN<T,int>
+{
+public:
+    MaskedIniConstScalarFunctional3D_N(int flag_, T value_);
+    virtual void process( Box3D domain,
+                          ScalarField3D<T>& field, NTensorField3D<int>& mask);
+    virtual MaskedIniConstScalarFunctional3D_N<T>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    int flag;
+    T value;
+};
+
 template<typename T, class Function>
 class SetToScalarFunctionFunctional3D : public BoxProcessingFunctional3D_S<T>
 {
@@ -655,6 +959,19 @@ public:
     SetToScalarFunctionFunctional3D(Function f_);
     virtual void process(Box3D domain, ScalarField3D<T>& field);
     virtual SetToScalarFunctionFunctional3D<T,Function>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Function f;
+};
+
+template<typename T, class Function>
+class SetToNTensorFunctionFunctional3D : public BoxProcessingFunctional3D_N<T>
+{
+public:
+    SetToNTensorFunctionFunctional3D(Function f_);
+    virtual void process(Box3D domain, NTensorField3D<T>& field);
+    virtual SetToNTensorFunctionFunctional3D<T,Function>* clone() const;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
@@ -701,6 +1018,32 @@ private:
     Array<T,nDim> value;
 };
 
+template<typename T, int nDim>
+class MaskedIniConstTensorFunctional3D_N : public BoxProcessingFunctional3D
+{
+public:
+    MaskedIniConstTensorFunctional3D_N(int flag_, Array<T,nDim> const& value_);
+    virtual void processGenericBlocks(Box3D domain,
+                                      std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual MaskedIniConstTensorFunctional3D_N<T,nDim>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    int flag;
+    Array<T,nDim> value;
+};
+
+template<typename T>
+class SwapValuesBulkAndEnvelope3D_N : public BoxProcessingFunctional3D_NN<T,T>
+{
+public:
+    virtual void process( Box3D domain,
+                          NTensorField3D<T>& A, NTensorField3D<T>& B );
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual SwapValuesBulkAndEnvelope3D_N<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
 template<typename T, int nDim, class Function>
 class SetToTensorFunctionFunctional3D : public BoxProcessingFunctional3D_T<T,nDim>
 {
@@ -739,6 +1082,19 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 };
 
+template<typename T>
+class SetToRandomFunctional3D : public BoxProcessingFunctional3D_S<T>
+{
+public:
+    SetToRandomFunctional3D(Box3D boundingBox, sitmo::prng_engine eng_);
+    virtual void process(Box3D domain, ScalarField3D<T>& field);
+    virtual SetToRandomFunctional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint nY, nZ;
+    sitmo::prng_engine eng;
+};
+
 template<typename T, int nDim>
 class SetTensorComponentFunctional3D : public BoxProcessingFunctional3D_ST<T,T,nDim>
 {
@@ -752,6 +1108,53 @@ public:
 private:
     int whichDim;
 };
+
+template<typename T>
+class PropagateInZdirection3D : public BoxProcessingFunctional3D_S<T> {
+public:
+    virtual void process(Box3D domain, ScalarField3D<T>& field);
+    virtual PropagateInZdirection3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+template<typename T>
+class GrowDomainFunctional3D : public BoxProcessingFunctional3D_S<T> {
+public:
+    GrowDomainFunctional3D(T flag_);
+    virtual void process(Box3D domain, ScalarField3D<T>& voxels);
+    virtual GrowDomainFunctional3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    T flag;
+};
+
+// This functional fills the envelopes (of a scalar field) which cannot be updated by
+// communication (due to an irregular block structure), with values extrapolated from
+// the bulk. This functional must be applied on the full bounding box of the
+// corresponding MultiScalarField3D. The envelopeWidth is assumed to be 1.
+template<typename T>
+class ScalarNeumannToUnusedEnvelopes3D : public BoxProcessingFunctional3D_S<T> {
+public:
+    virtual void process(Box3D domain, ScalarField3D<T>& field);
+    virtual ScalarNeumannToUnusedEnvelopes3D<T>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+// This functional fills the envelopes (of a tensor field) which cannot be updated by
+// communication (due to an irregular block structure), with values extrapolated from
+// the bulk. This functional must be applied on the full bounding box of the
+// corresponding MultiTensorField3D. The envelopeWidth is assumed to be 1.
+template<typename T, int nDim>
+class TensorNeumannToUnusedEnvelopes3D : public BoxProcessingFunctional3D_T<T,nDim> {
+public:
+    virtual void process(Box3D domain, TensorField3D<T,nDim>& field);
+    virtual TensorNeumannToUnusedEnvelopes3D<T,nDim>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
 
 }  // namespace plb
 

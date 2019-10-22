@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,8 +25,8 @@
 #ifndef SPLINE_HH
 #define SPLINE_HH
 
-#include "core/runTimeDiagnostics.h"
 #include "core/util.h"
+#include "core/globalDefs.h"
 #include "algorithm/spline.h"
 
 #include <cstdio>
@@ -40,7 +40,7 @@ template<typename T>
 Spline<T>::Spline(std::string fname)
 { 
     FILE *fp = fopen(fname.c_str(), "r");
-    PLB_ASSERT(fp != NULL);
+    PLB_ASSERT(fp != 0);
 
     long double tmp0, tmp1;
     while (!feof(fp))
@@ -51,14 +51,13 @@ Spline<T>::Spline(std::string fname)
 
     fclose(fp);
 
+    PLB_ASSERT(x.size() >= 2);
     PLB_ASSERT(x.size() == y.size());
 #ifdef PLB_DEBUG
-    T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    for (plint i = 1; i < (plint) x.size(); i++)
-        if (x[i] < x[i - 1] || util::fpequal(x[i], x[i - 1], eps)) {
-                plbLogicError("The abscissa of the interpolation points must be monotonically increasing.");
-        }
-#endif // PLB_DEBUG
+    for (plint i = 1; i < (plint) x.size(); i++) {
+        PLB_ASSERT(util::greaterThan(x[i], x[i - 1]));
+    }
+#endif
 }
 
 template<typename T>
@@ -66,14 +65,13 @@ Spline<T>::Spline(std::vector<T> const& x_, std::vector<T> const& y_)
     : x(x_),
       y(y_)
 { 
+    PLB_ASSERT(x.size() >= 2);
     PLB_ASSERT(x.size() == y.size());
 #ifdef PLB_DEBUG
-    T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    for (plint i = 1; i < (plint) x.size(); i++)
-        if (x[i] < x[i - 1] || util::fpequal(x[i], x[i - 1], eps)) {
-                plbLogicError("The abscissa of the interpolation points must be monotonically increasing.");
-        }
-#endif // PLB_DEBUG
+    for (plint i = 1; i < (plint) x.size(); i++) {
+        PLB_ASSERT(util::greaterThan(x[i], x[i - 1]));
+    }
+#endif
 }
 
 /* ***************** class NaturalCubicSpline ***************************************** */
@@ -106,7 +104,6 @@ void NaturalCubicSpline<T>::constructSpline()
     std::vector<T> const& x = this->getAbscissae();
     std::vector<T> const& y = this->getOrdinates();
     plint n = (plint) x.size();
-    PLB_ASSERT( n>=2 );
     std::vector<T> a1(n-1), a2(n-1), a3(n), a4(n), a5(n);
 
     y1.resize(n-1);
@@ -145,7 +142,7 @@ void NaturalCubicSpline<T>::constructSpline()
     y2.resize(n-1);
 }
 
-// return an index i in the range from il to ih for which x[i] <= t < x[i + 1]
+// Return an index i in the range from il to ih for which x[i] <= t < x[i + 1]
 template<typename T>
 plint NaturalCubicSpline<T>::bsrch(T t, plint il, plint ih) const
 {
@@ -167,29 +164,32 @@ plint NaturalCubicSpline<T>::bsrch(T t, plint il, plint ih) const
 }
 
 template<typename T>
+void NaturalCubicSpline<T>::locate(T& t) const
+{
+    std::vector<T> const& x = this->getAbscissae();
+    plint n = (plint) x.size();
+    if (util::lessEqual(t, x[0])) {
+        t = x[0];
+        icache = 0;
+    } else if (util::greaterEqual(t, x[n - 1])) {
+        t = x[n - 1];
+        icache = n - 2;
+    } else {
+        if (t < x[icache]) {
+            icache = bsrch(t, 0, icache);
+        } else if (t >= x[icache + 1]) {
+            icache = bsrch(t, icache, n - 1);
+        }
+    }
+}
+
+template<typename T>
 T NaturalCubicSpline<T>::getFunctionValue(T t) const
 {
     std::vector<T> const& x = this->getAbscissae();
     std::vector<T> const& y = this->getOrdinates();
-    plint n = (plint) x.size();
-    PLB_ASSERT( n>=1 );
 
-#ifdef PLB_DEBUG
-    T x1 = x[0];
-    T x2 = x[n-1];
-    static T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    if ((t < x1 && !util::fpequal(t, x1, eps)) ||
-        (t > x2 && !util::fpequal(t, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-#endif // PLB_DEBUG
-
-    if (t < x[icache] || t >= x[icache + 1]) {
-        if (t > x[icache]) {
-            icache = bsrch(t, icache, n - 1);
-        } else {
-            icache = bsrch(t, 0, icache);
-        }
-    }
+    locate(t);
 
     T xtmp = t - x[icache];
     T ytmp = y[icache] + xtmp * (y1[icache] + xtmp * (y2[icache] + xtmp * (y3[icache])));
@@ -200,26 +200,8 @@ template<typename T>
 T NaturalCubicSpline<T>::getDerivativeValue(T t) const
 {
     std::vector<T> const& x = this->getAbscissae();
-    plint n = (plint) x.size();
-    PLB_ASSERT( n>=1 );
 
-#ifdef PLB_DEBUG
-    T x1 = x[0];
-    T x2 = x[n-1];
-
-    static T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    if ((t < x1 && !util::fpequal(t, x1, eps)) ||
-        (t > x2 && !util::fpequal(t, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-#endif // PLB_DEBUG
-
-    if (t < x[icache] || t >= x[icache + 1]) {
-        if (t > x[icache]) {
-            icache = bsrch(t, icache, n - 1);
-        } else {
-            icache = bsrch(t, 0, icache);
-        }
-    }
+    locate(t);
 
     T xtmp = t - x[icache];
     T ydtmp = y1[icache] + xtmp * (2.0 * y2[icache] + xtmp * (3.0 * y3[icache]));
@@ -230,26 +212,8 @@ template<typename T>
 T NaturalCubicSpline<T>::getSecondDerivativeValue(T t) const
 {
     std::vector<T> const& x = this->getAbscissae();
-    plint n = (plint) x.size();
-    PLB_ASSERT( n>=1 );
 
-#ifdef PLB_DEBUG
-    T x1 = x[0];
-    T x2 = x[n-1];
-
-    static T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    if ((t < x1 && !util::fpequal(t, x1, eps)) ||
-        (t > x2 && !util::fpequal(t, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-#endif // PLB_DEBUG
-
-    if (t < x[icache] || t >= x[icache + 1]) {
-        if (t > x[icache]) {
-            icache = bsrch(t, icache, n - 1);
-        } else {
-            icache = bsrch(t, 0, icache);
-        }
-    }
+    locate(t);
 
     T xtmp = t - x[icache];
     T yd2tmp = 2.0 * y2[icache] + 6.0 * y3[icache] * xtmp;
@@ -259,27 +223,7 @@ T NaturalCubicSpline<T>::getSecondDerivativeValue(T t) const
 template<typename T>
 T NaturalCubicSpline<T>::getThirdDerivativeValue(T t) const
 {
-    std::vector<T> const& x = this->getAbscissae();
-    plint n = (plint) x.size();
-    PLB_ASSERT( n>=1 );
-
-#ifdef PLB_DEBUG
-    T x1 = x[0];
-    T x2 = x[n-1];
-
-    static T eps = 100.0 * std::numeric_limits<T>::epsilon();
-    if ((t < x1 && !util::fpequal(t, x1, eps)) ||
-        (t > x2 && !util::fpequal(t, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-#endif // PLB_DEBUG
-
-    if (t < x[icache] || t >= x[icache + 1]) {
-        if (t > x[icache]) {
-            icache = bsrch(t, icache, n - 1);
-        } else {
-            icache = bsrch(t, 0, icache);
-        }
-    }
+    locate(t);
 
     T yd3tmp = 6.0 * y3[icache];
     return yd3tmp;
@@ -302,81 +246,77 @@ T NaturalCubicSpline<T>::getIntegralValue() const
 }
 
 template<typename T>
-T NaturalCubicSpline<T>::getIntegralValue(T tmin, T tmax) const
+T NaturalCubicSpline<T>::getIntegralValue(T t1, T t2) const
 {
-    static T eps = 100.0 * std::numeric_limits<T>::epsilon();
+    if (util::fpequal(t1, t2)) {
+        return ((T) 0);
+    }
+
     std::vector<T> const& x = this->getAbscissae();
     std::vector<T> const& y = this->getOrdinates();
     plint n = (plint) x.size();
 
-#ifdef PLB_DEBUG
-    T x1 = x[0];
-    T x2 = x[n-1];
+    T sign = (T) 1;
+    if (util::lessThan(t2, t1)) {
+        std::swap(t1, t2);
+        sign = (T) -1;
+    }
 
-    if (tmin > tmax)
-        plbLogicError("Invalid arguments.");
-    if ((tmin < x1 && !util::fpequal(tmin, x1, eps)) ||
-        (tmin > x2 && !util::fpequal(tmin, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-    if ((tmax < x1 && !util::fpequal(tmax, x1, eps)) ||
-        (tmax > x2 && !util::fpequal(tmax, x2, eps)))
-        plbLogicError("Argument out of bounds.");
-#endif // PLB_DEBUG
-
-    if (util::fpequal(tmin, tmax, eps))
-        return ((T) 0);
-
-    if (tmin < x[icache] || tmin >= x[icache + 1]) {
-        if (tmin > x[icache]) {
-            icache = bsrch(tmin, icache, n - 1);
+    T leftIntegral = (T) 0;
+    if (util::lessEqual(t1, x[0])) {
+        if (util::lessEqual(t2, x[0])) {
+            return sign * (t2 - t1) * y[0];
         } else {
-            icache = bsrch(tmin, 0, icache);
+            leftIntegral = (x[0] - t1) * y[0];
         }
     }
+
+    T rightIntegral = (T) 0;
+    if (util::greaterEqual(t2, x[n-1])) {
+        if (util::greaterEqual(t1, x[n-1])) {
+            return sign * (t2 - t1) * y[n-1];
+        } else {
+            rightIntegral = (t2 - x[n-1]) * y[n-1];
+        }
+    }
+
+    locate(t1);
     plint imin = icache;
 
-    if (tmax < x[icache] || tmax >= x[icache + 1]) {
-        if (tmax > x[icache]) {
-            icache = bsrch(tmax, icache, n - 1);
-        } else {
-            icache = bsrch(tmax, 0, icache);
-        }
-    }
+    locate(t2);
     plint imax = icache;
 
-    plint i;
-    T dxmin, dxmax, integral;
+    T middleIntegral = (T) 0;
 
     if (imin == imax) {
-        i = imin;
-        dxmin = tmin - x[i];
-        dxmax = tmax - x[i];
-        integral = y[i] * (tmax - tmin) +
+        plint i = imin;
+        T dxmin = t1 - x[i];
+        T dxmax = t2 - x[i];
+        middleIntegral = y[i] * (t2 - t1) +
             (y1[i]/2.0) * (dxmax*dxmax - dxmin*dxmin) +
             (y2[i]/3.0) * (dxmax*dxmax*dxmax - dxmin*dxmin*dxmin) +
             (y3[i]/4.0) * (dxmax*dxmax*dxmax*dxmax - dxmin*dxmin*dxmin*dxmin);
-        return integral;
+    } else {
+        plint i = imin;
+        T dxmin = t1 - x[i];
+        T dxmax = x[i + 1] - x[i];
+        middleIntegral = y[i] * (x[i + 1] - t1) +
+            (y1[i]/2.0) * (dxmax*dxmax - dxmin*dxmin) +
+            (y2[i]/3.0) * (dxmax*dxmax*dxmax - dxmin*dxmin*dxmin) +
+            (y3[i]/4.0) * (dxmax*dxmax*dxmax*dxmax - dxmin*dxmin*dxmin*dxmin);
+
+        T dx;
+        for (i = imin + 1; i < imax; i++) {
+            dx = x[i + 1] - x[i];
+            middleIntegral += dx * (y[i] + dx * (y1[i] / 2.0 + dx * (y2[i] / 3.0 + dx * (y3[i] / 4.0))));
+        } 
+
+        i = imax;
+        dx = t2 - x[i];
+        middleIntegral += dx * (y[i] + dx * (y1[i] / 2.0 + dx * (y2[i] / 3.0 + dx * (y3[i] / 4.0))));
     }
 
-    i = imin;
-    dxmin = tmin - x[i];
-    dxmax = x[i + 1] - x[i];
-    integral = y[i] * (x[i + 1] - tmin) +
-        (y1[i]/2.0) * (dxmax*dxmax - dxmin*dxmin) +
-        (y2[i]/3.0) * (dxmax*dxmax*dxmax - dxmin*dxmin*dxmin) +
-        (y3[i]/4.0) * (dxmax*dxmax*dxmax*dxmax - dxmin*dxmin*dxmin*dxmin);
-
-    T dx;
-    for (i = imin + 1; i < imax; i++) {
-        dx = x[i + 1] - x[i];
-        integral += dx * (y[i] + dx * (y1[i] / 2.0 + dx * (y2[i] / 3.0 + dx * (y3[i] / 4.0))));
-    } 
-
-    i = imax;
-    dx = tmax - x[i];
-    integral += dx * (y[i] + dx * (y1[i] / 2.0 + dx * (y2[i] / 3.0 + dx * (y3[i] / 4.0))));
-
-    return integral;
+    return sign * (leftIntegral + middleIntegral + rightIntegral);
 }
 
 }  // namespace plb

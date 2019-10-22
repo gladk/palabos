@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -376,7 +376,6 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
     plint i = util::roundToInt(currentTime/dt);
     lattice->resetTime(i);
 
-    Box3D bbox(lattice->getBoundingBox());
     pcout << "Saving a " << lattice->getNx() << " by " << lattice->getNy()
           << " by " << lattice->getNz() << " lattice." << std::endl;
     global::timer("io").start();
@@ -395,8 +394,6 @@ std::auto_ptr<MultiBlockLattice3D<T,DESCRIPTOR> > run (
     }
     pcout << "End of 100 iterations" << std::endl;
     pcout << "Total time of execution: " << global::timer("global").getTime() << std::endl;
-
-    Box3D measureBox(inletDomain);
 
     return lattice;
 }

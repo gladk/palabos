@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -58,8 +58,7 @@ typedef double T;
 
 // Uncomment the three following lines to have the MRT model
 //#define DESCRIPTOR descriptors::MRTD3Q19Descriptor
-//#define DYNAMICS new MRTdynamics<T,DESCRIPTOR>(mrtId)
-//#define USE_MRT
+//#define DYNAMICS new MRTdynamics<T,DESCRIPTOR>(omega)
 
 void cavitySetup( MultiBlockLattice3D<T,DESCRIPTOR>& lattice,
                   IncomprFlowParam<T> const& parameters,
@@ -151,12 +150,6 @@ int main(int argc, char* argv[]) {
     writeLogFile(parameters, "3D diagonal cavity");
 
     T omega = parameters.getOmega();
-
-#ifdef USE_MRT
-    plint mrtId = 0;
-    mrtParam<T,DESCRIPTOR>().set(mrtId,MRTparam<T,DESCRIPTOR>(omega));
-#endif
-
 
     MultiBlockLattice3D<T, DESCRIPTOR> lattice (
             parameters.getNx(), parameters.getNy(), parameters.getNz(), DYNAMICS );

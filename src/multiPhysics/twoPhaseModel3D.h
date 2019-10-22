@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,6 +26,7 @@
 #define TWO_PHASE_MODEL_3D_H
 
 #include "core/globalDefs.h"
+#include "core/util.h"
 #include "multiPhysics/freeSurfaceModel3D.h"
 #include "multiBlock/multiBlockGenerator3D.h"
 #include <memory>
@@ -194,7 +195,7 @@ void getFilteredDensity(MultiTensorField3D<T,nDim>& densities, MultiScalarField3
  **/
 typedef enum {undefined=-1, kinetic=1, dynamic=2, bubblePressure=3, constRho=4, freeSurface=5} TwoPhaseModel;
 
-TwoPhaseModel stringToTwoPhaseModel(std::string modelName)
+inline TwoPhaseModel stringToTwoPhaseModel(std::string modelName)
 {
     if (modelName=="kinetic") {
         return kinetic;
@@ -436,7 +437,7 @@ public:
     }
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
-        modified[0] = modif::staticVariables; // Fluid.
+        modified[0] = modif::dataStructure;   // Fluid.
         modified[1] = modif::staticVariables; // rhoBar.
         modified[2] = modif::staticVariables; // j.
         modified[3] = modif::staticVariables; // Mass.
@@ -444,7 +445,7 @@ public:
         modified[5] = modif::staticVariables; // Flag-status.
         modified[6] = modif::nothing;         // Normal.
         modified[7] = modif::nothing;         // Interface-lists.
-        modified[8] = modif::staticVariables; // Curvature.
+        modified[8] = modif::nothing;         // Curvature.
         modified[9] = modif::staticVariables; // Outside density.
         if (model!=freeSurface) {
             modified[10] = modif::dataStructure;  // Fluid 2.
@@ -504,7 +505,7 @@ public:
     }
     virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
         std::fill(modified.begin(), modified.end(), modif::nothing);
-        modified[0] = modif::staticVariables; // Fluid.
+        modified[0] = modif::dataStructure;   // Fluid.
         modified[1] = modif::staticVariables; // rhoBar.
         modified[2] = modif::staticVariables; // j.
         modified[3] = modif::staticVariables; // Mass.
@@ -512,7 +513,7 @@ public:
         modified[5] = modif::staticVariables; // Flag-status.
         modified[6] = modif::nothing;         // Normal.
         modified[7] = modif::nothing;         // Interface-lists.
-        modified[8] = modif::staticVariables; // Curvature.
+        modified[8] = modif::nothing;         // Curvature.
         modified[9] = modif::staticVariables; // Outside density.
         if (model!=freeSurface) {
             modified[10] = modif::dataStructure;  // Fluid 2.
@@ -685,21 +686,17 @@ public:
     int& flag(plint iX, plint iY, plint iZ) {
         return flag_->get(iX+relativeOffsetFS.x,iY+relativeOffsetFS.y,iZ+relativeOffsetFS.z);
     }
-    void setForce(plint iX, plint iY, plint iZ, Array<T,3> const& force) {
-            force.to_cArray(cell(iX,iY,iZ).getExternal(forceOffset));
+    void setForce(plint iX, plint iY, plint iZ, Array<T,Descriptor<T>::ExternalField::sizeOfForce> const& force) {
+        setExternalForce(cell(iX,iY,iZ), force);
     }
-    Array<T,3> getForce(plint iX, plint iY, plint iZ) {
-        Array<T,3> force; force.from_cArray(cell(iX,iY,iZ).getExternal(forceOffset));
-        return force;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> getForce(plint iX, plint iY, plint iZ) {
+        return getExternalForce(cell(iX,iY,iZ));
     }
-    void setForce2(plint iX, plint iY, plint iZ, Array<T,3> const& force) {
-        PLB_ASSERT(!useFreeSurfaceLimit);
-        force.to_cArray(cell2(iX,iY,iZ).getExternal(forceOffset));
+    void setForce2(plint iX, plint iY, plint iZ, Array<T,Descriptor<T>::ExternalField::sizeOfForce> const& force) {
+        setExternalForce(cell2(iX,iY,iZ), force);
     }
-    Array<T,3> getForce2(plint iX, plint iY, plint iZ) {
-        PLB_ASSERT(!useFreeSurfaceLimit);
-        Array<T,3> force; force.from_cArray(cell2(iX,iY,iZ).getExternal(forceOffset));
-        return force;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> getForce2(plint iX, plint iY, plint iZ) {
+        return getExternalForce(cell2(iX,iY,iZ));
     }
     void setMomentum(plint iX, plint iY, plint iZ, Array<T,3> const& momentum) {
         j_->get(iX+relativeOffsetJ.x,iY+relativeOffsetJ.y,iZ+relativeOffsetJ.z) = momentum;
@@ -795,39 +792,6 @@ public:
         return fluid_->getInternalStatistics().getIntSum(0);
     }
 
-    T smoothVolumeFraction(plint iX, plint iY, plint iZ)
-    {
-        using namespace twoPhaseFlag;
-
-        if (flag_->get(iX+relativeOffsetFS.x,iY+relativeOffsetFS.y,iZ+relativeOffsetFS.z) == wall) {
-            return volumeFraction_->get(iX+relativeOffsetVF.x,iY+relativeOffsetVF.y,iZ+relativeOffsetVF.z);
-        }
-
-        T val = 0.0;
-        int n = 0;
-        for (int i = -1; i < 2; i++) {
-            plint nextX = iX + i;
-            for (int j = -1; j < 2; j++) {
-                plint nextY = iY + j;
-                for (int k = -1; k < 2; k++) {
-                    plint nextZ = iZ + k;
-                    if (!(i == 0 && j == 0 && k == 0) &&
-                            flag_->get(nextX+relativeOffsetFS.x,nextY+relativeOffsetFS.y,nextZ+relativeOffsetFS.z) != wall) {
-                        n++;
-                        val += volumeFraction_->get(nextX+relativeOffsetVF.x,nextY+relativeOffsetVF.y,nextZ+relativeOffsetVF.z);
-                    }
-                }
-            }
-        }
-        if (n != 0) {
-            val /= (T) n;
-        } else {
-            val = volumeFraction_->get(iX+relativeOffsetVF.x,iY+relativeOffsetVF.y,iZ+relativeOffsetVF.z);
-        }
-
-        return val;
-    }
-
     std::map<Node,T>& massExcess() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> massExcess; }
     std::map<Node,T>& massExcess2() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> massExcess2; }
     std::set<Node>& interfaceToFluid() { PLB_ASSERT(interfaceLists_); return interfaceLists_ -> interfaceToFluid; }
@@ -856,8 +820,6 @@ private:
           relativeOffsetJ2, relativeOffsetMass, relativeOffsetMass2,
           relativeOffsetVF, relativeOffsetFS, relativeOffsetNormal, relativeOffsetC,
           relativeOffsetOD;
-
-    static const int forceOffset = Descriptor<T>::ExternalField::forceBeginsAt;
 };
 
 /// Create a parameter-list for most free-surface data processors.
@@ -906,16 +868,18 @@ class DefaultInitializeTwoPhase3D : public BoxProcessingFunctional3D {
 public:
     DefaultInitializeTwoPhase3D(Dynamics<T,Descriptor> *dynamicsTemplate_,
                                 Dynamics<T,Descriptor> *dynamicsTemplate2_,
-                                Array<T,3> g_, Array<T,3> g2_, T rhoIni_, bool useFreeSurfaceLimit_ )
+                                Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_,
+                                Array<T,Descriptor<T>::ExternalField::sizeOfForce> force2_,
+                                T rhoIni_, bool useFreeSurfaceLimit_ )
         : dynamicsTemplate(dynamicsTemplate_),
           dynamicsTemplate2(dynamicsTemplate2_),
-          g(g_), g2(g2_), rhoIni(rhoIni_),
+          force(force_), force2(force2_), rhoIni(rhoIni_),
           useFreeSurfaceLimit(useFreeSurfaceLimit_)
     { }
     DefaultInitializeTwoPhase3D(DefaultInitializeTwoPhase3D<T,Descriptor> const& rhs)
         : dynamicsTemplate(rhs.dynamicsTemplate->clone()),
           dynamicsTemplate2(rhs.dynamicsTemplate2->clone()),
-          g(rhs.g), g2(rhs.g2), rhoIni(rhs.rhoIni),
+          force(rhs.force), force2(rhs.force2), rhoIni(rhs.rhoIni),
           useFreeSurfaceLimit(rhs.useFreeSurfaceLimit)
     { }
     DefaultInitializeTwoPhase3D<T,Descriptor>& operator=(DefaultInitializeTwoPhase3D<T,Descriptor> const& rhs)
@@ -926,8 +890,8 @@ public:
     void swap(DefaultInitializeTwoPhase3D<T,Descriptor>& rhs) {
         std::swap(dynamicsTemplate, rhs.dynamicsTemplate);
         std::swap(dynamicsTemplate2, rhs.dynamicsTemplate2);
-        std::swap(g, rhs.g);
-        std::swap(g2, rhs.g2);
+        std::swap(force, rhs.force);
+        std::swap(force2, rhs.force2);
         std::swap(rhoIni, rhs.rhoIni);
         std::swap(useFreeSurfaceLimit, rhs.useFreeSurfaceLimit);
     }
@@ -960,7 +924,7 @@ public:
     }
 private:
     Dynamics<T,Descriptor> *dynamicsTemplate, *dynamicsTemplate2;
-    Array<T,3> g, g2;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force, force2;
     T rhoIni;
     bool useFreeSurfaceLimit;
 };
@@ -971,16 +935,18 @@ class PartiallyDefaultInitializeTwoPhase3D : public BoxProcessingFunctional3D {
 public:
     PartiallyDefaultInitializeTwoPhase3D(Dynamics<T,Descriptor> *dynamicsTemplate_,
                                 Dynamics<T,Descriptor> *dynamicsTemplate2_,
-                                Array<T,3> g_, Array<T,3> g2_, T rhoIni_, bool useFreeSurfaceLimit_ )
+                                Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_,
+                                Array<T,Descriptor<T>::ExternalField::sizeOfForce> force2_,
+                                T rhoIni_, bool useFreeSurfaceLimit_ )
         : dynamicsTemplate(dynamicsTemplate_),
           dynamicsTemplate2(dynamicsTemplate2_),
-          g(g_), g2(g2_), rhoIni(rhoIni_),
+          force(force_), force2(force2_), rhoIni(rhoIni_),
           useFreeSurfaceLimit(useFreeSurfaceLimit_)
     { }
     PartiallyDefaultInitializeTwoPhase3D(PartiallyDefaultInitializeTwoPhase3D<T,Descriptor> const& rhs)
         : dynamicsTemplate(rhs.dynamicsTemplate->clone()),
           dynamicsTemplate2(rhs.dynamicsTemplate2->clone()),
-          g(rhs.g), g2(rhs.g2), rhoIni(rhs.rhoIni),
+          force(rhs.force), force2(rhs.force2), rhoIni(rhs.rhoIni),
           useFreeSurfaceLimit(rhs.useFreeSurfaceLimit)
     { }
     PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>& operator=(PartiallyDefaultInitializeTwoPhase3D<T,Descriptor> const& rhs)
@@ -991,8 +957,8 @@ public:
     void swap(PartiallyDefaultInitializeTwoPhase3D<T,Descriptor>& rhs) {
         std::swap(dynamicsTemplate, rhs.dynamicsTemplate);
         std::swap(dynamicsTemplate2, rhs.dynamicsTemplate2);
-        std::swap(g, rhs.g);
-        std::swap(g2, rhs.g2);
+        std::swap(force, rhs.force);
+        std::swap(force2, rhs.force2);
         std::swap(rhoIni, rhs.rhoIni);
         std::swap(useFreeSurfaceLimit, rhs.useFreeSurfaceLimit);
     }
@@ -1025,7 +991,7 @@ public:
     }
 private:
     Dynamics<T,Descriptor> *dynamicsTemplate, *dynamicsTemplate2;
-    Array<T,3> g, g2;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force, force2;
     T rhoIni;
     bool useFreeSurfaceLimit;
 };
@@ -1209,6 +1175,51 @@ private:
     TwoPhaseModel model;
 };
 
+/// Stabilization scheme on the post-collide populations on interface cells.
+/** Input:
+  *   - Flag-status:   needed in bulk
+  *   - Volume fraction: needed in bulk
+  *   - Populations:   needed in bulk
+  *   - Momentum:      needed in bulk
+  *   - Density:       needed in bulk
+  * Output:
+  *   - Populations.
+  *   - Momentum.
+  **/
+template<typename T, template<typename U> class Descriptor>
+class TwoPhaseStabilize3D : public BoxProcessingFunctional3D {
+public:
+    TwoPhaseStabilize3D(TwoPhaseModel model_)
+        : model(model_)
+    { }
+    virtual TwoPhaseStabilize3D<T,Descriptor>* clone() const {
+        return new TwoPhaseStabilize3D<T,Descriptor>(*this);
+    }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
+        std::fill(modified.begin(), modified.end(), modif::nothing);
+        modified[0] = modif::staticVariables; // Fluid. Should be: staticVariables.
+        modified[1] = modif::nothing;         // rhoBar.
+        modified[2] = modif::nothing;         // j.
+        modified[3] = modif::nothing;         // Mass.
+        modified[4] = modif::nothing;         // Volume fraction.
+        modified[5] = modif::nothing;         // Flag-status.
+        modified[6] = modif::nothing;         // Normal.
+        modified[7] = modif::nothing;         // Interface-lists.
+        modified[8] = modif::nothing;         // Curvature.
+        modified[9] = modif::nothing;         // Outside density.
+        if (model!=freeSurface) {
+            modified[10] = modif::staticVariables; // Fluid 2. Should be: staticVariables.
+            modified[11] = modif::nothing;         // rhoBar2.
+            modified[12] = modif::nothing;         // j2.
+            modified[13] = modif::nothing;         // mass2.
+        }
+    }
+private:
+    T rhoDefault;
+    TwoPhaseModel model;
+};
+
 template<typename T, template<typename U> class Descriptor>
 class VerifyTwoPhase : public BoxProcessingFunctional3D {
 public:
@@ -1287,7 +1298,8 @@ public:
             T rhoDefault_,
             Dynamics<T,Descriptor> *dynamicsTemplate_,
             Dynamics<T,Descriptor> *dynamicsTemplate2_,
-            Array<T,3> const& force_, Array<T,3> const& force2_,
+            Array<T,Descriptor<T>::ExternalField::sizeOfForce> const& force_,
+            Array<T,Descriptor<T>::ExternalField::sizeOfForce> const& force2_,
             T densityRatio_, T surfaceTension_, TwoPhaseModel model_)
         : rhoDefault(rhoDefault_),
           dynamicsTemplate(dynamicsTemplate_),
@@ -1351,7 +1363,7 @@ public:
 private:
     T rhoDefault; 
     Dynamics<T,Descriptor> *dynamicsTemplate, *dynamicsTemplate2;
-    Array<T,3> force, force2;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force, force2;
     T densityRatio, surfaceTension;
     TwoPhaseModel model;
 };
@@ -1374,7 +1386,8 @@ template<typename T,template<typename U> class Descriptor>
 class TwoPhaseIniEmptyToInterfaceNodes3D: public BoxProcessingFunctional3D {
 public:
     TwoPhaseIniEmptyToInterfaceNodes3D(Dynamics<T,Descriptor>* dynamicsTemplate_,
-                                       Array<T,Descriptor<T>::d> force_, T densityRatio_, TwoPhaseModel model_)
+                                       Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_,
+                                       T densityRatio_, TwoPhaseModel model_)
         : dynamicsTemplate(dynamicsTemplate_), force(force_), densityRatio(densityRatio_), model(model_)
     { }
     TwoPhaseIniEmptyToInterfaceNodes3D(TwoPhaseIniEmptyToInterfaceNodes3D<T,Descriptor> const& rhs)
@@ -1423,7 +1436,7 @@ public:
     }
 private:
     Dynamics<T,Descriptor>* dynamicsTemplate;
-    Array<T,Descriptor<T>::d> force; // Body force, for initialization of the new interface cell.
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force; // Body force, for initialization of the new interface cell.
     T densityRatio;
     TwoPhaseModel model;
 };
@@ -1589,6 +1602,51 @@ private:
     TwoPhaseModel model;
 };
 
+/// Addition of external forces.
+/** Input:
+  *   - Flag-status:   needed in bulk
+  *   - Volume fraction: needed in bulk
+  *   - Populations:   needed in bulk
+  *   - Momentum:      needed in bulk
+  *   - Density:       needed in bulk
+  * Output:
+  *   - Momentum.
+  **/
+template<typename T, template<typename U> class Descriptor>
+class TwoPhaseAddExternalForce3D : public BoxProcessingFunctional3D {
+public:
+    TwoPhaseAddExternalForce3D(T rhoDefault_, TwoPhaseModel model_)
+        : rhoDefault(rhoDefault_),
+          model(model_)
+    { }
+    virtual TwoPhaseAddExternalForce3D<T,Descriptor>* clone() const {
+        return new TwoPhaseAddExternalForce3D<T,Descriptor>(*this);
+    }
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> atomicBlocks);
+    virtual void getTypeOfModification (std::vector<modif::ModifT>& modified) const {
+        std::fill(modified.begin(), modified.end(), modif::nothing);
+        modified[0] = modif::nothing;         // Fluid.
+        modified[1] = modif::nothing;         // rhoBar.
+        modified[2] = modif::staticVariables; // j.
+        modified[3] = modif::nothing;         // Mass.
+        modified[4] = modif::nothing;         // Volume fraction.
+        modified[5] = modif::nothing;         // Flag-status.
+        modified[6] = modif::nothing;         // Normal.
+        modified[7] = modif::nothing;         // Interface-lists.
+        modified[8] = modif::nothing;         // Curvature.
+        modified[9] = modif::nothing;         // Outside density.
+        if (model!=freeSurface) {
+            modified[10] = modif::nothing;         // Fluid 2.
+            modified[11] = modif::nothing;         // rhoBar2.
+            modified[12] = modif::staticVariables; // j2.
+            modified[13] = modif::nothing;         // mass2.
+        }
+    }
+private:
+    T rhoDefault;
+    TwoPhaseModel model;
+};
+
 template<typename T, template<typename U> class Descriptor>
 struct TwoPhaseFields3D {
     static const int envelopeWidth;
@@ -1597,8 +1655,10 @@ struct TwoPhaseFields3D {
 
     TwoPhaseFields3D(SparseBlockStructure3D const& blockStructure,
                      Dynamics<T,Descriptor>* dynamics_, Dynamics<T,Descriptor>* dynamics2_,
-                     T rhoDefault_, T densityRatio_, T surfaceTension_, T contactAngle_, Array<T,3> force_,
-                     Array<T,3> force2_, TwoPhaseModel model_, bool useImmersedWalls = false)
+                     T rhoDefault_, T densityRatio_, T surfaceTension_, T contactAngle_,
+                     Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_,
+                     Array<T,Descriptor<T>::ExternalField::sizeOfForce> force2_,
+                     TwoPhaseModel model_, bool useImmersedWalls = false)
     // model=true --> model adapted for air bubbles, which are prevented from collapsing.
     // model=false --> model adapted for water droplets, where shearing stresses are properly treated.
         : dynamics(dynamics_),
@@ -1662,7 +1722,8 @@ struct TwoPhaseFields3D {
     // Constructor for free-surface case
     TwoPhaseFields3D(SparseBlockStructure3D const& blockStructure,
                      Dynamics<T,Descriptor>* dynamics_, T rhoDefault_, T surfaceTension_,
-                     T contactAngle_, Array<T,3> force_, bool useImmersedWalls = false)
+                     T contactAngle_, Array<T,Descriptor<T>::ExternalField::sizeOfForce> force_,
+                     bool useImmersedWalls = false)
     // model=true --> model adapted for air bubbles, which are prevented from collapsing.
     // model=false --> model adapted for water droplets, where shearing stresses are properly treated.
         : dynamics(dynamics_->clone()),
@@ -1725,17 +1786,11 @@ struct TwoPhaseFields3D {
     }
     void initialization(SparseBlockStructure3D const& blockStructure, bool useImmersedWalls)
     {
-        Precision precision = floatingPointPrecision<T>();
-        T eps = getEpsilon<T>(precision);
-        // The contact angle must take values between 0 and 180 degrees. If it is negative,
-        // this means that contact angle effects will not be modeled.
-        PLB_ASSERT(contactAngle < (T) 180.0 || std::fabs(contactAngle - (T) 180.0) <= eps);
+        // TwoPhaseFields3D does not work with incompressible dynamics at the moment.
+        PLB_ASSERT(!dynamics->velIsJ());
+        PLB_ASSERT(!dynamics2->velIsJ());
 
-        if (std::fabs(surfaceTension) <= eps) {
-            useSurfaceTension = false;
-        } else {
-            useSurfaceTension = true;
-        }
+        useSurfaceTension = !util::isZero(surfaceTension);
 
         if (model!=freeSurface) {
             lattice2 = new MultiBlockLattice3D<T,Descriptor> (
@@ -1782,8 +1837,8 @@ struct TwoPhaseFields3D {
         rhoBar.periodicity().toggleAll(true);
         j.periodicity().toggleAll(true);
         normal.periodicity().toggleAll(true);
-        setToConstant(flag, flag.getBoundingBox(), (int)twoPhaseFlag::empty);
-        setToConstant(outsideDensity, outsideDensity.getBoundingBox(), rhoDefault);
+        //setToConstant(flag, flag.getBoundingBox(), (int)freeSurfaceFlag::empty);
+        //setToConstant(outsideDensity, outsideDensity.getBoundingBox(), rhoDefault);
         rhoBarJparam.push_back(&lattice);
         rhoBarJparam.push_back(&rhoBar);
         rhoBarJparam.push_back(&j);
@@ -2018,12 +2073,26 @@ struct TwoPhaseFields3D {
         }
 
         integrateProcessingFunctional (
-                new TwoPhaseComputeNormals3D<T,Descriptor>,
+                new FreeSurfaceComputeNormals3D<T,Descriptor>,
                 lattice.getBoundingBox(), twoPhaseArgs, pl );
                                     
 
         /***** New level ******/
         pl++;
+
+        if (useSurfaceTension) {
+            integrateProcessingFunctional (
+                    new FreeSurfaceComputeCurvature3D<T,Descriptor>(contactAngle),
+                    lattice.getBoundingBox(), twoPhaseArgs, pl );
+
+            // To change to the curvature calculation with height functions, uncomment the next data processor and
+            // comment out the two previous ones. If only the next data processor is used and there is no
+            // surface tension, the normals are not computed at all. Be careful if you intent to use
+            // the normals and do not have the surface tension algorithm enabled.
+            //integrateProcessingFunctional (
+            //        new FreeSurfaceGeometry3D<T,Descriptor>(contactAngle),
+            //        lattice.getBoundingBox(), freeSurfaceArgs, pl );
+        }
 
         integrateProcessingFunctional (
             new TwoPhaseMassChange3D<T,Descriptor>(model==freeSurface), lattice.getBoundingBox(),
@@ -2036,12 +2105,6 @@ struct TwoPhaseFields3D {
         integrateProcessingFunctional (
             new TwoPhaseMacroscopic3D<T,Descriptor>(rhoDefault, densityRatio, surfaceTension, model), 
             lattice.getBoundingBox(), twoPhaseArgs, pl );
-
-        if (useSurfaceTension) {
-            integrateProcessingFunctional (
-                    new TwoPhaseComputeCurvature3D<T,Descriptor>(contactAngle, lattice.getBoundingBox()),
-                    lattice.getBoundingBox(), twoPhaseArgs, pl );
-        }
 
         /***** New level ******/
         //pl++;
@@ -2058,10 +2121,16 @@ struct TwoPhaseFields3D {
        //         lattice.getBoundingBox(), twoPhaseArgs, pl );
 
         if (useSurfaceTension) {
+            // TwoPhaseFields3D does not work with incompressible dynamics at the moment.
+            bool incompressibleModel = false;
             integrateProcessingFunctional (
-                new TwoPhaseAddSurfaceTension3D<T,Descriptor>(surfaceTension, rhoDefault), 
+                new FreeSurfaceAddSurfaceTension3D<T,Descriptor>(surfaceTension, incompressibleModel), 
                 lattice.getBoundingBox(), twoPhaseArgs, pl );
         }
+
+        integrateProcessingFunctional (
+            new TwoPhaseStabilize3D<T,Descriptor>(model), 
+            lattice.getBoundingBox(), twoPhaseArgs, pl );
 
         /***** New level ******/
         pl++;
@@ -2100,8 +2169,16 @@ struct TwoPhaseFields3D {
             lattice.getBoundingBox(), twoPhaseArgs, pl );
 
         integrateProcessingFunctional (
-            new TwoPhaseComputeStatistics3D<T,Descriptor>,
+            new FreeSurfaceComputeStatistics3D<T,Descriptor>,
             lattice.getBoundingBox(), twoPhaseArgs, pl );
+
+        bool useForce = !util::isZero(norm(force));
+        bool useForce2 = !util::isZero(norm(force2));
+        if (useForce || useForce2) {
+            integrateProcessingFunctional (
+                new TwoPhaseAddExternalForce3D<T,Descriptor>(rhoDefault, model), 
+                lattice.getBoundingBox(), twoPhaseArgs, pl );
+        }
 
         //integrateProcessingFunctional (
         //    new VerifyTwoPhase<T,Descriptor>(),
@@ -2131,7 +2208,7 @@ struct TwoPhaseFields3D {
     T surfaceTension;
     T contactAngle;
     bool useSurfaceTension;
-    Array<T,3> force, force2;
+    Array<T,Descriptor<T>::ExternalField::sizeOfForce> force, force2;
     TwoPhaseModel model;
     MultiBlockLattice3D<T, Descriptor> lattice;
     MultiBlockLattice3D<T, Descriptor> *lattice2;

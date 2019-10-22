@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -47,6 +47,7 @@ class AsinariDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     AsinariDynamics(T omega_);
+    AsinariDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual AsinariDynamics<T,Descriptor>* clone() const;
@@ -89,6 +90,7 @@ class IncAsinariDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     IncAsinariDynamics(T omega_);
+    IncAsinariDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual IncAsinariDynamics<T,Descriptor>* clone() const;

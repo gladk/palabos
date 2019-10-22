@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -372,8 +372,6 @@ void runProgram()
             new NoDynamics<T,DESCRIPTOR>(), voxelFlag::inside);
     lattice->toggleInternalStatistics(false);
 
-    MultiBlockManagement3D sparseBlockManagement(lattice->getMultiBlockManagement());
-
     // The rhoBar and j fields are used at both the collision and at the implementation of the
     // outflow boundary condition.
     plint envelopeWidth = 1;
@@ -393,7 +391,7 @@ void runProgram()
     integrateProcessingFunctional(
             new BoxRhoBarJfunctional3D<T,DESCRIPTOR>(),
             lattice->getBoundingBox(), lattice_rho_bar_j_arg, 3); // rhoBar and j are computed at level 3 because
-                                                                  // the boundary conditions are on levels 1 and 2.
+                                                                  // the boundary conditions are on levels 0, 1 and 2.
 
     /*
      * Generate the off-lattice boundary condition on the obstacle and the outer-domain boundary conditions.
@@ -462,11 +460,11 @@ void runProgram()
         args.push_back(lattice);
 
         if (param.outletSpongeZoneType == 0) {
-            applyProcessingFunctional(new ViscositySpongeZone<T,DESCRIPTOR>(
+            applyProcessingFunctional(new ViscositySpongeZone3D<T,DESCRIPTOR>(
                         param.nx, param.ny, param.nz, bulkValue, numSpongeCells),
                     lattice->getBoundingBox(), args);
         } else {
-            applyProcessingFunctional(new SmagorinskySpongeZone<T,DESCRIPTOR>(
+            applyProcessingFunctional(new SmagorinskySpongeZone3D<T,DESCRIPTOR>(
                         param.nx, param.ny, param.nz, bulkValue, param.targetSpongeCSmago, numSpongeCells),
                     lattice->getBoundingBox(), args);
         }
@@ -551,6 +549,7 @@ void runProgram()
 
     pcout << std::endl;
     pcout << "Starting simulation." << std::endl;
+    bool checkForErrors = true;
     for (plint i = 0; i < param.maxIter; ++i) {
         if (i <= param.initialIter) {
             Array<T,3> uBoundary(param.getInletVelocity(i), 0.0, 0.0);
@@ -559,10 +558,12 @@ void runProgram()
 
         if (i % param.statIter == 0) {
              pcout << "At iteration " << i << ", t = " << i*param.dt << std::endl;
-             Array<T,3> force(boundaryCondition->getForceOnObject());
-             T factor = util::sqr(util::sqr(param.dx)) / util::sqr(param.dt);
-             pcout << "Force on object over fluid density: F[x] = " << force[0]*factor << ", F[y] = "
-                   << force[1]*factor << ", F[z] = " << force[2]*factor << std::endl;
+             if (i != 0) {
+                 Array<T,3> force(boundaryCondition->getForceOnObject());
+                 T factor = util::sqr(util::sqr(param.dx)) / util::sqr(param.dt);
+                 pcout << "Force on object over fluid density: F[x] = " << force[0]*factor << ", F[y] = "
+                       << force[1]*factor << ", F[z] = " << force[2]*factor << std::endl;
+             }
              T avEnergy = boundaryCondition->computeAverageEnergy() * util::sqr(param.dx) / util::sqr(param.dt);
              pcout << "Average kinetic energy over fluid density: E = " << avEnergy << std::endl;
              energyFile << i*param.dt << "  " << avEnergy << std::endl;
@@ -588,6 +589,10 @@ void runProgram()
         lattice->incrementTime();
         if (param.useParticles && i % param.particleTimeFactor == 0) {
             particles->executeInternalProcessors();
+        }
+        if (checkForErrors) {
+            abortIfErrorsOccurred();
+            checkForErrors = false;
         }
     }
     

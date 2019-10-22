@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -46,6 +46,7 @@ class GuoExternalForceMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     GuoExternalForceMRTdynamics(T omega_);
+    GuoExternalForceMRTdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceMRTdynamics<T,Descriptor>* clone() const;
@@ -104,7 +105,7 @@ private:
 /// Implementation of the quasi incompressible MRT collision step with external force
 /// and Smagorinsky model
 template<typename T, template<typename U> class Descriptor>
-class GuoExternalForceSmagorinskyIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+class GuoExternalForceSmagorinskyIncMRTdynamics : public IncExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     GuoExternalForceSmagorinskyIncMRTdynamics(T omega_, T cSmago_);
@@ -120,6 +121,10 @@ public:
     virtual void serialize(HierarchicSerializer& serializer) const;
     /// Un-Serialize the dynamics object.
     virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    /// Say if velocity in this dynamics is computed as "j" (the order-1 moment
+    ///   of the populations) or as "j/rho".
+    virtual bool velIsJ() const;
 
 /* *************** Collision and Equilibrium ************************* */
 
@@ -173,7 +178,7 @@ private:
 /// Implementation of the quasi incompressible MRT collision step with external force
 /// and ConsistentSmagorinsky model
 template<typename T, template<typename U> class Descriptor>
-class GuoExternalForceConsistentSmagorinskyIncMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+class GuoExternalForceConsistentSmagorinskyIncMRTdynamics : public IncExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     GuoExternalForceConsistentSmagorinskyIncMRTdynamics(T omega_, T cSmago_);
@@ -190,6 +195,10 @@ public:
     /// Un-Serialize the dynamics object.
     virtual void unserialize(HierarchicUnserializer& unserializer);
 
+    /// Say if velocity in this dynamics is computed as "j" (the order-1 moment
+    ///   of the populations) or as "j/rho".
+    virtual bool velIsJ() const;
+
 /* *************** Collision and Equilibrium ************************* */
 
     /// Implementation of the collision step
@@ -205,6 +214,36 @@ private:
 };
 
 
+/// Implementation of the MRT collision step with External Momenta
+template<typename T, template<typename U> class Descriptor>
+class GuoExternalForceAndMomentMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    GuoExternalForceAndMomentMRTdynamics(T omega_);
+    GuoExternalForceAndMomentMRTdynamics(HierarchicUnserializer& unserializer);
+    
+    /// Clone the object on its dynamic type.
+    virtual GuoExternalForceAndMomentMRTdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+private:
+    static int id;
+};
+
+
+
+
 
 /// Implementation of the MRT collision step with He External force
 template<typename T, template<typename U> class Descriptor>
@@ -212,6 +251,7 @@ class HeExternalForceMRTdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     HeExternalForceMRTdynamics(T omega_);
+    HeExternalForceMRTdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual HeExternalForceMRTdynamics<T,Descriptor>* clone() const;

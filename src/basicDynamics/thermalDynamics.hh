@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -61,7 +61,7 @@ void ThermalBulkDynamics<T,Descriptor>::regularize (
     
     typedef Descriptor<T> L;
     for (plint iPop=0; iPop < L::q; ++iPop) {
-        cell[iPop] = computeEquilibrium(iPop, rhoBar, j, jSqr, thetaBar);
+        cell[iPop] = this-> computeEquilibrium(iPop, rhoBar, j, jSqr, thetaBar);
         T fNeq = offEquilibriumTemplatesImpl<T,L>::fromPiAndQtoFneq(iPop, PiNeq, qNeq);
         cell[iPop] += fNeq;
     }
@@ -72,7 +72,7 @@ T ThermalBulkDynamics<T,Descriptor>::computeTemperature(Cell<T,Descriptor> const
 {
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
-    computeRhoBarJ(cell,rhoBar,j);
+    this->computeRhoBarJ(cell,rhoBar,j);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     return momentTemplates<T,Descriptor>::compute_theta(cell, rhoBar, jSqr);
 }
@@ -83,7 +83,7 @@ void ThermalBulkDynamics<T,Descriptor>::computePiNeq (
 {
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
-    computeRhoBarJ(cell,rhoBar,j);
+    this->computeRhoBarJ(cell,rhoBar,j);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     T thetaBar = momentTemplates<T,Descriptor>::compute_theta(cell, rhoBar, jSqr)-(T)1;
     momentTemplates<T,Descriptor>::compute_thermal_PiNeq(cell, rhoBar, thetaBar, j, PiNeq);
@@ -95,12 +95,12 @@ void ThermalBulkDynamics<T,Descriptor>::computeShearStress (
 {
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
-    computeRhoBarJ(cell,rhoBar,j);
+    this->computeRhoBarJ(cell,rhoBar,j);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     T thetaBar = momentTemplates<T,Descriptor>::compute_theta(cell, rhoBar, jSqr)-(T)1;
     momentTemplates<T,Descriptor>::compute_thermal_PiNeq(cell, rhoBar, thetaBar, j, stress);
     T omega = cell.getDynamics().getOmega();
-    stress *= ((T)1-(T)0.5*omega);
+    stress *= ((T)0.5*omega-(T)1);
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -109,7 +109,7 @@ void ThermalBulkDynamics<T,Descriptor>::computeHeatFlux (
 {
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
-    computeRhoBarJ(cell,rhoBar,j);
+    this->computeRhoBarJ(cell,rhoBar,j);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     T thetaBar = momentTemplates<T,Descriptor>::compute_theta(cell, rhoBar, jSqr)-(T)1;
     momentTemplates<T,Descriptor>::compute_heat_flux(cell, rhoBar, j,thetaBar,q );
@@ -318,17 +318,81 @@ void ThermalBulkDynamics<T,Descriptor>::rescaleOrder1 (
     //   in specialized versions of this class.
 }
 
+/* *************** Class IsoThermalBGKdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int IsoThermalBGKdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,IsoThermalBGKdynamics<T,Descriptor> >("BGK_IsoThermal");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+*/
+template<typename T, template<typename U> class Descriptor>
+IsoThermalBGKdynamics<T,Descriptor>::IsoThermalBGKdynamics(T omega_ ) : ThermalBulkDynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+IsoThermalBGKdynamics<T,Descriptor>::IsoThermalBGKdynamics(HierarchicUnserializer& unserializer)
+    : ThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+IsoThermalBGKdynamics<T,Descriptor>* IsoThermalBGKdynamics<T,Descriptor>::clone() const {
+    return new IsoThermalBGKdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int IsoThermalBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T IsoThermalBGKdynamics<T,Descriptor>::
+    computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                       T jSqr, T thetaBar) const {
+                           
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    T rhoThetaBar = Descriptor<T>::fullRho(rhoBar)*thetaBar; // thetaBar = theta - 1
+    return dynamicsTemplates<T,Descriptor>::bgk_ma3_equilibrium(iPop, rhoBar, invRho, j, jSqr, rhoThetaBar);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void IsoThermalBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> j;
+    this->computeRhoBarJ(cell,rhoBar,j);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    T rhoThetaBar = momentTemplates<T,Descriptor>::compute_rhoThetaBar(cell,rhoBar,jSqr);
+    
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma3_collision(cell, rhoBar, j, rhoThetaBar, this->getOmega());
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
 /* *************** Class ThermalBGKdynamics *********************************************** */
 
 template<typename T, template<typename U> class Descriptor>
 int ThermalBGKdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,ThermalBGKdynamics<T,Descriptor> >("BGK_Thermal");
+    meta::registerGeneralDynamics<T,Descriptor,ThermalBGKdynamics<T,Descriptor> >("BGK_Thermal");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
 */
 template<typename T, template<typename U> class Descriptor>
 ThermalBGKdynamics<T,Descriptor>::ThermalBGKdynamics(T omega_ ) : ThermalBulkDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+ThermalBGKdynamics<T,Descriptor>::ThermalBGKdynamics(HierarchicUnserializer& unserializer)
+    : ThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 ThermalBGKdynamics<T,Descriptor>* ThermalBGKdynamics<T,Descriptor>::clone() const {
@@ -357,10 +421,69 @@ void ThermalBGKdynamics<T,Descriptor>::collide (
 {
     T rhoBar;
     Array<T,Descriptor<T>::d> j;
-    computeRhoBarJ(cell,rhoBar,j);
+    this->computeRhoBarJ(cell,rhoBar,j);
     T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
     T rhoThetaBar = momentTemplates<T,Descriptor>::compute_rhoThetaBar(cell,rhoBar,jSqr);
     
+    T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma4_collision(cell, rhoBar, j, rhoThetaBar, this->getOmega());
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+/* *************** Class ThermalRLBdynamics *********************************************** */
+
+template<typename T, template<typename U> class Descriptor>
+int ThermalRLBdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,ThermalRLBdynamics<T,Descriptor> >("RLB_Thermal");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+*/
+template<typename T, template<typename U> class Descriptor>
+ThermalRLBdynamics<T,Descriptor>::ThermalRLBdynamics(T omega_ ) : ThermalBulkDynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ThermalRLBdynamics<T,Descriptor>::ThermalRLBdynamics(HierarchicUnserializer& unserializer)
+    : ThermalBulkDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+ThermalRLBdynamics<T,Descriptor>* ThermalRLBdynamics<T,Descriptor>::clone() const {
+    return new ThermalRLBdynamics<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+int ThermalRLBdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T ThermalRLBdynamics<T,Descriptor>::
+    computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                       T jSqr, T thetaBar) const {
+                           
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    T rhoThetaBar = Descriptor<T>::fullRho(rhoBar)*thetaBar; // thetaBar = theta - 1
+    return dynamicsTemplates<T,Descriptor>::bgk_ma4_equilibrium(iPop, rhoBar, invRho, j, jSqr, rhoThetaBar);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ThermalRLBdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell,
+        BlockStatistics& statistics )
+{
+    T rhoBar, thetaBar;
+    Array<T,Descriptor<T>::d> j;
+    Array<T,SymmetricTensor<T,Descriptor>::n> piNeq;
+    momentTemplates<T,Descriptor>::compute_rhoBar_thetaBar_j_PiNeq(cell, rhoBar, thetaBar, j, piNeq);
+    T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+    this->regularize(cell,rhoBar,j,jSqr,piNeq,thetaBar);
+    T rhoThetaBar = Descriptor<T>::fullRho(rhoBar)*thetaBar;
+
     T uSqr = dynamicsTemplates<T,Descriptor>::bgk_ma4_collision(cell, rhoBar, j, rhoThetaBar, this->getOmega());
     
     if (cell.takesStatistics()) {

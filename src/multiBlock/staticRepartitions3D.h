@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,6 +57,18 @@ SparseBlockStructure3D
 /// Create a data distribution with regular blocks, as evenly distributed as possible
 SparseBlockStructure3D createRegularDistribution3D(Box3D const& domain,
                                                    int numProc = global::mpi().getSize());
+
+/// Create a data distribution with regular blocks only at the y and z directions, as evenly distributed as possible
+SparseBlockStructure3D createRegularDistributionYZ3D (
+        plint nx, plint ny, plint nz, int numProc = global::mpi().getSize() );
+
+/// Create a data distribution with regular blocks only at the x and z directions, as evenly distributed as possible
+SparseBlockStructure3D createRegularDistributionXZ3D (
+        plint nx, plint ny, plint nz, int numProc = global::mpi().getSize() );
+
+/// Create a data distribution with regular blocks only at the x and y directions, as evenly distributed as possible
+SparseBlockStructure3D createRegularDistributionXY3D (
+        plint nx, plint ny, plint nz, int numProc = global::mpi().getSize() );
 
 /// Re-create a distribution by covering it with regular blocks.
 SparseBlockStructure3D reparallelize(SparseBlockStructure3D const& originalStructure,

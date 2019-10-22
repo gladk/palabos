@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -89,12 +89,12 @@ void ScalarField2D<T>::reset() {
 }
 
 template<typename T>
-ScalarFieldDataTransfer2D<T>& ScalarField2D<T>::getDataTransfer() {
+BlockDataTransfer2D& ScalarField2D<T>::getDataTransfer() {
     return dataTransfer;
 }
 
 template<typename T>
-ScalarFieldDataTransfer2D<T> const& ScalarField2D<T>::getDataTransfer() const {
+BlockDataTransfer2D const& ScalarField2D<T>::getDataTransfer() const {
     return dataTransfer;
 }
 
@@ -248,12 +248,12 @@ void TensorField2D<T,nDim>::reset() {
 }
 
 template<typename T, int nDim>
-TensorFieldDataTransfer2D<T,nDim>& TensorField2D<T,nDim>::getDataTransfer() {
+BlockDataTransfer2D& TensorField2D<T,nDim>::getDataTransfer() {
     return dataTransfer;
 }
 
 template<typename T, int nDim>
-TensorFieldDataTransfer2D<T,nDim> const& TensorField2D<T,nDim>::getDataTransfer() const {
+BlockDataTransfer2D const& TensorField2D<T,nDim>::getDataTransfer() const {
     return dataTransfer;
 }
 
@@ -407,12 +407,12 @@ void NTensorField2D<T>::reset() {
 }
 
 template<typename T>
-NTensorFieldDataTransfer2D<T>& NTensorField2D<T>::getDataTransfer() {
+BlockDataTransfer2D& NTensorField2D<T>::getDataTransfer() {
     return dataTransfer;
 }
 
 template<typename T>
-NTensorFieldDataTransfer2D<T> const& NTensorField2D<T>::getDataTransfer() const {
+BlockDataTransfer2D const& NTensorField2D<T>::getDataTransfer() const {
     return dataTransfer;
 }
 

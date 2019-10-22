@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -40,18 +40,6 @@ VariableOmegaDynamics<T,Descriptor>::VariableOmegaDynamics (
 { }
 
 template<typename T, template<typename U> class Descriptor>
-void VariableOmegaDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
-{
-    CompositeDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor>
-void VariableOmegaDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
-{
-    CompositeDynamics<T,Descriptor>::unserialize(unserializer);
-}
-
-template<typename T, template<typename U> class Descriptor>
 void VariableOmegaDynamics<T,Descriptor>::prepareCollision(Cell<T,Descriptor>& cell) {
     // Remember: it's the baseDynamics that holds omega=omega0+deltaOmega.
     // The value of this->getOmega() is omega0, and this should not be modified here.
@@ -62,18 +50,6 @@ template<typename T, template<typename U> class Descriptor>
 OmegaFromPiDynamics<T,Descriptor>::OmegaFromPiDynamics(Dynamics<T,Descriptor>* baseDynamics_, bool automaticPrepareCollision_)
     : VariableOmegaDynamics<T,Descriptor>(baseDynamics_, automaticPrepareCollision_)
 { }
-
-template<typename T, template<typename U> class Descriptor>
-void OmegaFromPiDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
-{
-    VariableOmegaDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor>
-void OmegaFromPiDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
-{
-    VariableOmegaDynamics<T,Descriptor>::unserialize(unserializer);
-}
 
 template<typename T, template<typename U> class Descriptor>
 T OmegaFromPiDynamics<T,Descriptor>::getOmegaFromCell(Cell<T,Descriptor> const& cell) const {

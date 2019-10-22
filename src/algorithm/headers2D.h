@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -30,9 +30,10 @@
 #include "algorithm/basicAlgorithms.h"
 #include "algorithm/basicDataTypes.h"
 #include "algorithm/spline.h"
+#include "algorithm/interpolation2D.h"
 #include "algorithm/timePeriodicSignal.h"
 #include "algorithm/linearAlgebra.h"
-#include "algorithm/functions.h"
 #include "algorithm/quadrature.h"
 #include "algorithm/nonlinearEquationSolvers.h"
+#include "algorithm/empiricalData.h"
 

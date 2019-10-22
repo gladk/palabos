@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 /** \file
@@ -245,7 +245,7 @@ void MultiGridManagement2D::refine(plint coarseLevel, Box2D coarseDomain) {
 
 /**
  * Insert a coarse patch at fineLevel over coarseDomain. The coordinates of coarseDomain
- *   must be in fine coordinates.
+ *   must be in coarse coordinates.
  */
 
 void MultiGridManagement2D::coarsen(plint fineLevel, Box2D coarseDomain){
@@ -538,8 +538,11 @@ std::vector<Box2D> const& MultiGridManagement2D::getBoundingBoxes() const
 /** This is achieved by taking all the geometric information of the MultiGridManagement2D
  *  and intersecting it with the coarsestDomain. All the intersecting parts
  *  are kept on the new MultiGridManagement2D.
+ *
+ *  I fixed this (Helen Morrison, 2014)!
  */
 MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D coarsestDomain, bool crop){
+
     std::auto_ptr<MultiGridManagement2D> result;
     
     if (crop){
@@ -562,6 +565,8 @@ MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D 
     
     // every level must contain the informations intersected with coarsestDomain
     for (plint iLevel=0; iLevel<management.getNumLevels(); ++iLevel){
+
+        std::vector<plint> mpiProcessLevel;
         Box2D rescaledBox = scaleManager->scaleBox(coarsestDomain,iLevel);
 
         // boundingBoxes
@@ -569,7 +574,7 @@ MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D 
         
         if (iLevel< management.getNumLevels()-1){
             // coarseGridInterfaces
-            for (pluint iInterface=0; iInterface<management.coarseGridInterfaces.size(); ++iInterface){
+            for (pluint iInterface=0; iInterface<management.coarseGridInterfaces[iLevel].size(); ++iInterface){
                 Box2D intersection;
                 if (intersect(rescaledBox,management.coarseGridInterfaces[iLevel][iInterface],intersection)){
                     result->coarseGridInterfaces[iLevel].push_back(intersection);
@@ -582,7 +587,7 @@ MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D 
         
         if (iLevel > 0) {
             // fineGridInterfaces
-            for (pluint iInterface=0; iInterface<management.coarseGridInterfaces.size(); ++iInterface){
+            for (pluint iInterface=0; iInterface<management.fineGridInterfaces[iLevel].size(); ++iInterface){
                 Box2D intersection;
                 if (intersect(rescaledBox,management.fineGridInterfaces[iLevel][iInterface],intersection)){
                     result->fineGridInterfaces[iLevel].push_back(intersection);
@@ -600,9 +605,11 @@ MultiGridManagement2D extractManagement(MultiGridManagement2D management, Box2D 
             if (intersect(rescaledBox,management.bulks[iLevel][iBox],intersection)){
                 result->bulks[iLevel].push_back(intersection);
                 // copy also the mpi process associated
-                result->mpiProcess[iLevel].push_back(management.mpiProcess[iLevel][iBox]);
+                //result->mpiProcess[iLevel].push_back(management.mpiProcess[iLevel][iBox]);
+                mpiProcessLevel.push_back(management.mpiProcess[iLevel][iBox]);
             }
         }
+        result->mpiProcess.push_back(mpiProcessLevel);
     }
     delete scaleManager;
     return *result;

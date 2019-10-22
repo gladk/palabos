@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -111,13 +111,68 @@ private:
 
 /// Implementation of O(Ma^2) BGK dynamics
 template<typename T, template<typename U> class Descriptor>
+class IsoThermalBGKdynamics : public ThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    IsoThermalBGKdynamics(T omega_);
+    IsoThermalBGKdynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual IsoThermalBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+private:
+    static int id;
+};
+
+/// Implementation of O(Ma^4) BGK dynamics
+template<typename T, template<typename U> class Descriptor>
 class ThermalBGKdynamics : public ThermalBulkDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     ThermalBGKdynamics(T omega_);
+    ThermalBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
 	virtual ThermalBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+private:
+    static int id;
+};
+
+/// Implementation of O(Ma^2) BGK dynamics
+template<typename T, template<typename U> class Descriptor>
+class ThermalRLBdynamics : public ThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    ThermalRLBdynamics(T omega_);
+    ThermalRLBdynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual ThermalRLBdynamics<T,Descriptor>* clone() const;
 
     /// Return a unique ID for this class.
     virtual int getId() const;

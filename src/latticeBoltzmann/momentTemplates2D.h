@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -108,7 +108,7 @@ static void compute_rho_uLb(Array<T,Descriptor::q> const& f, T& rho, Array<T,2>&
 }
 
 static T compute_e(Array<T,Descriptor::q> const& f) {
-    return get_eBar(f) + Descriptor::SkordosFactor * Descriptor::d * Descriptor::cs2;
+    return get_eBar(f) + (T)Descriptor::SkordosFactor() * Descriptor::d * Descriptor::cs2;
 }
 
 static T compute_rhoThetaBar(Array<T,Descriptor::q> const& f, T rhoBar, T jSqr) {

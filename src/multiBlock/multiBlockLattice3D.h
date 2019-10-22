@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -82,8 +82,8 @@ public:
     ~MultiBlockLattice3D();
     MultiBlockLattice3D(MultiBlockLattice3D<T,Descriptor> const& rhs);
     MultiBlockLattice3D(MultiBlock3D const& rhs);
-    MultiBlockLattice3D<T,Descriptor>* clone() const;
-    MultiBlockLattice3D<T,Descriptor>* clone(MultiBlockManagement3D const& newManagement) const;
+    virtual MultiBlockLattice3D<T,Descriptor>* clone() const;
+    virtual MultiBlockLattice3D<T,Descriptor>* clone(MultiBlockManagement3D const& newManagement) const;
     /// Extract sub-domain from rhs and construct a multi-block-lattice with the same
     ///  data distribution and policy-classes; but the data itself and the data-processors
     ///  are not copied. MultiCellAccess takes default value.
@@ -94,6 +94,8 @@ public:
     /// Attention: data-processors of rhs, which were pointing at rhs, will continue pointing
     /// to rhs, and not to *this.
     MultiBlockLattice3D<T,Descriptor>& operator=(MultiBlockLattice3D<T,Descriptor> const& rhs);
+    // Assign an individual clone of the new dynamics to every cell.
+    void resetDynamics(Dynamics<T,Descriptor> const& dynamics);
 
     Dynamics<T,Descriptor> const& getBackgroundDynamics() const;
     virtual Cell<T,Descriptor>& get(plint iX, plint iY, plint iZ);
@@ -103,8 +105,10 @@ public:
     virtual void collide();
     virtual void stream(Box3D domain);
     virtual void stream();
+    virtual void externalStream();
     virtual void collideAndStream(Box3D domain);
     virtual void collideAndStream();
+    void externalCollideAndStream();
     virtual void incrementTime();
     virtual void resetTime(pluint value);
     virtual BlockLattice3D<T,Descriptor>& getComponent(plint blockId);
@@ -125,6 +129,8 @@ public:
     static std::string basicType();
     static std::string descriptorType();
 private:
+    void collideAndStreamImplementation();
+    void streamImplementation();
     void allocateAndInitialize();
     void eliminateStatisticsInEnvelope();
     Box3D extendPeriodic(Box3D const& box, plint envelopeWidth) const;

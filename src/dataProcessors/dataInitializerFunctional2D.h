@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -31,6 +31,7 @@
 #include "core/globalDefs.h"
 #include "atomicBlock/dataProcessingFunctional2D.h"
 #include "core/dynamics.h"
+#include "sitmo/prng_engine.hpp"
 
 namespace plb {
 
@@ -53,6 +54,16 @@ struct OneCellIndexedFunctional2D {
     virtual ~OneCellIndexedFunctional2D();
     virtual OneCellIndexedFunctional2D<T,Descriptor>* clone() const =0;
     virtual void execute(plint iX, plint iY, Cell<T,Descriptor>& cell) const =0;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual void setscale(int dxScale, int dtScale);
+};
+
+template<typename T, template<class U> class Descriptor>
+struct OneCellIndexedWithRandFunctional2D {
+    virtual ~OneCellIndexedWithRandFunctional2D();
+    virtual OneCellIndexedWithRandFunctional2D<T,Descriptor>* clone() const =0;
+    virtual void execute(plint iX, plint iY, T randVal, Cell<T,Descriptor>& cell) const =0;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
     virtual void setscale(int dxScale, int dtScale);
@@ -97,6 +108,27 @@ public:
 private:
     OneCellIndexedFunctional2D<T,Descriptor>* f;
 };
+
+template<typename T, template<class U> class Descriptor>
+class GenericIndexedWithRandLatticeFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor>
+{
+public:
+    GenericIndexedWithRandLatticeFunctional2D( OneCellIndexedWithRandFunctional2D<T,Descriptor>* f_,
+                                               Box2D boundingBox, sitmo::prng_engine eng_ );
+    GenericIndexedWithRandLatticeFunctional2D(GenericIndexedWithRandLatticeFunctional2D<T,Descriptor> const& rhs);
+    virtual ~GenericIndexedWithRandLatticeFunctional2D();
+    GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>& operator=(GenericIndexedWithRandLatticeFunctional2D<T,Descriptor> const& rhs);
+    virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice);
+    virtual GenericIndexedWithRandLatticeFunctional2D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void setscale(int dxScale, int dtScale);
+private:
+    OneCellIndexedWithRandFunctional2D<T,Descriptor>* f;
+    plint nY;
+    sitmo::prng_engine eng;
+};
+
 
 
 /* *************** Class InstantiateDynamicsFunctional2D ************* */
@@ -224,7 +256,7 @@ template<typename T, template<typename U> class Descriptor>
 class AssignOmegaFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor>
 {
 public:
-    AssignOmegaFunctional2D(T omega);
+    AssignOmegaFunctional2D(T omega_);
     virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice);
     virtual AssignOmegaFunctional2D<T,Descriptor>* clone() const;
     virtual BlockDomain::DomainT appliesTo() const;
@@ -328,15 +360,15 @@ template<typename T, template<typename U> class Descriptor>
 class IniConstEquilibriumFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor>
 {
 public:
-    IniConstEquilibriumFunctional2D(T density_, Array<T,Descriptor<T>::d> velocity, T temperature);
+    IniConstEquilibriumFunctional2D(T density, Array<T,Descriptor<T>::d> velocity, T temperature);
     virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice);
     virtual IniConstEquilibriumFunctional2D<T,Descriptor>* clone() const;
     virtual BlockDomain::DomainT appliesTo() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
+    T rho;
     T rhoBar;
-    Array<T,Descriptor<T>::d> j;
-    T jSqr;
+    Array<T,Descriptor<T>::d> u;
     T thetaBar;
 };
 
@@ -356,6 +388,27 @@ private:
     T velocityScale;
 };
 
+/* ************* Class IniConstEquilibriumComplexDomainFunctional2D ******************* */
+
+template<typename T, template<typename U> class Descriptor>
+class IniConstEquilibriumComplexDomainFunctional2D : public BoxProcessingFunctional2D_L<T,Descriptor>
+{
+public:
+    IniConstEquilibriumComplexDomainFunctional2D(DomainFunctional2D* domain_, T density, Array<T,Descriptor<T>::d> velocity,
+            T temperature);
+    virtual void process(Box2D box, BlockLattice2D<T,Descriptor>& lattice);
+    virtual IniConstEquilibriumComplexDomainFunctional2D<T,Descriptor>* clone() const;
+    virtual BlockDomain::DomainT appliesTo() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    DomainFunctional2D* domain;
+    T rho;
+    T rhoBar;
+    Array<T,Descriptor<T>::d> u;
+    T thetaBar;
+};
+
+
 /* ************* Class IniCustomThermalEquilibriumFunctional2D ******************* */
 
 template<typename T, template<typename U> class Descriptor, class RhoVelThetaFunction>
@@ -369,6 +422,19 @@ public:
 private:
     RhoVelThetaFunction f;
     T velocityScale;
+};
+
+/* ************* Class SetCustomOmegaFunctional2D ******************* */
+
+template<typename T, template<typename U> class Descriptor, class OmegaFunction>
+class SetCustomOmegaFunctional2D : public OneCellIndexedFunctional2D<T,Descriptor>
+{
+public:
+    SetCustomOmegaFunctional2D(OmegaFunction f_);
+    virtual void execute(plint iX, plint iY, Cell<T,Descriptor>& cell) const;
+    virtual SetCustomOmegaFunctional2D<T,Descriptor,OmegaFunction>* clone() const;
+private:
+    OmegaFunction f;
 };
 
 
@@ -614,6 +680,19 @@ private:
 };
 
 template<typename T>
+class SetToRandomFunctional2D : public BoxProcessingFunctional2D_S<T>
+{
+public:
+    SetToRandomFunctional2D(Box2D boundingBox, sitmo::prng_engine eng_);
+    virtual void process(Box2D domain, ScalarField2D<T>& field);
+    virtual SetToRandomFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    plint nY;
+    sitmo::prng_engine eng;
+};
+
+template<typename T>
 class SetToCoordinatesFunctional2D : public BoxProcessingFunctional2D_T<T,2>
 {
 public:
@@ -636,6 +715,18 @@ public:
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     int whichDim;
+};
+
+template<typename T>
+class GrowDomainFunctional2D : public BoxProcessingFunctional2D_S<T> {
+public:
+    GrowDomainFunctional2D(T flag_);
+    virtual void process(Box2D domain, ScalarField2D<T>& voxels);
+    virtual GrowDomainFunctional2D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    T flag;
 };
 
 }  // namespace plb

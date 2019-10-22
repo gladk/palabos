@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -22,7 +22,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Daniel Lagrava
+/* Main author: Daniel Lagrava, adapted by Helen Morrison
  **/
 
 #ifndef MULTI_GRID_LATTICE_3D_H
@@ -73,7 +73,9 @@ class MultiGridLattice3D : public BlockLatticeBase3D< T,Descriptor >, public Mul
     
     /// Create the couplings between lattices
     void initialize();
+
     void createInterfaces();
+
     /// Create a single multiBlock that represents the multiGrid. 
     std::auto_ptr<MultiBlockLattice3D<T,Descriptor> > convertToLevel(plint level) const;
         
@@ -95,12 +97,13 @@ class MultiGridLattice3D : public BlockLatticeBase3D< T,Descriptor >, public Mul
     virtual void stream(Box3D domain);
     virtual void stream();              
     virtual void collideAndStream(Box3D domain);
-    virtual void collideAndStream();    
+    virtual void collideAndStream();
     virtual void incrementTime();
     TimeCounter& getTimeCounter();
     TimeCounter const& getTimeCounter() const;
   private:
     void iterateMultiGrid(plint level);
+    void eliminateStatisticsInOverlap();
   private:
     std::vector<MultiBlockLattice3D<T,Descriptor>*> lattices;
 };

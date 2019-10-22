@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -105,6 +105,7 @@ void CopyFineToCoarse3D<T,Descriptor1,Descriptor2>::process (
                     Cell<T,Descriptor1>& coarseCell = coarseLattice.get(iX,iY,iZ);
                     Cell<T,Descriptor2> const& fineCell = fineLattice.get(fineX,fineY,fineZ);
 
+                    //if dynamics = advection diffusion dynamics, simply copy
                     rescaleEngine->scaleFineCoarse(fineCell, decomposedCoarseValues);
                     rescaleEngine->recompose(coarseCell, decomposedCoarseValues);
                 }
@@ -156,7 +157,7 @@ CopyFineToCoarseWithFiltering3D<T,Descriptor1,Descriptor2>::operator= (
     numTimeSteps = rhs.numTimeSteps;
     executionTime = rhs.executionTime;
     indices.resize(0);
-    indices.assign(indices.begin(),rhs.indices.begin(),rhs.indices.end());
+    indices.assign(rhs.indices.begin(),rhs.indices.end());
     return *this;
 }
 
@@ -199,14 +200,13 @@ void CopyFineToCoarseWithFiltering3D<T,Descriptor1,Descriptor2>::process (
                     Cell<T,Descriptor2> const& fineCell = fineLattice.get(fineX,fineY,fineZ);
 
                     rescaleEngine->scaleFineCoarse(fineCell, decomposedCoarseValues);
-                    
+
                     for (plint iPop = 1; iPop < (plint)indices.size(); ++iPop) {
                         std::vector<T> tmpDec;
-                        Cell<T,Descriptor2> const& nextCell = 
-                            fineLattice.get(fineX+descriptors::D3Q27Descriptor<T>::c[indices[iPop]][0],
-                                            fineY+descriptors::D3Q27Descriptor<T>::c[indices[iPop]][1],
-                                            fineZ+descriptors::D3Q27Descriptor<T>::c[indices[iPop]][2]);
-                            
+                        Cell<T,Descriptor2> const& nextCell =
+                                fineLattice.get(fineX+Descriptor2<T>::c[iPop][0],
+                                                fineY+Descriptor2<T>::c[iPop][1],
+                                                fineZ+Descriptor2<T>::c[iPop][2]);
                         rescaleEngine->scaleFineCoarse(nextCell, tmpDec);
                         for (pluint iA = start; iA < tmpDec.size(); ++iA) {
                             decomposedCoarseValues[iA] += tmpDec[iA];
@@ -215,7 +215,7 @@ void CopyFineToCoarseWithFiltering3D<T,Descriptor1,Descriptor2>::process (
                     for (pluint iA = start; iA < decomposedCoarseValues.size(); ++iA) {
                         decomposedCoarseValues[iA] /= (T)(indices.size()+1);
                     }
-                    
+
                     rescaleEngine->recompose(coarseCell, decomposedCoarseValues);
                 }
             }

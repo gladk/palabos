@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -465,6 +465,46 @@ VelocityToParticleCoupling2D<T,Descriptor>* VelocityToParticleCoupling2D<T,Descr
 
 template<typename T, template<typename U> class Descriptor>
 void VelocityToParticleCoupling2D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables; // Particle field.
+    modified[1] = modif::nothing;  // TensorField velocity.
+}
+
+
+/* ******** N_VelocityToParticleCoupling2D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+N_VelocityToParticleCoupling2D<T,Descriptor>::N_VelocityToParticleCoupling2D(T scaling_)
+    : scaling(scaling_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void N_VelocityToParticleCoupling2D<T,Descriptor>::processGenericBlocks (
+        Box2D domain, std::vector<AtomicBlock2D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==2 );
+    ParticleField2D<T,Descriptor>* particleFieldPtr =
+        dynamic_cast<ParticleField2D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT( particleFieldPtr );
+    ParticleField2D<T,Descriptor>& particleField = *particleFieldPtr;
+
+    NTensorField2D<T>* velocityPtr =
+        dynamic_cast<NTensorField2D<T>*>(blocks[1]);
+    PLB_ASSERT( velocityPtr );
+    NTensorField2D<T>& velocity = *velocityPtr;
+    PLB_ASSERT( velocity.getNdim()==2 );
+
+    particleField.velocityToParticleCoupling(domain, velocity, scaling);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_VelocityToParticleCoupling2D<T,Descriptor>* N_VelocityToParticleCoupling2D<T,Descriptor>::clone() const {
+    return new N_VelocityToParticleCoupling2D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_VelocityToParticleCoupling2D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::dynamicVariables; // Particle field.

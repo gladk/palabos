@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -26,11 +26,11 @@
 #define PARTICLE_PROCESSING_FUNCTIONAL_3D_H
 
 #include "core/globalDefs.h"
+#include "core/functions.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
 #include "atomicBlock/reductiveDataProcessingFunctional3D.h"
 #include "atomicBlock/atomicContainerBlock3D.h"
 #include "offLattice/triangleBoundary3D.h"
-#include "algorithm/functions.h"
 #include <map>
 
 namespace plb {
@@ -142,6 +142,51 @@ private:
     T probabilityPerCell;
 };
 
+/// Generate a random number of particles inside the domain. Each cell generates
+///   at most one particle, with a given probability and at a random position inside
+///   the cell. All particles are identical clones (except for their position).
+///   Additionally to InjectRandomParticlesFunctional3D, this functional uses a bit-
+///   mask to decide where to inject.
+template<typename T, template<typename U> class Descriptor>
+class MaskedInjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    MaskedInjectRandomParticlesFunctional3D(Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, int flag_);
+    MaskedInjectRandomParticlesFunctional3D(MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs);
+    MaskedInjectRandomParticlesFunctional3D<T,Descriptor>&
+        operator=(MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs);
+    void swap(MaskedInjectRandomParticlesFunctional3D<T,Descriptor>& rhs);
+    ~MaskedInjectRandomParticlesFunctional3D();
+    /// Arguments: [0] Particle-field; [1] Mask (int scalar-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual MaskedInjectRandomParticlesFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Particle3D<T,Descriptor>* particleTemplate;
+    T probabilityPerCell;
+    int flag;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class N_MaskedInjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    N_MaskedInjectRandomParticlesFunctional3D(Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, int flag_);
+    N_MaskedInjectRandomParticlesFunctional3D(N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs);
+    N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>&
+        operator=(N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs);
+    void swap(N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>& rhs);
+    ~N_MaskedInjectRandomParticlesFunctional3D();
+    /// Arguments: [0] Particle-field; [1] Mask (1D int n-tensor-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Particle3D<T,Descriptor>* particleTemplate;
+    T probabilityPerCell;
+    int flag;
+};
+
 /// Generate a random number of point-particles inside the domain. Each cell generates
 ///   at most one particle, with a given probability and at a random position inside
 ///   the cell.
@@ -170,18 +215,20 @@ private:
 ///   the cell. Additionally to analytically-inject, this functional uses a bit-
 ///   mask to decide where to inject.
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-class MaskedInjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
+class MaskedAnalyticalInjectRandomParticlesFunctional3D : public BoxProcessingFunctional3D
 {
 public:
-    MaskedInjectRandomParticlesFunctional3D(Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, DomainFunctional functional_, int flag_);
-    MaskedInjectRandomParticlesFunctional3D(MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs);
-    MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>&
-        operator=(MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs);
-    void swap(MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>& rhs);
-    ~MaskedInjectRandomParticlesFunctional3D();
+    MaskedAnalyticalInjectRandomParticlesFunctional3D(Particle3D<T,Descriptor>* particleTemplate_,
+            T probabilityPerCell_, DomainFunctional functional_, int flag_);
+    MaskedAnalyticalInjectRandomParticlesFunctional3D(
+            MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs);
+    MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>&
+        operator=(MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs);
+    void swap(MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>& rhs);
+    ~MaskedAnalyticalInjectRandomParticlesFunctional3D();
     /// Arguments: Particle-field, Mask.
     virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
-    virtual MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>* clone() const;
+    virtual MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     Particle3D<T,Descriptor>* particleTemplate;
@@ -240,6 +287,33 @@ private:
     int flag;
 };
 
+/// Generate equally spaced particles inside each cell. Every cell generates
+///   nx particles in its x-direction, ny in its y-direction and nz in its
+///   z-direction (nx * ny * nz in total in each cell). This functional uses
+///   a bit-mask (in the form of a MultiNTensorField3D) to decide where to inject.
+///   All particles are identical clones (except for their position).
+template<typename T, template<typename U> class Descriptor>
+class N_MaskedInjectEquallySpacedParticlesFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    N_MaskedInjectEquallySpacedParticlesFunctional3D(Particle3D<T,Descriptor>* particleTemplate_,
+            plint nx_, plint ny_, plint nz_, int flag_);
+    N_MaskedInjectEquallySpacedParticlesFunctional3D(
+            N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor> const& rhs);
+    N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>&
+        operator=(N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor> const& rhs);
+    void swap(N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>& rhs);
+    ~N_MaskedInjectEquallySpacedParticlesFunctional3D();
+    /// Arguments: Particle-field, Mask.
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    Particle3D<T,Descriptor>* particleTemplate;
+    plint nx, ny, nz;
+    int flag;
+};
+
 /// Remove all particles from a given domain.
 template<typename T, template<typename U> class Descriptor>
 class AbsorbParticlesFunctional3D : public BoxProcessingFunctional3D
@@ -249,6 +323,20 @@ public:
     /// Argument: Particle-field.
     virtual AbsorbParticlesFunctional3D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+};
+
+/// Remove all particles based on a mask.
+template<typename T, template<typename U> class Descriptor>
+class MaskedAbsorbParticlesFunctional3D : public BoxProcessingFunctional3D
+{
+public:
+    MaskedAbsorbParticlesFunctional3D(int whichFlag_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    /// Arguments: [0] Particle-field; [1] Mask (int scalar-field)
+    virtual MaskedAbsorbParticlesFunctional3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    int whichFlag;
 };
 
 /// Remove all particles from a given domain.
@@ -331,6 +419,20 @@ private:
 };
 
 template<typename T, template<typename U> class Descriptor>
+class N_VelocityToParticleCoupling3D : public BoxProcessingFunctional3D
+{
+public:
+    /// Particle speed = scaling*fluid speed.
+    N_VelocityToParticleCoupling3D(T scaling_);
+    /// Arguments: [0] Particle-field; [1] Velocity (scalar-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual N_VelocityToParticleCoupling3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T scaling;
+};
+
+template<typename T, template<typename U> class Descriptor>
 class RhoBarJtoParticleCoupling3D : public BoxProcessingFunctional3D
 {
 public:
@@ -346,6 +448,8 @@ private:
 };
 
 /// Execute the iteration step during which particles advance.
+/// WARNING: This data processor does not update the envelope of the multi-particle
+/// field after its execution.
 template<typename T, template<typename U> class Descriptor>
 class AdvanceParticlesFunctional3D : public BoxProcessingFunctional3D
 {
@@ -422,6 +526,38 @@ public:
 private:
     util::SelectInt* tags;
 };
+
+
+/* ******** VerletParticleInteractionForce3D *********************************** */
+
+// This data processor defines the pair-wise interaction force between Verlet particles.
+// The cutOffLength is the cut-off length for particle interaction. One needs to make sure
+// the interaction force is negligible at this distance. The halfWidth is the width of
+// communication envelope needed to cope with neighborhoods within the cut-off length.
+// The particle-field used in this data processor, must have an envelope width at least
+// as large as the halfWidth provided. The algorithm is not applied to particles that have
+// a tag equal to the exclusionTag (if provided).
+template<typename T, template<typename U> class Descriptor>
+class VerletParticleInteractionForce3D : public BoxProcessingFunctional3D
+{
+public:
+    VerletParticleInteractionForce3D(T forceAmplitude_, Array<T,3> const& bodyAcceleration_,
+            T cutOffLength_, plint halfWidth_, plint exclusionTag_);
+    VerletParticleInteractionForce3D(T forceAmplitude_, Array<T,3> const& bodyAcceleration_,
+            T cutOffLength_, plint halfWidth_);
+    /// Arguments: [0] Particle-field.
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual VerletParticleInteractionForce3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    T forceAmplitude;
+    Array<T,3> bodyAcceleration;
+    T cutOffLength;
+    plint halfWidth;
+    plint exclusionTag;
+    bool hasExclusionTag;
+};
+
 
 template< typename T,
           template<typename U> class Descriptor >
@@ -501,6 +637,74 @@ private:
     util::SelectInt* tags;
 };
 
+/// Count the number of particles with given tags inside a neighborhood of each cell node,
+/// compute the corresponding concentration value and place the result in the scalar field.
+/// The parameter halfWidth must be at most equal to the envelope width of the particle field.
+template<typename T, template<typename U> class Descriptor>
+class ComputeConcentrationOfTaggedParticles3D : public BoxProcessingFunctional3D
+{
+public:
+    ComputeConcentrationOfTaggedParticles3D(util::SelectInt* tags_, plint halfWidth_);
+    ~ComputeConcentrationOfTaggedParticles3D();
+    ComputeConcentrationOfTaggedParticles3D(ComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    ComputeConcentrationOfTaggedParticles3D<T,Descriptor>& operator=(
+            ComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    void swap(ComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs);
+    /// Arguments: [0] Particle-field; [1] Concentration (real-valued scalar-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual ComputeConcentrationOfTaggedParticles3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    util::SelectInt* tags;
+    plint halfWidth;
+};
+
+/// Count the number of particles with given tags inside a neighborhood of each cell node,
+/// compute the corresponding concentration value and place the result in the scalar field,
+/// only for cells that have a specific mask value.
+/// The parameter halfWidth must be at most equal to the envelope width of the particle field.
+template<typename T, template<typename U> class Descriptor>
+class MaskedComputeConcentrationOfTaggedParticles3D : public BoxProcessingFunctional3D
+{
+public:
+    MaskedComputeConcentrationOfTaggedParticles3D(util::SelectInt* tags_, plint halfWidth_, int whichFlag_);
+    ~MaskedComputeConcentrationOfTaggedParticles3D();
+    MaskedComputeConcentrationOfTaggedParticles3D(
+            MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& operator=(
+            MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    void swap(MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs);
+    /// Arguments: [0] Particle-field; [1] Mask (int scalar-field); [2] Concentration (real-valued scalar-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    util::SelectInt* tags;
+    plint halfWidth;
+    int whichFlag;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class N_MaskedComputeConcentrationOfTaggedParticles3D : public BoxProcessingFunctional3D
+{
+public:
+    N_MaskedComputeConcentrationOfTaggedParticles3D(util::SelectInt* tags_, plint halfWidth_, int whichFlag_);
+    ~N_MaskedComputeConcentrationOfTaggedParticles3D();
+    N_MaskedComputeConcentrationOfTaggedParticles3D(
+            N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& operator=(
+            N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs);
+    void swap(N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs);
+    /// Arguments: [0] Particle-field; [1] Mask (1D int n-tensor-field); [2] Concentration (real-valued scalar-field).
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+private:
+    util::SelectInt* tags;
+    plint halfWidth;
+    int whichFlag;
+};
+
 template< typename T, template<typename U> class Descriptor,
           template<typename T_, template<typename U_> class Descriptor_> class ParticleFieldT >
 plint countParticles (
@@ -514,6 +718,10 @@ plint countParticles (
 template<typename T, template<typename U> class Descriptor>
 void injectParticles(std::vector<Particle3D<T,Descriptor>*>& injectedParticles,
                      MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles, Box3D domain);
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void injectParticles(std::vector<Particle3D<T,Descriptor>*>& injectedParticles,
+                     MultiParticleField3D<ParticleFieldT>& particles, Box3D domain);
 
 /* Iterations of a passive-scalar fluid-particle system:
  * =====================================================

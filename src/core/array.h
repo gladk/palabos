@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -145,6 +145,14 @@ public:
             data[i] /= alpha;
         }
         return *this;
+    }
+public:
+    static Array<T,size> zero() {
+        Array<T,size> result;
+        for (pluint i=0; i<size; ++i) {
+            result[i] = T();
+        }
+        return result;
     }
 private:
     T data[size];
@@ -292,6 +300,17 @@ Array<T,size> operator/(T alpha, Array<T,size> const& a) {
     return result;
 }
 
+template<typename T, pluint size>
+T maxElement(Array<T,size> const& a) {
+    PLB_ASSERT(size > 1);
+    T maxEl = std::max(a[0],a[1]);
+
+    for (pluint i=2; i<size; ++i) {
+        maxEl = std::max(a[i],maxEl);
+    }
+    return maxEl;
+}
+
 
 template<typename T>
 class Array<T,2> {
@@ -387,6 +406,9 @@ public:
         data[0] /= alpha;
         data[1] /= alpha;
         return *this;
+    }
+    static Array<T,2> zero() {
+        return Array<T,2>(T(), T());
     }
 private:
     T data[2];
@@ -569,6 +591,9 @@ public:
         data[1] /= alpha;
         data[2] /= alpha;
         return *this;
+    }
+    static Array<T,3> zero() {
+        return Array<T,3>(T(), T(), T());
     }
 private:
     T data[3];
@@ -770,6 +795,9 @@ public:
         data[2] /= alpha;
         data[3] /= alpha;
         return *this;
+    }
+    static Array<T,4> zero() {
+        return Array<T,3>(T(), T(), T(), T());
     }
 private:
     T data[4];
@@ -1007,6 +1035,9 @@ public:
         data[4] /= alpha;
         data[5] /= alpha;
         return *this;
+    }
+    static Array<T,6> zero() {
+        return Array<T,6>(T(), T(), T(), T(), T(), T());
     }
 private:
     T data[6];

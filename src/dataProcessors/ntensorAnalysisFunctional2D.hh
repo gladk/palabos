@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -91,7 +91,7 @@ void CopyConvertNTensorFunctional2D<T1,T2>::getTypeOfModification(std::vector<mo
 
 template<typename T1, typename T2>
 BlockDomain::DomainT CopyConvertNTensorFunctional2D<T1,T2>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 }  // namespace plb

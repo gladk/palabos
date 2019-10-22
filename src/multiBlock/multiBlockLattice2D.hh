@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -166,8 +166,26 @@ MultiBlockLattice2D<T,Descriptor>*
                 this->getCombinedStatistics().clone(),
                 multiCellAccess->clone(),
                 getBackgroundDynamics().clone() );
-    copy(*this, this->getBoundingBox(), *newLattice, newLattice->getBoundingBox(), modif::dataStructure);
+    // Make sure background dynamics is not used in the cloned lattice, and instead every cell
+    // has an individual dynamics instance. This is the behavior we expect most of the time
+    // when cloning a lattice. As a matter of fact, the background dynamics is now mostly
+    // considered to be dangereous, and is kept as a default behavior of the multi-block lattice
+    // for legacy reasons only.
+    newLattice->resetDynamics(getBackgroundDynamics());
+    // Use the same domain in the "from" and "to" argument, so that the data is not shifted
+    // in space during the creation of the new block.
+    copy(*this, newLattice->getBoundingBox(), *newLattice, newLattice->getBoundingBox(), modif::dataStructure);
     return newLattice;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MultiBlockLattice2D<T,Descriptor>::resetDynamics(Dynamics<T,Descriptor> const& dynamics)
+{
+    for ( typename  BlockMap::const_iterator it = blockLattices.begin();
+          it != blockLattices.end(); ++it )
+    {
+        blockLattices[it->first]->resetDynamics(dynamics);
+    }
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -264,6 +282,19 @@ Box2D MultiBlockLattice2D<T,Descriptor>::extendPeriodic(Box2D const& box, plint 
 
 template<typename T, template<typename U> class Descriptor>
 void MultiBlockLattice2D<T,Descriptor>::stream() {
+    streamImplementation();
+    this->executeInternalProcessors();
+    this->evaluateStatistics();
+    this->incrementTime();
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MultiBlockLattice2D<T,Descriptor>::externalStream() {
+    streamImplementation();
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MultiBlockLattice2D<T,Descriptor>::streamImplementation() {
     for ( typename BlockMap::iterator it = blockLattices.begin();
           it != blockLattices.end(); ++it)
     {
@@ -273,9 +304,6 @@ void MultiBlockLattice2D<T,Descriptor>::stream() {
                                       this->getMultiBlockManagement().getEnvelopeWidth());
         it->second -> stream( bulk.toLocal(domain) );
     }
-    this->executeInternalProcessors();
-    this->evaluateStatistics();
-    this->incrementTime();
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -295,6 +323,28 @@ void MultiBlockLattice2D<T,Descriptor>::collideAndStream(Box2D domain) {
 template<typename T, template<typename U> class Descriptor>
 void MultiBlockLattice2D<T,Descriptor>::collideAndStream() {
     global::profiler().start("cycle");
+    collideAndStreamImplementation();
+    this->executeInternalProcessors();
+    this->evaluateStatistics();
+    this->incrementTime();
+    global::profiler().stop("cycle");
+    if (global::profiler().cyclingIsAutomatic()) {
+        global::profiler().cycle();
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MultiBlockLattice2D<T,Descriptor>::externalCollideAndStream() {
+    global::profiler().start("cycle");
+    collideAndStreamImplementation();
+    if (global::profiler().cyclingIsAutomatic()) {
+        global::profiler().cycle();
+    }
+    global::profiler().stop("cycle");
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MultiBlockLattice2D<T,Descriptor>::collideAndStreamImplementation() {
     for ( typename BlockMap::iterator it = blockLattices.begin();
           it != blockLattices.end(); ++it)
     {
@@ -305,13 +355,6 @@ void MultiBlockLattice2D<T,Descriptor>::collideAndStream() {
                                       this->getMultiBlockManagement().getEnvelopeWidth());
         it->second -> collideAndStream( bulk.toLocal(domain) );
     }
-    this->executeInternalProcessors();
-    this->evaluateStatistics();
-    this->incrementTime();
-    if (global::profiler().cyclingIsAutomatic()) {
-        global::profiler().cycle();
-    }
-    global::profiler().stop("cycle");
 }
 
 template<typename T, template<typename U> class Descriptor>

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -117,9 +117,6 @@ template<class BlockLatticeT>
 void writeGif(BlockLatticeT& lattice,plint iT)
 {
     const plint imSize = 600;
-    const plint nx = lattice.getNx();
-    const plint ny = lattice.getNy();
-    
     ImageWriter<T> imageWriter("leeloo.map");
     imageWriter.writeScaledGif(createFileName("u", iT, 6),
                             *computeVelocityNorm(lattice),
@@ -211,7 +208,7 @@ int main(int argc, char *argv[])
     
     T error = T();
     
-    lattice.getTimeCounter().resetTime(1);
+    lattice.resetTime(1);
     
     pcout << "Omega = " << omega << ", it period = " << tPeriod << endl;
 

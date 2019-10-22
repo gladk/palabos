@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -54,6 +54,42 @@ MultiNTensorField3D<T2>* copyConvert( MultiNTensorField3D<T1>& field,
         = generateMultiNTensorField<T2>(field, domain, field.getNdim());
     plb::copy(field, *convertedField, domain);
     return convertedField;
+}
+
+template<typename T>
+void nTensorToScalar(MultiNTensorField3D<T>& nTensor, MultiScalarField3D<T>& scalar) {
+    PLB_ASSERT( nTensor.getNdim()==1 );
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&nTensor);
+    args.push_back(&scalar);
+    applyProcessingFunctional (
+            new ConvertNTensorToScalarFunctional3D<T>, nTensor.getBoundingBox(), args );
+}
+
+template<typename T>
+void scalarToNTensor(MultiScalarField3D<T>& scalar, MultiNTensorField3D<T>& nTensor) {
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&scalar);
+    args.push_back(&nTensor);
+    applyProcessingFunctional (
+            new ConvertScalarToNTensorFunctional3D<T>, scalar.getBoundingBox(), args );
+}
+
+template<typename T>
+std::auto_ptr<MultiNTensorField3D<T> > scalarToNTensor(MultiScalarField3D<T>& scalar) {
+    plint nDim = 1;
+    std::auto_ptr<MultiNTensorField3D<T> > nTensor =
+        defaultGenerateMultiNTensorField3D<T>(scalar.getMultiBlockManagement(), nDim);
+    scalarToNTensor(scalar, *nTensor);
+    return nTensor;
+}
+
+template<typename T>
+std::auto_ptr<MultiScalarField3D<T> > nTensorToScalar(MultiNTensorField3D<T>& nTensor) {
+    std::auto_ptr<MultiScalarField3D<T> > scalar =
+        generateMultiScalarField<T>(nTensor, nTensor.getBoundingBox());
+    nTensorToScalar(nTensor, *scalar);
+    return scalar;
 }
 
 }  // namespace plb

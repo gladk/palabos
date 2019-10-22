@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -38,7 +38,7 @@
 namespace plb {
 
 /** Implementation of the computation of the velocity in the 
-  * presence of an external force
+  * presence of an external force for compressible models
 */
 template<typename T, template<typename U> class Descriptor>
 class ExternalForceDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
@@ -51,6 +51,35 @@ public:
     /// Implementation of velocity computation
     virtual void computeVelocity( Cell<T,Descriptor> const& cell, 
                                   Array<T,Descriptor<T>::d>& u ) const;
+
+    virtual void computeVelocityExternal( Cell<T,Descriptor> const& cell,
+                                          T rhoBar, Array<T,Descriptor<T>::d> const& j, 
+                                          Array<T,Descriptor<T>::d>& u ) const;
+};
+
+/** Implementation of the computation of the velocity in the 
+  * presence of an external force for incompressible models
+*/
+template<typename T, template<typename U> class Descriptor>
+class IncExternalForceDynamics : public IsoThermalBulkDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    IncExternalForceDynamics(T omega_);
+
+/* *************** Velocity computation ************************* */
+
+    /// Implementation of velocity computation
+    virtual void computeVelocity( Cell<T,Descriptor> const& cell, 
+                                  Array<T,Descriptor<T>::d>& u ) const;
+
+    virtual void computeVelocityExternal( Cell<T,Descriptor> const& cell,
+                                          T rhoBar, Array<T,Descriptor<T>::d> const& j, 
+                                          Array<T,Descriptor<T>::d>& u ) const;
+
+    /// For PiNeq, subtract equilibrium term jj instead of invRho*jj.
+    virtual void computeRhoBarJPiNeq( Cell<T,Descriptor> const& cell,
+                                      T& rhoBar, Array<T,Descriptor<T>::d>& j,
+                                      Array<T,SymmetricTensor<T,Descriptor>::n>& PiNeq ) const;
 };
 
 
@@ -60,6 +89,7 @@ class NaiveExternalForceBGKdynamics : public ExternalForceDynamics<T,Descriptor>
 public:
 /* *************** Construction / Destruction ************************ */
     NaiveExternalForceBGKdynamics(T omega_);
+    NaiveExternalForceBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual NaiveExternalForceBGKdynamics<T,Descriptor>* clone() const;
@@ -72,6 +102,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
@@ -86,6 +120,7 @@ class NaiveExternalForcePrecondBGKdynamics : public ExternalForceDynamics<T,Desc
 public:
 /* *************** Construction / Destruction ************************ */
     NaiveExternalForcePrecondBGKdynamics(T omega_, T invGamma_);
+    NaiveExternalForcePrecondBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual NaiveExternalForcePrecondBGKdynamics<T,Descriptor>* clone() const;
@@ -98,6 +133,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
@@ -115,6 +154,7 @@ class GuoExternalForceBGKdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     GuoExternalForceBGKdynamics(T omega_);
+    GuoExternalForceBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual GuoExternalForceBGKdynamics<T,Descriptor>* clone() const;
@@ -128,11 +168,91 @@ public:
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
 
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
 private:
     static int id;
+};
+
+/// Implementation of O(Ma^2) BGK dynamics with an external force (Guo approach)
+template<typename T, template<typename U> class Descriptor>
+class GuoExternalForceCompleteRegularizedBGKdynamics : public ExternalForceDynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    GuoExternalForceCompleteRegularizedBGKdynamics(T omega_);
+    GuoExternalForceCompleteRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual GuoExternalForceCompleteRegularizedBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
+    /// Compute equilibrium distribution function
+    virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                 T jSqr, T thetaBar=T()) const;
+
+
+    virtual void computeEquilibria( Array<T,Descriptor<T>::q>& fEq,  T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                                    T jSqr, T thetaBar=T() ) const;
+
+    virtual void regularize(Cell<T,Descriptor>& cell, T rhoBar, Array<T,Descriptor<T>::d> const& j,
+                            T jSqr, Array<T,SymmetricTensor<T,Descriptor>::n> const& PiNeq, T thetaBar=T() ) const;
+
+    virtual void decomposeOrder0 (Cell<T,Descriptor> const& cell, std::vector<T>& rawData ) const;
+
+    virtual void recomposeOrder0 (Cell<T,Descriptor>& cell, std::vector<T> const& rawData ) const;
+private:
+    static int id;
+};
+
+/// Implementation of O(Ma^2) BGK dynamics with an external force (Guo approach)
+template<typename T, template<typename U> class Descriptor>
+class GuoExternalForceConsistentSmagorinskyCompleteRegularizedBGKdynamics : public GuoExternalForceCompleteRegularizedBGKdynamics<T,Descriptor> {
+public:
+/* *************** Construction / Destruction ************************ */
+    GuoExternalForceConsistentSmagorinskyCompleteRegularizedBGKdynamics(T omega_, T cSmago_);
+    GuoExternalForceConsistentSmagorinskyCompleteRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual GuoExternalForceConsistentSmagorinskyCompleteRegularizedBGKdynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+    virtual void serialize(HierarchicSerializer& serializer) const;
+
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    virtual T getDynamicParameter(plint whichParameter, Cell<T,Descriptor> const& cell) const;
+
+/* *************** Collision and Equilibrium ************************* */
+
+    /// Implementation of the collision step
+    virtual void collide(Cell<T,Descriptor>& cell,
+                         BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+private:
+    static int id;
+    T cSmago;
 };
 
 /// Implementation of O(Ma^2) BGK dynamics with an external force (Shan/Chen approach)
@@ -141,6 +261,7 @@ class ShanChenExternalForceBGKdynamics : public ExternalForceDynamics<T,Descript
 public:
 /* *************** Construction / Destruction ************************ */
     ShanChenExternalForceBGKdynamics(T omega_);
+    ShanChenExternalForceBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual ShanChenExternalForceBGKdynamics<T,Descriptor>* clone() const;
@@ -153,6 +274,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
 
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
@@ -167,6 +292,7 @@ class HeExternalForceBGKdynamics : public ExternalForceDynamics<T,Descriptor> {
 public:
 /* *************** Construction / Destruction ************************ */
     HeExternalForceBGKdynamics(T omega_);
+    HeExternalForceBGKdynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual HeExternalForceBGKdynamics<T,Descriptor>* clone() const;
@@ -180,6 +306,10 @@ public:
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
 
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
@@ -190,10 +320,11 @@ private:
 
 /// Incompressible version of the Guo external forcing
 template<typename T, template<typename U> class Descriptor>
-class IncGuoExternalForceBGKdynamics : public ExternalForceDynamics<T,Descriptor> {
+class IncGuoExternalForceBGKdynamics : public IncExternalForceDynamics<T,Descriptor> {
 public:
     /* *************** Construction / Destruction ************************ */
     IncGuoExternalForceBGKdynamics(T omega_);
+    IncGuoExternalForceBGKdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual IncGuoExternalForceBGKdynamics<T,Descriptor>* clone() const;
@@ -206,6 +337,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
     
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
@@ -223,6 +358,7 @@ class ShanChenExternalForceRegularizedBGKdynamics : public ExternalForceDynamics
 public:
     /* *************** Construction / Destruction ************************ */
     ShanChenExternalForceRegularizedBGKdynamics(T omega_);
+    ShanChenExternalForceRegularizedBGKdynamics(HierarchicUnserializer& unserializer);
     
     /// Clone the object on its dynamic type.
     virtual ShanChenExternalForceRegularizedBGKdynamics<T,Descriptor>* clone() const;
@@ -235,6 +371,10 @@ public:
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
+
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
     
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,

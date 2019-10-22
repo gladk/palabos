@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -33,6 +33,7 @@
 #include "multiBlock/multiDataProcessorWrapper2D.h"
 #include "core/dynamics.h"
 #include "dataProcessors/dataInitializerFunctional2D.h"
+#include "sitmo/prng_engine.hpp"
 
 namespace plb {
 
@@ -130,29 +131,23 @@ template<typename T, template<class U> class Descriptor>
 void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain,
                              T density, Array<T,2> velocity, T temperature = (T)1);
 
-template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice,
-                             Box2D boundingBox, DomainFunctional2D* domain,
-                             T density, Array<T,2> velocity, T temperature = (T)1);
-
 // This function is implemented in-place, because it cannot be precompiled due to its generic nature.
 template<typename T, template<class U> class Descriptor, class RhoUFunction>
-void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoUFunction f) {
+void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoUFunction f)
+{
     applyIndexed (
             lattice, domain,
             new IniCustomEquilibriumFunctional2D<T,Descriptor,RhoUFunction> (f) );
 }
 
+// This function is implemented in-place, because it cannot be precompiled due to its generic nature.
 template<typename T, template<class U> class Descriptor, class RhoVelTempFunction>
-void initializeAtThermalEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoVelTempFunction f) {
+void initializeAtThermalEquilibrium(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoVelTempFunction f)
+{
     applyIndexed (
             lattice, domain,
             new IniCustomThermalEquilibriumFunctional2D<T,Descriptor,RhoVelTempFunction> (f) );
 }
-
-template<typename T, template<class U> class Descriptor, class Function>
-void initializeAtEquilibrium(BlockLattice2D<T,Descriptor>& lattice,
-                             Box2D boundingBox, DomainFunctional2D* domain, Function f);
 
 template<typename T, template<class U> class Descriptor>
 void stripeOffDensityOffset(BlockLattice2D<T,Descriptor>& lattice, Box2D domain, T deltaRho);
@@ -181,6 +176,14 @@ void apply(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, OneCellFunc
 template<typename T, template<class U> class Descriptor>
 void applyIndexed(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
                   OneCellIndexedFunctional2D<T,Descriptor>* f);
+
+template<typename T, template<class U> class Descriptor>
+void applyIndexed(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
+                  OneCellIndexedWithRandFunctional2D<T,Descriptor>* f, sitmo::prng_engine eng);
+
+template<typename T, template<class U> class Descriptor>
+void applyIndexed( MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
+                   OneCellIndexedWithRandFunctional2D<T,Descriptor>* f, uint32_t seed=0 );
 
 template<typename T, template<class U> class Descriptor>
 void defineDynamics(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
@@ -227,6 +230,9 @@ void recomposeFromFlowVariables ( MultiBlockLattice2D<T,Descriptor>& lattice,
 template<typename T, template<class U> class Descriptor>
 void setOmega(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, T omega);
 
+template<typename T, template<class U> class Descriptor, class Function>
+void setOmega(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, Function f);
+
 template<typename T, template<class U> class Descriptor>
 void setBoundaryVelocity(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, Array<T,2> velocity);
 
@@ -265,29 +271,23 @@ template<typename T, template<class U> class Descriptor>
 void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain,
                              T density, Array<T,2> velocity, T temperature = (T)1);
 
-template<typename T, template<class U> class Descriptor>
-void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice,
-                             Box2D boundingBox, DomainFunctional2D* domain,
-                             T density, Array<T,2> velocity, T temperature = (T)1);
-
 // This function is implemented in-place, because it cannot be precompiled due to its generic nature.
 template<typename T, template<class U> class Descriptor, class RhoUFunction>
-void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoUFunction f) {
+void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoUFunction f)
+{
     applyIndexed (
             lattice, domain,
             new IniCustomEquilibriumFunctional2D<T,Descriptor,RhoUFunction> (f) );
 }
 
+// This function is implemented in-place, because it cannot be precompiled due to its generic nature.
 template<typename T, template<class U> class Descriptor, class RhoVelTempFunction>
-void initializeAtThermalEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoVelTempFunction f) {
+void initializeAtThermalEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, RhoVelTempFunction f)
+{
     applyIndexed (
             lattice, domain,
             new IniCustomThermalEquilibriumFunctional2D<T,Descriptor,RhoVelTempFunction> (f) );
 }
-
-template<typename T, template<class U> class Descriptor, class Function>
-void initializeAtEquilibrium(MultiBlockLattice2D<T,Descriptor>& lattice,
-                             Box2D boundingBox, DomainFunctional2D* domain, Function f);
 
 template<typename T, template<class U> class Descriptor>
 void stripeOffDensityOffset(MultiBlockLattice2D<T,Descriptor>& lattice, Box2D domain, T deltaRho);
@@ -428,10 +428,23 @@ void setToCoordinate(MultiScalarField2D<T>& field, Box2D domain, plint index);
 template<typename T>
 void setToCoordinates(MultiTensorField2D<T,2>& field,  Box2D domain);
 
+template<typename T>
+void setToRandom(MultiScalarField2D<T>& field, Box2D domain, sitmo::prng_engine eng);
+
+template<typename T>
+void setToRandom(MultiScalarField2D<T>& field, Box2D domain, uint32_t seed=0);
+
 /// Assign scalar-field to one component of a tensor-field.
 template<typename T, int nDim>
 void assignComponent(MultiTensorField2D<T,nDim>& tensorField, int whichComponent,
                      MultiScalarField2D<T>& scalarField, Box2D domain);
+
+/// Grow a domain defined by the flag "flag" by n cells.
+template<typename T>
+void growDomain(MultiScalarField2D<T>& field, T flag, int nCells, Box2D domain);
+
+template<typename T>
+void growDomain(MultiScalarField2D<T>& field, T flag, int nCells);
 
 }  // namespace plb
 

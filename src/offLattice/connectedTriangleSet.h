@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,6 +29,7 @@
 
 #include "core/array.h"
 #include "core/globalDefs.h"
+#include "core/geometry3D.h"
 #include "offLattice/triangleSet.h"
 
 #include <vector>
@@ -95,8 +96,10 @@ public:
     void computeTriangleAreaAndUnitNormal(plint iTriangle, T& area, Array<T,3>& unitNormal,
             std::vector<Array<T,3> > *newVertices = 0, plint indexOffset = 0) const;
     void writeOFF(std::string fname, std::vector<Array<T,3> > *newVertices = 0,
+            plint indexOffset = 0, int numDecimalDigits = 10) const;
+    TriangleSet<T>* toTriangleSet(Precision precision, std::vector<Array<T,3> > const* newVertices = 0,
             plint indexOffset = 0) const;
-    TriangleSet<T>* toTriangleSet(Precision precision, std::vector<Array<T,3> > *newVertices = 0,
+    TriangleSet<T>* toTriangleSet(T eps, std::vector<Array<T,3> > const* newVertices = 0,
             plint indexOffset = 0) const;
 private:
     // To unify duplicated vertices they need to be inserted in a std::set container.
@@ -104,24 +107,15 @@ private:
         VertexSetNode(plint i_, Array<T,3> const* vertex_)
             : i(i_), vertex(vertex_)
         { }
+        Array<T,3> const& getPosition() const
+        {
+            return *vertex;
+        }
         plint i;                  // Global index of the vertex
         Array<T,3> const* vertex; // Pointer to vertex coordinates
     };
 
-    class VertexSetLessThan {
-    public:
-        VertexSetLessThan(T epsilon_)
-            : epsilon(epsilon_)
-        { }
-        bool operator()(VertexSetNode const& node1, VertexSetNode const& node2);
-    private:
-        bool vertexComponentLessThan(T x, T y);
-        bool vertexComponentEqual(T x, T y);
-        bool vertexLessThan(Array<T,3> const& v1, Array<T,3> const& v2);
-    private:
-        T epsilon;
-    };
-    typedef std::set<VertexSetNode,VertexSetLessThan> VertexSet;
+    typedef std::set<VertexSetNode,PositionLessThan3D<T,VertexSetNode> > VertexSet;
     typedef typename VertexSet::iterator VertexSetIterator;
     typedef typename VertexSet::const_iterator VertexSetConstIterator;
 private:

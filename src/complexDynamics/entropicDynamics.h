@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,6 +34,7 @@
 
 #include "core/globalDefs.h"
 #include "basicDynamics/isoThermalDynamics.h"
+#include "complexDynamics/variableOmegaDynamics.h"
 
 namespace plb {
 
@@ -42,11 +43,13 @@ template<typename T, template<typename U> class Descriptor> class Cell;
 
 /// Implementation of the entropic collision step
 template<typename T, template<typename U> class Descriptor>
-class EntropicDynamics : public IsoThermalBulkDynamics<T,Descriptor> 
+class EntropicDynamics : public IsoThermalBulkDynamics<T,Descriptor>
 {
 public:
 /* *************** Construction / Destruction ************************ */
     EntropicDynamics(T omega_);
+
+    EntropicDynamics(HierarchicUnserializer& unserializer);
 
     /// Clone the object on its dynamic type.
     virtual EntropicDynamics<T,Descriptor>* clone() const;
@@ -54,28 +57,28 @@ public:
     /// Return a unique ID for this class.
     virtual int getId() const;
 
+    virtual bool isEntropic() const{
+        return true;
+    }
+
 /* *************** Collision and Equilibrium ************************* */
 
     /// Implementation of the collision step
     virtual void collide(Cell<T,Descriptor>& cell,
                          BlockStatistics& statistics_);
 
+    /// Implementation of the collision step, with imposed macroscopic variables
+    virtual void collideExternal(Cell<T,Descriptor>& cell, T rhoBar,
+                         Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& stat);
+
     /// Compute equilibrium distribution function
     virtual T computeEquilibrium(plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j,
                                  T jSqr, T thetaBar=T()) const;
-private:
-    /// computes the entropy function H(f)=sum_i f_i*ln(f_i/t_i)
-    T computeEntropy(Array<T,Descriptor<T>::q> const& f);
-    /// computes the entropy growth H(f)-H(f-alpha*fNeq)
-    T computeEntropyGrowth(Array<T,Descriptor<T>::q> const& f, Array<T,Descriptor<T>::q> const& fNeq, T alpha);
-    /// computes the entropy growth derivative
-    /// dH/dalpha=-sum_i fNeq_i*ln((f_i-alpha*fNeq_i)/t_i)
-    T computeEntropyGrowthDerivative(Array<T,Descriptor<T>::q> const& f, Array<T,Descriptor<T>::q> const& fNeq, T alpha);
-    /// Get the alpha parameter
-    bool getAlpha(T &alpha, Array<T,Descriptor<T>::q> const& f, Array<T,Descriptor<T>::q> const& fNeq);
+
 private:
     static int id;
 };
+
 
 /// Implementation of the forced entropic collision step
 template<typename T, template<typename U> class Descriptor>
@@ -84,11 +87,17 @@ public:
 /* *************** Construction / Destruction ************************ */
     ForcedEntropicDynamics(T omega_);
 
+    ForcedEntropicDynamics(HierarchicUnserializer& unserializer);
+
     /// Clone the object on its dynamic type.
     virtual ForcedEntropicDynamics<T,Descriptor>* clone() const;
 
     /// Return a unique ID for this class.
     virtual int getId() const;
+
+    virtual bool isEntropic() const{
+        return true;
+    }
 
 /* *************** Collision and Equilibrium ************************* */
 
@@ -112,6 +121,49 @@ private:
     
     static const int forceBeginsAt = Descriptor<T>::ExternalField::forceBeginsAt;
     static const int sizeOfForce   = Descriptor<T>::ExternalField::sizeOfForce;
+    static int id;
+};
+
+/*******************************************************************************
+ *
+ * A version of ELBM, which simply modifies the local omega by alpha
+ * (may be needed for grid refinement?)
+ *
+ * ****************************************************************************/
+/// Implementation of the entropic collision step
+template<typename T, template<typename U> class Descriptor>
+class VariableOmegaELBMDynamics : public VariableOmegaDynamics<T,Descriptor>
+{
+public:
+/* *************** Construction / Destruction ************************ */
+    VariableOmegaELBMDynamics(T omega0_, bool automaticPrepareCollision=true);
+
+    VariableOmegaELBMDynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object on its dynamic type.
+    virtual VariableOmegaELBMDynamics<T,Descriptor>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
+
+    virtual bool isEntropic() const{
+        return true;
+    }
+
+    /// Serialize the dynamics object.
+    virtual void serialize(HierarchicSerializer& serializer) const;
+    /// Un-Serialize the dynamics object.
+    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    /// With this method, you can modify the constant value omega0 (not the actual value of omega,
+    ///  which is computed during run-time from omega0 and the local strain-rate).
+    virtual void setOmega(T omega_);
+    /// Returns omega0.
+    virtual T getOmega() const;
+
+    virtual T getOmegaFromCell(Cell<T,Descriptor> const& cell) const;
+private:
+    T omega0;
     static int id;
 };
 

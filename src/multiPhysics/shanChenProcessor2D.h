@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -42,18 +42,21 @@ class ShanChenMultiComponentProcessor2D :
     public LatticeBoxProcessingFunctional2D<T,Descriptor>
 {
 public:
-    /// With this constructor, space- and time-dependent values of the
+    /// With these constructors, space- and time-dependent values of the
     ///   relaxation parameters omega are accounted for.
     ShanChenMultiComponentProcessor2D(T G_);
-    /// With this constructor, the values of the relaxation parameters omega are
+    ShanChenMultiComponentProcessor2D(std::vector<std::vector<T> > const& speciesG_);
+    /// With these constructors, the values of the relaxation parameters omega are
     ///   taken to be species-dependent, but not space- or time-dependent. Their
     ///   value is imposed in the constructor.
     ShanChenMultiComponentProcessor2D(T G_, std::vector<T> const& imposedOmega_);
+    ShanChenMultiComponentProcessor2D(std::vector<std::vector<T> > const& speciesG_, std::vector<T> const& imposedOmega_);
     virtual void process(Box2D domain, std::vector<BlockLattice2D<T,Descriptor>*> lattices );
     virtual ShanChenMultiComponentProcessor2D<T,Descriptor>* clone() const;
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
 private:
     T G;
+    std::vector<T> speciesG;
     std::vector<T> imposedOmega;
 };
 

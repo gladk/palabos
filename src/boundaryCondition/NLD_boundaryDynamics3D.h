@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -299,8 +299,6 @@ class NLD_AD_NeumannBoundaryDynamics3D : public NonLocalBoundaryDynamics3D<T,Des
 public:
     NLD_AD_NeumannBoundaryDynamics3D(Dynamics<T,Descriptor>* baseDynamics_);
     NLD_AD_NeumannBoundaryDynamics3D(HierarchicUnserializer& unserializer);
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
     virtual NLD_AD_NeumannBoundaryDynamics3D<T,Descriptor>* clone() const;
     virtual int getId() const;
     virtual void prepareCollision(Cell<T,Descriptor>& cell);

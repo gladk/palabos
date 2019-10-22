@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -28,6 +28,99 @@
 #include "complexDynamics/advectionDiffusionProcessor3D.h"
 
 namespace plb {
+
+template<typename T, template<typename U> class Descriptor, int plane, int normal1, int normal2>
+void CompleteAdvectionDiffusionEdgeBoundaryFunctional3D<T,Descriptor, plane,normal1,normal2>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    PLB_ASSERT (
+            (plane==2 && domain.x0==domain.x1 && domain.y0==domain.y1) ||
+            (plane==1 && domain.x0==domain.x1 && domain.z0==domain.z1) ||
+            (plane==0 && domain.y0==domain.y1 && domain.z0==domain.z1)     );
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                processCell(iX,iY,iZ, lattice);
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor, int plane, int normal1, int normal2>
+void CompleteAdvectionDiffusionEdgeBoundaryFunctional3D<T,Descriptor, plane,normal1,normal2>::processCell (
+        plint iX, plint iY, plint iZ, BlockLattice3D<T,Descriptor>& lattice )
+{
+    Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+    T phi = cell.computeDensity();
+    Dynamics<T,Descriptor>& dyn = cell.getDynamics();
+
+    Array<T,3> d_phi;
+    interpolateGradients<plane,0>           ( lattice, d_phi[plane], iX, iY, iZ );
+    interpolateGradients<direction1,normal1>( lattice, d_phi[direction1], iX, iY, iZ );
+    interpolateGradients<direction2,normal2>( lattice, d_phi[direction2], iX, iY, iZ );
+
+    T rho = Descriptor<T>::fullRho(*cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt));
+    Array<T,Descriptor<T>::d> jEq; 
+    jEq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+    jEq *= phi;
+
+    Array<T,Descriptor<T>::d> jOne = -Descriptor<T>::cs2*d_phi*rho/dyn.getOmega();
+
+    Array<T,SymmetricTensor<T,Descriptor>::n> dummyPiNeq;
+    dyn.regularize(cell,Descriptor<T>::rhoBar(rho*phi),jEq+jOne,T(),dummyPiNeq);
+}
+
+template<typename T, template<typename U> class Descriptor, int plane, int normal1, int normal2>
+template<int deriveDirection, int orientation>
+void CompleteAdvectionDiffusionEdgeBoundaryFunctional3D<T,Descriptor, plane,normal1,normal2>::
+    interpolateGradients(BlockLattice3D<T,Descriptor> const& lattice,
+                         T& phiDeriv,
+                         plint iX, plint iY, plint iZ)
+{
+    fd::DirectedGradients3D<T,Descriptor,deriveDirection,orientation,deriveDirection,deriveDirection!=plane>::
+        o1_densityDerivative(phiDeriv, lattice, iX, iY, iZ);
+}
+
+// This data processor uses asymmetric finite differences to compute a gradient.
+template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
+void CompleteAdvectionDiffusionCornerBoundaryFunctional3D<T,Descriptor,xNormal,yNormal,zNormal>::process (
+        Box3D domain,
+        BlockLattice3D<T,Descriptor>& lattice)
+{
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor> &cell = lattice.get(iX,iY,iZ);
+                Dynamics<T,Descriptor> &dyn = cell.getDynamics();
+                Cell<T,Descriptor> &cell100 = lattice.get(iX-1*xNormal, iY-0*yNormal,iZ-0*zNormal);
+                Cell<T,Descriptor> &cell010 = lattice.get(iX-0*xNormal, iY-1*yNormal,iZ-0*zNormal);
+                Cell<T,Descriptor> &cell001 = lattice.get(iX-0*xNormal, iY-0*yNormal,iZ-1*zNormal);
+
+                T phi100 = cell100.computeDensity();
+                T phi010 = cell010.computeDensity();
+                T phi001 = cell001.computeDensity();
+                T phi = cell.computeDensity();
+                
+                T dPhiDx = -xNormal*(phi100 - phi);
+                T dPhiDy = -yNormal*(phi010 - phi);
+                T dPhiDz = -zNormal*(phi001 - phi);
+                
+                T rho = Descriptor<T>::fullRho(*cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt));
+                Array<T,Descriptor<T>::d> jEq; 
+                jEq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+                jEq *= phi;
+        
+                Array<T,Descriptor<T>::d> jOne(-Descriptor<T>::cs2*dPhiDx*rho/dyn.getOmega(),
+                                               -Descriptor<T>::cs2*dPhiDy*rho/dyn.getOmega(),
+                                               -Descriptor<T>::cs2*dPhiDz*rho/dyn.getOmega());
+        
+                Array<T,SymmetricTensor<T,Descriptor>::n> dummyPiNeq;
+                dyn.regularize(cell,Descriptor<T>::rhoBar(rho*phi),jEq+jOne,T(),dummyPiNeq);
+            }
+        }
+    }
+}
 
 // This data processor uses symmetric finite differences to compute a gradient.
 // It cannot be applied on any part of the boundary of the global simulation

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * BounceBack dynamics models in 3D -- header file.
  */
+
 #ifndef BOUNCE_BACK_MODELS_3D_H
 #define BOUNCE_BACK_MODELS_3D_H
 
@@ -113,6 +114,34 @@ MultiNTensorField3D<int>* countBBNeighbors(MultiBlockLattice3D<T,Descriptor>& la
 template<typename T, template<typename U> class Descriptor> 
 MultiNTensorField3D<int>* maskedCountBBNeighbors( MultiBlockLattice3D<T,Descriptor>& lattice,
                                                 MultiNTensorField3D<int>& mask, Box3D domain);
+
+
+/* *************** Class ComputeMomentumExchangeFunctional3D ************* */
+
+template<typename T, template<typename U> class Descriptor>
+class ComputeMomentumExchangeFunctional3D : public ReductiveBoxProcessingFunctional3D_L<T,Descriptor> {
+public:
+    ComputeMomentumExchangeFunctional3D();
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual ComputeMomentumExchangeFunctional3D<T,Descriptor>* clone() const;
+    Array<T,3> getForce() const;
+private:
+    Array<plint,3> forceIds;
+};
+
+template<typename T, template<typename U> class Descriptor>
+class MaskedComputeMomentumExchangeFunctional3D : public ReductiveBoxProcessingFunctional3D_LS<T,Descriptor,int> {
+public:
+    MaskedComputeMomentumExchangeFunctional3D();
+    virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask);
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>* clone() const;
+    Array<T,3> getForce() const;
+private:
+    Array<plint,3> forceIds;
+};
+
 
 
 }  // namespace plb

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -43,7 +43,7 @@ class TriangleToDef {
 public:
     typedef typename TriangleSet<T>::Triangle Triangle;
 private:  // This class should only be used by the function constructSurfaceMesh().
-    TriangleToDef(std::vector<Triangle> const& triangles, T epsilon=std::numeric_limits<float>::epsilon());
+    TriangleToDef(std::vector<Triangle> const& triangles, T epsilon = getEpsilon<T>());
     void generateOnce (
         std::vector<Array<T,3> >& vertexList_,
         std::vector<plint>& emanatingEdgeList_,
@@ -60,6 +60,10 @@ private:
         VertexSetNode(plint i_, Array<T,3> const* vertex_)
             : i(i_), vertex(vertex_)
         { }
+        Array<T,3> const& getPosition() const
+        {
+            return *vertex;
+        }
         plint i;                  // Global index of the vertex
         Array<T,3> const* vertex; // Pointer to vertex coordinates
     };
@@ -87,20 +91,7 @@ private:
                           the mesh */
     };
 
-    class VsLessThan {
-    public:
-        VsLessThan(T epsilon_=std::numeric_limits<float>::epsilon())
-            : epsilon(epsilon_)
-        { }
-        bool operator()(VertexSetNode const& node1, VertexSetNode const& node2);
-    private:
-        bool vertexComponentLessThan(T x, T y);
-        bool vertexComponentEqual(T x, T y);
-        bool vertexLessThan(Array<T,3> const& v1, Array<T,3> const& v2);
-    private:
-        T epsilon;
-    };
-    typedef std::set<VertexSetNode,VsLessThan> VertexSet;
+    typedef std::set<VertexSetNode,PositionLessThan3D<T,VertexSetNode> > VertexSet;
     typedef typename VertexSet::iterator VsNodeIt;
     typedef typename VertexSet::const_iterator VsNodeConstIt;
 
@@ -152,7 +143,7 @@ void constructSurfaceMesh (
         std::vector<Array<T,3> >& vertexList,
         std::vector<plint>& emanatingEdgeList,
         std::vector<Edge>& edgeList,
-        T epsilon=std::numeric_limits<float>::epsilon() )
+        T epsilon = getEpsilon<T>() )
 {
     TriangleToDef<T>(triangles, epsilon).generateOnce (
             vertexList, emanatingEdgeList, edgeList );

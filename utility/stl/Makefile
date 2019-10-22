@@ -17,7 +17,7 @@
 # Leading directory of the Palabos source code
 palabosRoot  = ../..
 # Name of source files in current directory to compile and link with Palabos
-projectFiles = toBinarySTL.cpp
+projectFiles = stlCheck.cpp
 
 # Set optimization flags on/off
 optimize     = true
@@ -34,6 +34,8 @@ SMPparallel  = false
 #   emulated (such as with Cygwin).
 usePOSIX     = true
 
+# Path to external source files (other than Palabos)
+srcPaths =
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
@@ -79,6 +81,7 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
             profileFlags="$(profileFlags)" \
+            srcPaths="$(srcPaths)" \
             libraryPaths="$(libraryPaths)" \
             includePaths="$(includePaths)" \
             libraries="$(libraries)"

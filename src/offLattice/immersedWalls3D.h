@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -29,8 +29,69 @@
 #include "core/array.h"
 #include "atomicBlock/dataProcessingFunctional3D.h"
 #include "atomicBlock/dataField3D.h"
+#include "multiBlock/multiBlockGenerator3D.h"
+#include "dataProcessors/dataAnalysisWrapper3D.h"
+
+#include <memory>
 
 namespace plb {
+
+/* ******** FavierDeltaFunction ************************************ */
+
+template<typename T>
+class FavierDeltaFunction {
+public:
+    FavierDeltaFunction(int N_)
+        : N(N_),
+          dx(4./(T)N),
+          invDx(1./dx)
+    {
+        sampleFunction();
+    }
+    T rawValue(T r) const {
+        T rabs = std::fabs(r);
+        T rsqr = r*r;
+        if (rabs<0.5) {
+            return (1+sqrt(-3.0*rsqr+1.0))/3.0;
+        }
+        else if (rabs<1.5) {
+            return (5.0-3.0*rabs-sqrt(-3.0*(1-rabs)*(1.0-rabs)+1.0))/6.0;
+        }
+        else {
+            return 0.;
+        }
+    }
+    T w(T r) const {
+        int position = (int)((r+2.0)*invDx+0.5);
+        if (position<=0) {
+            return 0.;
+        }
+        if (position>=N) {
+            return 0.;
+        }
+        return samples[position];
+    }
+    T W(Array<T,3> const& r) const {
+        return w(r[0])*w(r[1])*w(r[2]);
+    }
+private:
+    void sampleFunction() {
+        samples.resize(N+1);
+        for(int i=0; i<=N; ++i) {
+            samples[i] = rawValue(-2.+dx*i);
+        }
+    }
+private:
+    int N;
+    T dx, invDx;
+    std::vector<T> samples;
+};
+
+template<typename T>
+FavierDeltaFunction<T> const& favierDeltaFunction() {
+    static FavierDeltaFunction<T> deltaFunction(1000);
+    return deltaFunction;
+}
 
 /* ******** InamuroDeltaFunction ************************************ */
 
@@ -84,7 +145,7 @@ private:
 };
 
 template<typename T>
-InamuroDeltaFunction<T> const& inamuroDeltaFunction() {
+inline InamuroDeltaFunction<T> const& inamuroDeltaFunction() {
     static InamuroDeltaFunction<T> deltaFunction(1000);
     return deltaFunction;
 }
@@ -103,6 +164,19 @@ struct ImmersedWallData3D : public ContainerBlockData
     std::vector<pluint> globalVertexIds;
     virtual ImmersedWallData3D<T>* clone() const {
         return new ImmersedWallData3D<T>(*this);
+    }
+};
+
+/* ******** SurfaceBlockData3D ************************************ */
+
+template<typename T>
+struct SurfaceBlockData3D : public ContainerBlockData {
+    Array<T,3> offset; // To convert vertices from local to absolute units.
+    std::vector< Array<T,3> > vertices;
+
+    virtual SurfaceBlockData3D<T> *clone() const
+    {
+        return new SurfaceBlockData3D<T>(*this);
     }
 };
 
@@ -308,7 +382,6 @@ void constVelInamuroIteration (
 }
 
 
-
 /* ******** ComputeImmersedBoundaryForce3D ************************************ */
 
 // This functional computes the immersed boundary force on the lattice and
@@ -444,6 +517,87 @@ void instantiateImmersedWallDataWithIndexedTagging (
             container.getBoundingBox(), args );
 }
 
+/* ******** InstantiateSurfaceBlockData3D ****************************** */
+
+template<typename T>
+class InstantiateSurfaceBlockData3D : public BoxProcessingFunctional3D {
+public:
+    InstantiateSurfaceBlockData3D(plint envelopeWidth_, std::vector< Array<T,3> > const& vertices_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual InstantiateSurfaceBlockData3D<T>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    plint envelopeWidth;
+    std::vector< Array<T,3> > const& vertices;
+};
+
+template<typename T>
+void instantiateSurfaceBlockData(plint envelopeWidth, std::vector< Array<T,3> > const& vertices,
+        MultiContainerBlock3D& container)
+{ 
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&container);
+    applyProcessingFunctional(new InstantiateSurfaceBlockData3D<T>(envelopeWidth, vertices),
+            container.getBoundingBox(), args);
+}
+
+
+/* ******** SurfaceOnLattice3D **************************************** */
+
+template<typename T, typename U>
+class SurfaceOnLattice3D : public BoxProcessingFunctional3D {
+public:
+    SurfaceOnLattice3D(U value_, plint envelopeWidth_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual SurfaceOnLattice3D<T,U>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    U value;
+    plint envelopeWidth;
+};
+
+template<typename T, typename U>
+void surfaceOnLattice(U value, plint envelopeWidth, MultiScalarField3D<U>& values,
+        MultiContainerBlock3D& container)
+{ 
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&values);
+    args.push_back(&container);
+    applyProcessingFunctional(new SurfaceOnLattice3D<T,U>(value, envelopeWidth), container.getBoundingBox(), args);
+}
+
+
+/* ******** SurfaceOnLattice3D_N **************************************** */
+
+// This is the same as SurfaceOnLattice3D, but instead of the values being
+// stored in a MultiScalarField3D<U>, they are stored in a MultiNTensorField3D<U>.
+
+template<typename T, typename U>
+class SurfaceOnLattice3D_N : public BoxProcessingFunctional3D {
+public:
+    SurfaceOnLattice3D_N(U value_, plint envelopeWidth_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> fields);
+    virtual SurfaceOnLattice3D_N<T,U>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    U value;
+    plint envelopeWidth;
+};
+
+template<typename T, typename U>
+void surfaceOnLattice_N(U value, plint envelopeWidth, MultiNTensorField3D<U>& values,
+        MultiContainerBlock3D& container)
+{ 
+    std::vector<MultiBlock3D*> args;
+    args.push_back(&values);
+    args.push_back(&container);
+    applyProcessingFunctional(new SurfaceOnLattice3D_N<T,U>(value, envelopeWidth), container.getBoundingBox(), args);
+}
+
+
 /* ******** ResetForceStatistics3D ************************************ */
 
 // This data processor resets to zero the "per surface vertex" force vectors
@@ -504,10 +658,6 @@ void recomputeImmersedForce(NormalFunction normalFunction, T omega,
         MultiContainerBlock3D& container, plint envelopeWidth, Box3D domain,
         bool incompressibleModel)
 {
-    // TODO: The next commented-out version is how it is supposed to work, but it doesn't because
-    // the BoxRhoBarFunctional3D and the BoxPiNeqFunctional3D are applied to bulkAndEnvelope instead
-    // of just bulk.
-    /*
     std::auto_ptr<MultiScalarField3D<T> > rhoBar = generateMultiScalarField<T>(lattice, envelopeWidth);
     computeRhoBar<T,Descriptor>(lattice, *rhoBar, domain);
 
@@ -520,29 +670,52 @@ void recomputeImmersedForce(NormalFunction normalFunction, T omega,
     args.push_back(PiNeq.get());
     args.push_back(&container);
     applyProcessingFunctional(new RecomputeImmersedForce3D<T,Descriptor,NormalFunction>(
-            normalFunction, omega, densityOffset, incompressibleModel),
+                normalFunction, omega, densityOffset, incompressibleModel),
             domain, args);
-            */
+}
 
-    // TODO: The next is a temporary fix by using the "copy" function which is applied only to the bulk
-    // (and not to bulkAndEnvelope).
+/* ******** OpenSurfaceImmersedForce3D ************************************ */
+
+// This class recomputes the immersed force (variable "g" in the ImmersedWallData3D)
+// by using the classical stress tensor relation.
+// The normalFunction is a function:
+//   Array<T,3> normalFunction(plint id);
+// which takes a global vertex id and computes the unit normal at that point.
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+class OpenSurfaceImmersedForce3D : public BoxProcessingFunctional3D
+{
+public:
+    OpenSurfaceImmersedForce3D(NormalFunction normalFunction_, T omega_,
+            T densityOffset_, bool incompressibleModel_);
+    virtual void processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks);
+    virtual OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>* clone() const;
+    virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const;
+    virtual BlockDomain::DomainT appliesTo() const;
+private:
+    NormalFunction normalFunction;
+    T omega;
+    T rho0;
+    bool incompressibleModel;
+};
+
+template<typename T, template<typename U> class Descriptor, class NormalFunction>
+void openSurfaceImmersedForce(NormalFunction normalFunction, T omega,
+        T densityOffset, MultiBlockLattice3D<T,Descriptor>& lattice,
+        MultiContainerBlock3D& container, plint envelopeWidth, Box3D domain,
+        bool incompressibleModel)
+{
     std::auto_ptr<MultiScalarField3D<T> > rhoBar = generateMultiScalarField<T>(lattice, envelopeWidth);
     computeRhoBar<T,Descriptor>(lattice, *rhoBar, domain);
-    std::auto_ptr<MultiScalarField3D<T> > copiedRhoBar = generateMultiScalarField<T>(*rhoBar, envelopeWidth);
-    plb::copy(*rhoBar, *copiedRhoBar, rhoBar->getBoundingBox());
 
     std::auto_ptr<MultiTensorField3D<T,SymmetricTensorImpl<T,3>::n> > PiNeq =
         generateMultiTensorField<T,SymmetricTensorImpl<T,3>::n>(lattice, envelopeWidth);
     computePiNeq<T,Descriptor>(lattice, *PiNeq, domain);
-    std::auto_ptr<MultiTensorField3D<T,SymmetricTensorImpl<T,3>::n> > copiedPiNeq =
-        generateMultiTensorField<T,SymmetricTensorImpl<T,3>::n>(*PiNeq, envelopeWidth);
-    plb::copy(*PiNeq, *copiedPiNeq, PiNeq->getBoundingBox());
 
     std::vector<MultiBlock3D*> args;
-    args.push_back(copiedRhoBar.get());
-    args.push_back(copiedPiNeq.get());
+    args.push_back(rhoBar.get());
+    args.push_back(PiNeq.get());
     args.push_back(&container);
-    applyProcessingFunctional(new RecomputeImmersedForce3D<T,Descriptor,NormalFunction>(
+    applyProcessingFunctional(new OpenSurfaceImmersedForce3D<T,Descriptor,NormalFunction>(
                 normalFunction, omega, densityOffset, incompressibleModel),
             domain, args);
 }

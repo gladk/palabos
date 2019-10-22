@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -60,6 +60,9 @@ private:
 
 struct BlockDataTransfer3D {
     virtual ~BlockDataTransfer3D() { }
+    virtual void setBlock(AtomicBlock3D& block_) =0;
+    virtual void setConstBlock(AtomicBlock3D const& block_) =0;
+    virtual BlockDataTransfer3D* clone() const =0;
     virtual plint staticCellSize() const =0;
     /// Send data from the block into a byte-stream.
     /** This method automatically resizes the buffer so it holds the proper amount
@@ -92,8 +95,9 @@ struct BlockDataTransfer3D {
 
 class AtomicBlock3D : public Block3D {
 public:
-    AtomicBlock3D(plint nx_, plint ny_, plint nz_);
+    AtomicBlock3D(plint nx_, plint ny_, plint nz_, BlockDataTransfer3D* defaultDataTransfer);
     AtomicBlock3D(AtomicBlock3D const& rhs);
+    AtomicBlock3D(AtomicBlock3D const& rhs, BlockDataTransfer3D* defaultDataTransfer);
     virtual ~AtomicBlock3D();
     void swap(AtomicBlock3D& rhs);
     /// Initialize block content by executing internal processors once.
@@ -117,10 +121,12 @@ public:
     void clearDataProcessors();
     /// Remove all data processors with a given ID.
     void removeDataProcessors(int staticId);
+    /// Reset data transfer policy to a new one.
+    void setDataTransfer(BlockDataTransfer3D* newDataTransfer);
     /// Get access to data transfer between blocks.
-    virtual BlockDataTransfer3D& getDataTransfer() =0;
+    BlockDataTransfer3D& getDataTransfer();
     /// Get access to data transfer between blocks (const version)
-    virtual BlockDataTransfer3D const& getDataTransfer() const =0;
+    BlockDataTransfer3D const& getDataTransfer() const;
     /// Get an object through which the atomic block can be serialized
     virtual DataSerializer* getBlockSerializer (
             Box3D const& domain, IndexOrdering::OrderingT ordering ) const;
@@ -168,6 +174,7 @@ private:
     StatSubscriber3D statisticsSubscriber;
     DataProcessorVector explicitInternalProcessors;
     DataProcessorVector automaticInternalProcessors;
+    mutable BlockDataTransfer3D* dataTransfer;
 };
 
 Dot3D computeRelativeDisplacement(AtomicBlock3D const& block1, AtomicBlock3D const& block2);

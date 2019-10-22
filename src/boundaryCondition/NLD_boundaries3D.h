@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,6 +34,7 @@
 #include "boundaryCondition/boundaryCondition.h"
 #include "boundaryCondition/NLD_boundaryDynamics3D.h"
 #include "multiBlock/multiBlockLattice3D.h"
+#include "multiBlock/coupling3D.h"
 
 namespace plb {
 
@@ -124,6 +125,10 @@ void instantiateOuterNLDboundary(MultiBlockLattice3D<T,Descriptor>& lattice);
 /// Add the NLD data processors to the bounding-box of a given domain.
 template<typename T, template<typename U> class Descriptor>
 void instantiateOuterNLDboundary(MultiBlockLattice3D<T,Descriptor>& lattice, Box3D bbox);
+
+/// Add the NLD data processors to the bounding-box of a given domain.
+template<typename T, template<typename U> class Descriptor>
+void instantiateOuterNLDboundary(Actions3D& action, plint blockNum, Box3D bbox);
 
 
 /// Define the appropriate NLD dynamics, depending on whether it is

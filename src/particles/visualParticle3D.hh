@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -373,11 +373,10 @@ PlaneMappingParticle3D<T,Descriptor>::PlaneMappingParticle3D(plint tag_, Array<T
       reachedTerminalPlane(false)
 {
     terminalVelocity = Array<T,3>((T) 0, (T) 0, (T) 0);
-    T eps = 100.0 * std::numeric_limits<T>::epsilon();
     T nn = norm(terminalPlane.normal);
-    PLB_ASSERT(nn > eps);
+    PLB_ASSERT(!util::isZero(nn));
     terminalPlane.normal /= nn;
-    PLB_ASSERT(timeScaling > (T) 1 || std::fabs(timeScaling - (T) 1) <= eps);
+    PLB_ASSERT(util::greaterEqual(timeScaling, (T) 1));
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -406,10 +405,9 @@ void PlaneMappingParticle3D<T,Descriptor>::advance()
         residenceTime += timeScaling;
         T signedDistanceFromPlane;
         if (isInHalfSpace(newPosition, terminalPlane, signedDistanceFromPlane)) {
-            Precision precision = floatingPointPrecision<T>();
             Array<T,3> terminalPosition((T) 0, (T) 0, (T) 0);
             T dt = 0.0;
-            if (lineIntersectionWithPlane(terminalPlane, oldPosition, newPosition, precision, terminalPosition) != 1) {
+            if (lineIntersectionWithPlane(terminalPlane, oldPosition, newPosition, getEpsilon<T>(), terminalPosition) != 1) {
                 terminalPosition = newPosition - signedDistanceFromPlane * terminalPlane.normal;
                 T normalVelocityMagnitude = std::fabs(dot<T,3>(this->getVelocity(), terminalPlane.normal));
                 dt = signedDistanceFromPlane / normalVelocityMagnitude;
@@ -509,13 +507,10 @@ TimeRegisteringParticle3D<T,Descriptor>::TimeRegisteringParticle3D(plint tag_,
       timeScaling(timeScaling_),
       reachedInitialPlane(false)
 {
-#ifdef PLB_DEBUG
-    T eps = 100.0 * std::numeric_limits<T>::epsilon();
-#endif
     T nn = norm(initialPlane.normal);
-    PLB_ASSERT(nn > eps);
+    PLB_ASSERT(!util::isZero(nn));
     initialPlane.normal /= nn;
-    PLB_ASSERT(timeScaling > (T) 1 || std::fabs(timeScaling - (T) 1) <= eps);
+    PLB_ASSERT(util::greaterEqual(timeScaling, (T) 1));
 }
 
 template<typename T, template<typename U> class Descriptor>
@@ -553,11 +548,9 @@ void TimeRegisteringParticle3D<T,Descriptor>::advance()
 
         if (isInHalfSpace(newPosition, initialPlane, signedDistanceFromPlane)) {
             // This particle crossed the plane in this time step.
-            Precision precision = floatingPointPrecision<T>();
             Array<T,3> initialPosition((T) 0, (T) 0, (T) 0);
             T dt = 0.0;
-            if (lineIntersectionWithPlane(initialPlane, oldPosition, newPosition,
-                        precision, initialPosition) != 1) {
+            if (lineIntersectionWithPlane(initialPlane, oldPosition, newPosition, getEpsilon<T>(), initialPosition) != 1) {
                 initialPosition = newPosition - signedDistanceFromPlane * initialPlane.normal;
                 T normalVelocityMagnitude = std::fabs(dot<T,3>(this->getVelocity(),
                             initialPlane.normal));

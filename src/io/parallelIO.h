@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -98,6 +98,7 @@ public:
     virtual std::ostream& getOriginalStream();
 
     bool is_open();
+    plint tellp();
     void open(const char* filename, std::ostream::openmode mode = std::ostream::out | std::ostream::trunc);
     void close();
 private:
@@ -164,6 +165,39 @@ private:
     std::istream  devNullStream;
     std::ifstream *original;
 };
+
+
+// General utility functions
+
+void plbIOErrorIfCannotOpenFileForReading(std::string fileName);
+void plbIOErrorIfCanOpenFileForReading(std::string fileName);
+// Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+//          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+void plbIOErrorIfCannotCreateFileInDir(std::string dirName, std::string fileName);
+void plbIOErrorIfFileErrorOccurred(FILE* fp);
+
+void plbMainProcIOErrorIfCannotOpenFileForReading(std::string fileName);
+void plbMainProcIOErrorIfCanOpenFileForReading(std::string fileName);
+// Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+//          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+void plbMainProcIOErrorIfCannotCreateFileInDir(std::string dirName, std::string fileName);
+void plbMainProcIOErrorIfFileErrorOccurred(FILE* fp);
+
+void abortIfCannotOpenFileForReading(std::string fileName);
+void abortIfCanOpenFileForReading(std::string fileName);
+// Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+//          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+void abortIfCannotCreateFileInDir(std::string dirName, std::string fileName);
+void abortIfFileErrorOccurred(FILE* fp);
+
+void abortIfCannotOpenFileForReadingAtMainProc(std::string fileName);
+void abortIfCanOpenFileForReadingAtMainProc(std::string fileName);
+// Caution: The directory name "dirName" must include the separator (/ for Unix-like, or \ for Windows).
+//          The file created is opened with the "w" mode, so it is erased if it already exists and then removed.
+void abortIfCannotCreateFileInDirAtMainProc(std::string dirName, std::string fileName);
+void abortIfFileErrorOccurredAtMainProc(FILE* fp);
+
+void makeDirectory(std::string dirName, bool abortIfExists = true);
 
 }  // namespace plb
 

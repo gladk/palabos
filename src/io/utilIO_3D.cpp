@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -81,7 +81,7 @@ bool abortExecution(FileName abortFileName, std::vector<MultiBlock3D*> blocks, p
     int stop = 0;
     bool stopExecution = false;
     if (global::mpi().isMainProcessor()) {
-        FILE *fp = fopen(abortFileName.get().c_str(), "r");
+        FILE *fp = fopen(abortFileName.get().c_str(), "rb");
         if (fp != NULL) {
             stop = 1;
             fclose(fp);
@@ -95,6 +95,34 @@ bool abortExecution(FileName abortFileName, std::vector<MultiBlock3D*> blocks, p
     }
 
     return stopExecution;
+}
+
+void saveBlocks(Group3D& blocks, bool saveDynamicContent, FileName fileName) {
+    std::string fnameBase = fileName.getName();
+    if (fnameBase != "") {
+        fnameBase += "_";
+    }
+    fileName.defaultExt("dat");
+    for (plint i = 0; i < blocks.getNumBlocks(); i++) {
+        if (blocks.get(i).getBlockName() != "ContainerBlock3D") {
+            fileName.setName(fnameBase + blocks.getName(i));
+            parallelIO::save(blocks.get(i), fileName.get(), saveDynamicContent);
+        }
+    }
+}
+
+void loadBlocks(Group3D& blocks, bool saveDynamicContent, FileName fileName) {
+    std::string fnameBase = fileName.getName();
+    if (fnameBase != "") {
+        fnameBase += "_";
+    }
+    fileName.defaultExt("dat");
+    for (plint i = 0; i < blocks.getNumBlocks(); i++) {
+        if (blocks.get(i).getBlockName() != "ContainerBlock3D") {
+            fileName.setName(fnameBase + blocks.getName(i));
+            parallelIO::load(fileName.get(), blocks.get(i), saveDynamicContent);
+        }
+    }
 }
 
 }  // namespace plb

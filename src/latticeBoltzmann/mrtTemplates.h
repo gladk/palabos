@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -145,10 +145,12 @@ struct mrtTemplates {
     static T incSmagorinskyMrtCollisionWithForce( Cell<T,Descriptor>& cell,
                                             const T &rhoBar, const Array<T,Descriptor<T>::d> & u,
                                             const Array<T,SymmetricTensor<T,Descriptor>::n > &strain, T cSmago, 
-                                            const T &omega)
+                                            const T &omega, T amplitude)
     {
+        Array<T,Descriptor<T>::d> force;
+        force.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::forceBeginsAt));
         return mrtTemplatesImpl<T,typename Descriptor<T>::SecondBaseDescriptor >::
-            incSmagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, omega, strain, cSmago);
+            incSmagorinskyMrtCollisionWithForce( cell.getRawPopulations(), rhoBar, u, strain, omega, cSmago, force, amplitude);
     }
     
     /// Add a force term after BGK collision, according to the Guo algorithm

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -385,6 +385,16 @@ void SparseBlockStructure3D::swap(SparseBlockStructure3D& rhs) {
     grid.swap(rhs.grid);
     bulks.swap(rhs.bulks);
     uniqueBulks.swap(rhs.uniqueBulks);
+}
+
+bool SparseBlockStructure3D::equals(SparseBlockStructure3D const& rhs) const {
+    return
+        boundingBox == rhs.boundingBox &&
+        gridNx == rhs.gridNx &&
+        gridNy == rhs.gridNy &&
+        gridNz == rhs.gridNz &&
+        grid == rhs.grid &&
+        bulks == rhs.bulks;
 }
 
 void SparseBlockStructure3D::integrateBlock(plint blockId, Box3D bulk) {

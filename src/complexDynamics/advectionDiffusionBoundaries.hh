@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -132,7 +132,7 @@ AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::Advectio
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -145,18 +145,6 @@ AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>*
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
 int AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void AdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -186,7 +174,7 @@ RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -199,18 +187,6 @@ RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
 int RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
@@ -241,51 +217,39 @@ void RegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orient
 
 template<typename T, template<typename U> class Descriptor,
          int direction, int orientation>
-int RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::id =
-    meta::registerGeneralDynamics<T,Descriptor, RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation> > (
+int CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::id =
+    meta::registerGeneralDynamics<T,Descriptor, CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation> > (
             std::string("Boundary_CompleteRegularizedAdvectionDiffusion")+util::val2str(direction) +
             std::string("_")+util::val2str(orientation) );
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
-        RegularizedCompleteAdvectionDiffusionBoundaryDynamics (Dynamics<T,Descriptor>* baseDynamics, bool automaticPrepareCollision )
+CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
+        CompleteRegularizedAdvectionDiffusionBoundaryDynamics (Dynamics<T,Descriptor>* baseDynamics, bool automaticPrepareCollision )
     : StoreDensityDynamics<T,Descriptor>(baseDynamics,automaticPrepareCollision)
 { }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::RegularizedCompleteAdvectionDiffusionBoundaryDynamics (
+CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::CompleteRegularizedAdvectionDiffusionBoundaryDynamics (
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>*
-    RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor, direction, orientation>::clone() const
+CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>*
+    CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor, direction, orientation>::clone() const
 {
-    return new RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
+    return new CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>(*this);
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-int RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
+int CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::getId() const {
     return id;
 }
 
 template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int direction, int orientation>
-void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
+void CompleteRegularizedAdvectionDiffusionBoundaryDynamics<T,Descriptor,direction,orientation>::
         completePopulations(Cell<T,Descriptor>& cell) const
 {
     typedef Descriptor<T> D;
@@ -294,11 +258,12 @@ void RegularizedCompleteAdvectionDiffusionBoundaryDynamics<T,Descriptor,directio
     
     Array<T,D::d> jEq, jNeq; 
     jEq.from_cArray(cell.getExternal(D::ExternalField::velocityBeginsAt));
-    jEq *= D::fullRho(phiBar);
-    
     T rhoBar = *cell.getExternal(D::ExternalField::rhoBarBeginsAt);
     T rho = D::fullRho(rhoBar);
     T phi = D::fullRho(phiBar);
+
+    jEq *= phi*rho;
+    
     
     T rhoPhiBar = D::rhoBar(rho*phi);
     T jEqSqr = VectorTemplate<T,Descriptor>::normSqr(jEq);
@@ -329,7 +294,7 @@ AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>::AdvectionDiffu
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
@@ -342,18 +307,6 @@ AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>*
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
 int AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
-void AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
-void AdvectionDiffusionCornerDynamics2D<T,Descriptor,xNormal,yNormal>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal>
@@ -407,7 +360,7 @@ AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>::Advect
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
@@ -420,18 +373,6 @@ AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>*
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
 int AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
-void AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
-void AdvectionDiffusionCornerDynamics3D<T,Descriptor,xNormal,yNormal,zNormal>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int xNormal, int yNormal, int zNormal>
@@ -483,7 +424,7 @@ AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>::AdvectionD
         HierarchicUnserializer& unserializer )
     : StoreDensityDynamics<T,Descriptor>(0, false)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor,  int plane, int normal1, int normal2>
@@ -496,18 +437,6 @@ AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>*
 template<typename T, template<typename U> class Descriptor,  int plane, int normal1, int normal2>
 int AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>::getId() const {
     return id;
-}
-
-template<typename T, template<typename U> class Descriptor,  int plane, int normal1, int normal2>
-void AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>::serialize(HierarchicSerializer& serializer) const
-{
-    StoreDensityDynamics<T,Descriptor>::serialize(serializer);
-}
-
-template<typename T, template<typename U> class Descriptor,  int plane, int normal1, int normal2>
-void AdvectionDiffusionEdgeDynamics3D<T,Descriptor,plane,normal1,normal2>::unserialize(HierarchicUnserializer& unserializer)
-{
-    StoreDensityDynamics<T,Descriptor>::unserialize(unserializer);
 }
 
 template<typename T, template<typename U> class Descriptor, int plane, int normal1, int normal2>

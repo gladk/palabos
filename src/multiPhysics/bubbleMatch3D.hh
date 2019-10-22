@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -57,7 +57,7 @@ void BubbleMatch3D::bubbleAnalysis( MultiScalarField3D<int>& flag,
     args.push_back(&flag);
     args.push_back(bubbleAnalysisContainer);
     args.push_back(&volumeFraction);
-    applyProcessingFunctional( new AnalyzeBubbles3D<T>(numBubbles, matchEmpty),
+    applyProcessingFunctional( new AnalyzeBubbles3D<T>(numBubbles),
                                bubbleAnalysisContainer->getBoundingBox(), args );
     computeBubbleData(numBubbles);
 }
@@ -65,9 +65,8 @@ void BubbleMatch3D::bubbleAnalysis( MultiScalarField3D<int>& flag,
 /* *************** Class AnalyzeBubbles3D ******************************** */
 
 template<typename T>
-AnalyzeBubbles3D<T>::AnalyzeBubbles3D(pluint numBubbles_, bool matchEmpty_)
-    : numBubbles(numBubbles_),
-      matchEmpty(matchEmpty_)
+AnalyzeBubbles3D<T>::AnalyzeBubbles3D(pluint numBubbles_)
+    : numBubbles(numBubbles_)
 { }
 
 template<typename T>
@@ -113,19 +112,14 @@ void AnalyzeBubbles3D<T>::processGenericBlocks(Box3D domain,std::vector<AtomicBl
                 plint tag = tagMatrix.get(iX,iY,iZ);
                 if (tag>=0)
                 {
-                    if ( (matchEmpty && flagMatrix.get(iX+flagOffset.x,iY+flagOffset.y,iZ+flagOffset.z)==twoPhaseFlag::empty) ||
-                         (!matchEmpty && flagMatrix.get(iX+flagOffset.x,iY+flagOffset.y,iZ+flagOffset.z)==twoPhaseFlag::fluid) )
-                    {
+                    if (flagMatrix.get(iX+flagOffset.x,iY+flagOffset.y,iZ+flagOffset.z)==freeSurfaceFlag::empty) {
                         PLB_ASSERT( tag < (plint)bubbleVolume.size() );
                         bubbleVolume[tag] += 1.0;
                         bubbleCenter[tag] += Array<double,3>((double)iX+absOfs.x,(double)iY+absOfs.y,(double)iZ+absOfs.z);
                     }
-                    else if (flagMatrix.get(iX+flagOffset.x,iY+flagOffset.y,iZ+flagOffset.z)==twoPhaseFlag::interface) {
+                    else if (flagMatrix.get(iX+flagOffset.x,iY+flagOffset.y,iZ+flagOffset.z)==freeSurfaceFlag::interface) {
                         PLB_ASSERT( tag < (plint)bubbleVolume.size() );
-                        double vf = (double)volumeFraction.get(iX+vfOffset.x,iY+vfOffset.y,iZ+vfOffset.z);
-                        if (matchEmpty) {
-                            vf = 1.0 - vf;
-                        }
+                        double vf = 1.0 - (double)volumeFraction.get(iX+vfOffset.x,iY+vfOffset.y,iZ+vfOffset.z);
                         bubbleVolume[tag] += vf;
                         bubbleCenter[tag] += vf*Array<double,3>((double)iX+absOfs.x,(double)iY+absOfs.y,(double)iZ+absOfs.z);
                     }

@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -373,26 +373,29 @@ void particleVtkSerialImplementation (
         }
 
         FILE *fp = fopen(fName.c_str(), "w");
-        PLB_ASSERT(fp != NULL);
+        PLB_ASSERT(fp != 0);
         fprintf(fp, "# vtk DataFile Version 3.0\n");
         fprintf(fp, "Particle file created by Palabos\n");
         fprintf(fp, "ASCII\n");
         fprintf(fp, "DATASET UNSTRUCTURED_GRID\n");
-        fprintf(fp, "POINTS %12lu double\n", (unsigned long) numParticlesToWrite);
+        unsigned long ulNumParticlesToWrite = (unsigned long) numParticlesToWrite;
+        fprintf(fp, "POINTS %12lu double\n", ulNumParticlesToWrite);
         if (numParticlesToWrite == numParticles) {
             for (pluint iParticle = 0; iParticle < numParticles; iParticle++) {
                 Array<T,3> pos(found[iParticle]->getPosition());
                 pos = deltaX * pos + offset;
-                fprintf(fp, "% .10e % .10e % .10e\n", (double) pos[0], (double) pos[1], (double) pos[2]);
+                Array<double,3> doublePos(pos);
+                fprintf(fp, "% .10e % .10e % .10e\n", doublePos[0], doublePos[1], doublePos[2]);
             }
         } else {
             for (pluint i = 0; i < numParticlesToWrite; i++) {
                 Array<T,3> pos(found[iParticles[i]]->getPosition());
                 pos = deltaX * pos + offset;
-                fprintf(fp, "% .10e % .10e % .10e\n", (double) pos[0], (double) pos[1], (double) pos[2]);
+                Array<double,3> doublePos(pos);
+                fprintf(fp, "% .10e % .10e % .10e\n", doublePos[0], doublePos[1], doublePos[2]);
             }
         }
-        fprintf(fp, "POINT_DATA %12lu\n", (unsigned long) numParticlesToWrite);
+        fprintf(fp, "POINT_DATA %12lu\n", ulNumParticlesToWrite);
         std::map<plint,std::string>::const_iterator vectorIt = additionalVectors.begin();
         for (; vectorIt != additionalVectors.end(); ++vectorIt) {
             plint vectorID = vectorIt->first;
@@ -405,16 +408,14 @@ void particleVtkSerialImplementation (
                     Array<T,3> vectorValue;
                     found[iParticle]->getVector(vectorID, vectorValue);
                     Array<double,3> doubleVectorValue(vectorValue);
-                    fprintf( fp, "% .10e % .10e % .10e\n",
-                             (double) doubleVectorValue[0], (double) doubleVectorValue[1], (double) doubleVectorValue[2] );
+                    fprintf(fp, "% .10e % .10e % .10e\n", doubleVectorValue[0], doubleVectorValue[1], doubleVectorValue[2]);
                 }
             } else {
                 for (pluint i = 0; i < numParticlesToWrite; i++) {
                     Array<T,3> vectorValue;
                     found[iParticles[i]]->getVector(vectorID, vectorValue);
                     Array<double,3> doubleVectorValue(vectorValue);
-                    fprintf( fp, "% .10e % .10e % .10e\n",
-                             (double) doubleVectorValue[0], (double) doubleVectorValue[1], (double) doubleVectorValue[2] );
+                    fprintf(fp, "% .10e % .10e % .10e\n", doubleVectorValue[0], doubleVectorValue[1], doubleVectorValue[2]);
                 }
             }
         }

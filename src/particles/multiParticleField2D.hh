@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -34,7 +34,7 @@ namespace plb {
 
 template<class ParticleFieldT>
 std::auto_ptr<MultiParticleField2D<ParticleFieldT> >
-    defaultGenerateParticleField2D(MultiBlockManagement2D const& management, plint nDim)
+    defaultGenerateParticleField2D(MultiBlockManagement2D const& management, plint unnamedDummyArg)
 {
     return std::auto_ptr<MultiParticleField2D<ParticleFieldT> > (
                new MultiParticleField2D<ParticleFieldT> (
@@ -99,6 +99,12 @@ MultiParticleField2D<ParticleFieldT>::MultiParticleField2D(MultiParticleField2D<
     : MultiBlock2D(rhs)
 {
     allocateBlocks();
+    typename BlockMap::iterator it = blocks.begin();
+    typename BlockMap::const_iterator rhsIt = rhs.blocks.begin();
+
+    for (; it != blocks.end(); ++it, ++rhsIt) {
+        *(it->second) = *(rhsIt->second);
+    }
 }
 
 template<class ParticleFieldT>

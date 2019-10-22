@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -361,6 +361,191 @@ void InjectRandomParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
 }
 
 
+/* ******** MaskedInjectRandomParticlesFunctional3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::MaskedInjectRandomParticlesFunctional3D (
+        Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, int flag_ )
+    : particleTemplate(particleTemplate_),
+      probabilityPerCell(probabilityPerCell_),
+      flag(flag_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::MaskedInjectRandomParticlesFunctional3D (
+        MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs)
+    : particleTemplate(rhs.particleTemplate->clone()),
+      probabilityPerCell(rhs.probabilityPerCell),
+      flag(rhs.flag)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+MaskedInjectRandomParticlesFunctional3D<T,Descriptor>&
+    MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::operator= (
+        MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs )
+{
+    MaskedInjectRandomParticlesFunctional3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::swap (
+        MaskedInjectRandomParticlesFunctional3D<T,Descriptor>& rhs )
+{
+    std::swap(particleTemplate, rhs.particleTemplate);
+    std::swap(probabilityPerCell, rhs.probabilityPerCell);
+    std::swap(flag, rhs.flag);
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::~MaskedInjectRandomParticlesFunctional3D()
+{
+    delete particleTemplate;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 2);
+
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    ScalarField3D<int>* flagMatrix = dynamic_cast<ScalarField3D<int>*>(blocks[1]);
+    PLB_ASSERT(flagMatrix);
+
+    Dot3D offset = computeRelativeDisplacement(*particleField, *flagMatrix);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (flagMatrix->get(iX+offset.x,iY+offset.y,iZ+offset.z)==flag) {
+                    T randNumber = (T)rand() / (T)RAND_MAX;
+                    if(randNumber<probabilityPerCell) {
+                        T randX = (T)rand() / (T)RAND_MAX - (T)1;
+                        T randY = (T)rand() / (T)RAND_MAX - (T)1;
+                        T randZ = (T)rand() / (T)RAND_MAX - (T)1;
+                        Particle3D<T,Descriptor>* newparticle = particleTemplate->clone();
+                        newparticle->getPosition() =
+                                Array<T,3> (
+                                        particleField->getLocation().x + iX + randX,
+                                        particleField->getLocation().y + iY + randY,
+                                        particleField->getLocation().z + iZ + randZ );
+                        particleField->addParticle(domain, newparticle);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedInjectRandomParticlesFunctional3D<T,Descriptor>* MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::clone() const {
+    return new MaskedInjectRandomParticlesFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables;  // Particle field.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+
+/* ******** N_MaskedInjectRandomParticlesFunctional3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::N_MaskedInjectRandomParticlesFunctional3D (
+        Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, int flag_ )
+    : particleTemplate(particleTemplate_),
+      probabilityPerCell(probabilityPerCell_),
+      flag(flag_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::N_MaskedInjectRandomParticlesFunctional3D (
+        N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs)
+    : particleTemplate(rhs.particleTemplate->clone()),
+      probabilityPerCell(rhs.probabilityPerCell),
+      flag(rhs.flag)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>&
+    N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::operator= (
+        N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor> const& rhs )
+{
+    N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::swap (
+        N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>& rhs )
+{
+    std::swap(particleTemplate, rhs.particleTemplate);
+    std::swap(probabilityPerCell, rhs.probabilityPerCell);
+    std::swap(flag, rhs.flag);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::~N_MaskedInjectRandomParticlesFunctional3D()
+{
+    delete particleTemplate;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 2);
+
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    NTensorField3D<int>* flagMatrix = dynamic_cast<NTensorField3D<int>*>(blocks[1]);
+    PLB_ASSERT(flagMatrix);
+    PLB_ASSERT(flagMatrix->getNdim() == 1);
+
+    Dot3D offset = computeRelativeDisplacement(*particleField, *flagMatrix);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (*flagMatrix->get(iX+offset.x,iY+offset.y,iZ+offset.z)==flag) {
+                    T randNumber = (T)rand() / (T)RAND_MAX;
+                    if(randNumber<probabilityPerCell) {
+                        T randX = (T)rand() / (T)RAND_MAX - (T)1;
+                        T randY = (T)rand() / (T)RAND_MAX - (T)1;
+                        T randZ = (T)rand() / (T)RAND_MAX - (T)1;
+                        Particle3D<T,Descriptor>* newparticle = particleTemplate->clone();
+                        newparticle->getPosition() =
+                                Array<T,3> (
+                                        particleField->getLocation().x + iX + randX,
+                                        particleField->getLocation().y + iY + randY,
+                                        particleField->getLocation().z + iZ + randZ );
+                        particleField->addParticle(domain, newparticle);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>* N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::clone() const {
+    return new N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectRandomParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables;  // Particle field.
+    modified[1] = modif::nothing;           // Mask.
+}
+
+
 /* ******** AnalyticalInjectRandomParticlesFunctional3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
@@ -447,10 +632,10 @@ void AnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>:
 }
 
 
-/* ******** MaskedInjectRandomParticlesFunctional3D *********************************** */
+/* ******** MaskedAnalyticalInjectRandomParticlesFunctional3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedInjectRandomParticlesFunctional3D (
+MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedAnalyticalInjectRandomParticlesFunctional3D (
         Particle3D<T,Descriptor>* particleTemplate_, T probabilityPerCell_, DomainFunctional functional_, int flag_ )
     : particleTemplate(particleTemplate_),
       probabilityPerCell(probabilityPerCell_),
@@ -459,8 +644,8 @@ MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedIn
 { }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedInjectRandomParticlesFunctional3D (
-        MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs)
+MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedAnalyticalInjectRandomParticlesFunctional3D (
+        MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs)
     : particleTemplate(rhs.particleTemplate->clone()),
       probabilityPerCell(rhs.probabilityPerCell),
       functional(rhs.functional),
@@ -468,17 +653,17 @@ MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::MaskedIn
 { }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>&
-    MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::operator= (
-        MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs )
+MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>&
+    MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::operator= (
+        MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional> const& rhs )
 {
-    MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>(rhs).swap(*this);
+    MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>(rhs).swap(*this);
     return *this;
 }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::swap (
-        MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>& rhs )
+void MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::swap (
+        MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>& rhs )
 {
     std::swap(particleTemplate, rhs.particleTemplate);
     std::swap(probabilityPerCell, rhs.probabilityPerCell);
@@ -487,13 +672,13 @@ void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::swa
 }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::~MaskedInjectRandomParticlesFunctional3D()
+MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::~MaskedAnalyticalInjectRandomParticlesFunctional3D()
 {
     delete particleTemplate;
 }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::processGenericBlocks (
+void MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::processGenericBlocks (
         Box3D domain, std::vector<AtomicBlock3D*> blocks )
 {
     PLB_PRECONDITION( blocks.size()==2 );
@@ -525,14 +710,14 @@ void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::pro
 }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>*
-    MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::clone() const
+MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>*
+    MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::clone() const
 {
-    return new MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>(*this);
+    return new MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>(*this);
 }
 
 template<typename T, template<typename U> class Descriptor, class DomainFunctional>
-void MaskedInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::getTypeOfModification (
+void MaskedAnalyticalInjectRandomParticlesFunctional3D<T,Descriptor,DomainFunctional>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::dynamicVariables;  // Particle field.
@@ -610,11 +795,11 @@ void InjectEquallySpacedParticlesFunctional3D<T,Descriptor>::processGenericBlock
             for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
                 T z0 = iZ + loc.z - 0.5;
                 for (plint i = 0; i < nx; i++) {
-                    T posX = x0 + i * dx;
+                    T posX = x0 + ((T) i + (T) 0.5) * dx;
                     for (plint j = 0; j < ny; j++) {
-                        T posY = y0 + j * dy;
+                        T posY = y0 + ((T) j + (T) 0.5) * dy;
                         for (plint k = 0; k < nz; k++) {
-                            T posZ = z0 + k * dz;
+                            T posZ = z0 + ((T) k + (T) 0.5) * dz;
 
                             Particle3D<T,Descriptor>* newparticle = particleTemplate->clone();
                             newparticle->getPosition() = Array<T,3>(posX, posY, posZ);
@@ -717,11 +902,11 @@ void MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::processGeneri
                 T z0 = iZ + loc.z - 0.5;
                 if (flagMatrix->get(iX+offset.x,iY+offset.y,iZ+offset.z)==flag) {
                     for (plint i = 0; i < nx; i++) {
-                        T posX = x0 + i * dx;
+                        T posX = x0 + ((T) i + (T) 0.5) * dx;
                         for (plint j = 0; j < ny; j++) {
-                            T posY = y0 + j * dy;
+                            T posY = y0 + ((T) j + (T) 0.5) * dy;
                             for (plint k = 0; k < nz; k++) {
-                                T posZ = z0 + k * dz;
+                                T posZ = z0 + ((T) k + (T) 0.5) * dz;
 
                                 Particle3D<T,Descriptor>* newparticle = particleTemplate->clone();
                                 newparticle->getPosition() = Array<T,3>(posX, posY, posZ);
@@ -742,6 +927,116 @@ MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>* MaskedInjectEquall
 
 template<typename T, template<typename U> class Descriptor>
 void MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables;  // Particle field.
+    modified[1] = modif::nothing;  // Mask.
+}
+
+
+/* ******** N_MaskedInjectEquallySpacedParticlesFunctional3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::N_MaskedInjectEquallySpacedParticlesFunctional3D (
+        Particle3D<T,Descriptor>* particleTemplate_, plint nx_, plint ny_, plint nz_, int flag_ )
+    : particleTemplate(particleTemplate_),
+      nx(nx_),
+      ny(ny_),
+      nz(nz_),
+      flag(flag_)
+{
+    PLB_ASSERT(nx > 0);
+    PLB_ASSERT(ny > 0);
+    PLB_ASSERT(nz > 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::N_MaskedInjectEquallySpacedParticlesFunctional3D (
+        N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor> const& rhs)
+    : particleTemplate(rhs.particleTemplate->clone()),
+      nx(rhs.nx),
+      ny(rhs.ny),
+      nz(rhs.nz),
+      flag(rhs.flag)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>&
+    N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::operator= (
+        N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor> const& rhs )
+{
+    N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::swap (
+        N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>& rhs )
+{
+    std::swap(particleTemplate, rhs.particleTemplate);
+    std::swap(nx, rhs.nx);
+    std::swap(ny, rhs.ny);
+    std::swap(nz, rhs.nz);
+    std::swap(flag, rhs.flag);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::~N_MaskedInjectEquallySpacedParticlesFunctional3D()
+{
+    delete particleTemplate;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==2 );
+    ParticleField3D<T,Descriptor> *particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    NTensorField3D<int> *flagMatrix = dynamic_cast<NTensorField3D<int>*>(blocks[1]);
+    PLB_ASSERT(flagMatrix);
+    PLB_ASSERT(flagMatrix->getNdim() == 1);
+
+    Dot3D loc = particleField->getLocation();
+    Dot3D offset = computeRelativeDisplacement(*particleField, *flagMatrix);
+
+    T dx = 1.0 / (T) nx;
+    T dy = 1.0 / (T) ny;
+    T dz = 1.0 / (T) nz;
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        T x0 = iX + loc.x - 0.5;
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            T y0 = iY + loc.y - 0.5;
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                T z0 = iZ + loc.z - 0.5;
+                if (*flagMatrix->get(iX+offset.x,iY+offset.y,iZ+offset.z)==flag) {
+                    for (plint i = 0; i < nx; i++) {
+                        T posX = x0 + ((T) i + (T) 0.5) * dx;
+                        for (plint j = 0; j < ny; j++) {
+                            T posY = y0 + ((T) j + (T) 0.5) * dy;
+                            for (plint k = 0; k < nz; k++) {
+                                T posZ = z0 + ((T) k + (T) 0.5) * dz;
+
+                                Particle3D<T,Descriptor>* newparticle = particleTemplate->clone();
+                                newparticle->getPosition() = Array<T,3>(posX, posY, posZ);
+                                particleField->addParticle(domain, newparticle);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>* N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::clone() const {
+    return new N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedInjectEquallySpacedParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::dynamicVariables;  // Particle field.
@@ -771,6 +1066,50 @@ void AbsorbParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::dynamicVariables;  // Particle field.
+}
+
+
+/* ******** MaskedAbsorbParticlesFunctional3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedAbsorbParticlesFunctional3D<T,Descriptor>::MaskedAbsorbParticlesFunctional3D(int whichFlag_)
+    : whichFlag(whichFlag_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedAbsorbParticlesFunctional3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    ScalarField3D<int>* mask = dynamic_cast<ScalarField3D<int>*>(blocks[1]);
+    PLB_ASSERT(mask);
+
+    Dot3D offset = computeRelativeDisplacement(*particleField, *mask);
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask->get(iX+offset.x,iY+offset.y,iZ+offset.z) == whichFlag) {
+                    particleField->removeParticles(Box3D(iX,iX,iY,iY,iZ,iZ));
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedAbsorbParticlesFunctional3D<T,Descriptor>* MaskedAbsorbParticlesFunctional3D<T,Descriptor>::clone() const
+{
+    return new MaskedAbsorbParticlesFunctional3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedAbsorbParticlesFunctional3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables;  // Particle field.
+    modified[1] = modif::nothing;           // Mask.
 }
 
 
@@ -1071,6 +1410,46 @@ void VelocityToParticleCoupling3D<T,Descriptor>::getTypeOfModification (
 }
 
 
+/* ******** N_VelocityToParticleCoupling3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+N_VelocityToParticleCoupling3D<T,Descriptor>::N_VelocityToParticleCoupling3D(T scaling_)
+    : scaling(scaling_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void N_VelocityToParticleCoupling3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_PRECONDITION( blocks.size()==2 );
+    ParticleField3D<T,Descriptor>* particleFieldPtr =
+        dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT( particleFieldPtr );
+    ParticleField3D<T,Descriptor>& particleField = *particleFieldPtr;
+
+    NTensorField3D<T>* velocityPtr =
+        dynamic_cast<NTensorField3D<T>*>(blocks[1]);
+    PLB_ASSERT( velocityPtr );
+    NTensorField3D<T>& velocity = *velocityPtr;
+    PLB_ASSERT( velocity.getNdim()==3 );
+
+    particleField.velocityToParticleCoupling(domain, velocity, scaling);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_VelocityToParticleCoupling3D<T,Descriptor>* N_VelocityToParticleCoupling3D<T,Descriptor>::clone() const {
+    return new N_VelocityToParticleCoupling3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_VelocityToParticleCoupling3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::dynamicVariables; // Particle field.
+    modified[1] = modif::nothing;  // Fluid.
+}
+
+
 /* ******** RhoBarJtoParticleCoupling3D *********************************** */
 
 template<typename T, template<typename U> class Descriptor>
@@ -1307,6 +1686,104 @@ void VerletUpdateVelocitySelective3D<T,Descriptor>::getTypeOfModification (
         std::vector<modif::ModifT>& modified ) const
 {
     modified[0] = modif::dynamicVariables; // Particle field.
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+VerletParticleInteractionForce3D<T,Descriptor>::VerletParticleInteractionForce3D(
+        T forceAmplitude_, Array<T,3> const& bodyAcceleration_, T cutOffLength_, plint halfWidth_, plint exclusionTag_)
+    : forceAmplitude(forceAmplitude_),
+      bodyAcceleration(bodyAcceleration_),
+      cutOffLength(cutOffLength_),
+      halfWidth(halfWidth_),
+      exclusionTag(exclusionTag_),
+      hasExclusionTag(true)
+{
+    PLB_ASSERT(util::greaterThan(cutOffLength, (T) 0));
+    PLB_ASSERT(halfWidth >= 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+VerletParticleInteractionForce3D<T,Descriptor>::VerletParticleInteractionForce3D(
+        T forceAmplitude_, Array<T,3> const& bodyAcceleration_, T cutOffLength_, plint halfWidth_)
+    : forceAmplitude(forceAmplitude_),
+      bodyAcceleration(bodyAcceleration_),
+      cutOffLength(cutOffLength_),
+      halfWidth(halfWidth_),
+      exclusionTag(-1),
+      hasExclusionTag(false)
+{
+    PLB_ASSERT(util::greaterThan(cutOffLength, (T) 0));
+    PLB_ASSERT(halfWidth >= 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void VerletParticleInteractionForce3D<T,Descriptor>::processGenericBlocks(Box3D domain, std::vector<AtomicBlock3D*> blocks)
+{
+    PLB_PRECONDITION( blocks.size()==1 );
+    ParticleField3D<T,Descriptor>& particleField = *dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    Dot3D offset = particleField.getLocation();
+
+    std::vector<Particle3D<T,Descriptor>*> particles;
+    std::vector<Particle3D<T,Descriptor>*> neighbors;
+    particleField.findParticles(domain, particles);
+    // Loop over all particles assigned to this data processor.
+    for (pluint iParticle=0; iParticle<particles.size(); ++iParticle) {
+        Particle3D<T,Descriptor>* nonTypeParticle = particles[iParticle];
+        if (!hasExclusionTag || nonTypeParticle->getTag() != exclusionTag) {  // Exclude the particles that need be excluded.
+            VerletParticle3D<T,Descriptor>* particle =
+                dynamic_cast<VerletParticle3D<T,Descriptor>*>(nonTypeParticle);
+            // Compute a neighborhood, in integer coordinates, which contains at least
+            // all particles inside a radius of cutOffLength.
+            Array<T,3> position = particle->getPosition();
+            // Convert global particle coordinates to local coordinates for the domain
+            // treated by this data processor.
+            plint x = util::roundToInt(position[0])-offset.x;
+            plint y = util::roundToInt(position[1])-offset.y;
+            plint z = util::roundToInt(position[2])-offset.z;
+            Box3D neighborhood(x-halfWidth,x+halfWidth,
+                               y-halfWidth,y+halfWidth, z-halfWidth,z+halfWidth);
+            neighbors.clear();
+            T rCritical = 2.0;
+            T rCriticalSqr = util::sqr(rCritical);
+            // Use the particle hash to find neighboring particles efficiently.
+            particleField.findParticles(neighborhood, neighbors);
+            Array<T,3> force((T)0.,(T)0.,(T)0.);
+            for (pluint iNeighbor=0; iNeighbor<neighbors.size(); ++iNeighbor) {
+                Array<T,3> r = particle->getPosition() - neighbors[iNeighbor]->getPosition();
+                T rSqr = normSqr(r);
+                if (rSqr<util::sqr(cutOffLength) && rSqr>1.e-6) {
+                    // The potential is amplitude*r^{-6} for r>rCritical, and r*amplitude for r<=rCritical.
+                    // This is to aovid numerical instability due to huge forces when two
+                    // particles come too close (for example in a badly designed initial condition).
+                    if (rSqr>rCriticalSqr) {
+                        // The potential is r^{-6}, so the force is r^{-7}. An additional r^{-1}
+                        // is needed to normalize the vector r.
+                        force += r/(rSqr*rSqr*rSqr*rSqr) * forceAmplitude;
+                    }
+                    else {
+                        // Inside a radius of rCritical (in lattice units), the force is constant.
+                        T rNorm = std::sqrt(rSqr);
+                        force += r/(rNorm*rCritical*rCriticalSqr*rCriticalSqr*rCriticalSqr) * forceAmplitude;
+                    }
+                }
+            }
+            // Particle acceleration according to Newton's law.
+            particle->set_a (
+                    particle->get_a() + bodyAcceleration + force * particle->get_invRho() );
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+VerletParticleInteractionForce3D<T,Descriptor>* VerletParticleInteractionForce3D<T,Descriptor>::clone() const
+{
+    return new VerletParticleInteractionForce3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void VerletParticleInteractionForce3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::dynamicVariables;
 }
 
 
@@ -1588,6 +2065,299 @@ void CountTaggedParticles3D<T,Descriptor>::getTypeOfModification (
 }
 
 
+/* ******** ComputeConcentrationOfTaggedParticles3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::ComputeConcentrationOfTaggedParticles3D(util::SelectInt* tags_,
+        plint halfWidth_)
+    : tags(tags_),
+      halfWidth(halfWidth_)
+{
+    PLB_ASSERT(halfWidth >= 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::~ComputeConcentrationOfTaggedParticles3D()
+{
+    delete tags;
+}
+
+template<typename T, template<typename U> class Descriptor>
+ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::ComputeConcentrationOfTaggedParticles3D(
+        ComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+    : tags(rhs.tags->clone()),
+      halfWidth(rhs.halfWidth)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+ComputeConcentrationOfTaggedParticles3D<T,Descriptor>&
+    ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::operator=(
+            ComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+{
+    ComputeConcentrationOfTaggedParticles3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::swap(ComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs)
+{
+    std::swap(tags, rhs.tags);
+    std::swap(halfWidth, rhs.halfWidth);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 2);
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    ScalarField3D<T>* concentration = dynamic_cast<ScalarField3D<T>*>(blocks[1]);
+    PLB_ASSERT(concentration);
+
+    Dot3D offset = computeRelativeDisplacement(*particleField, *concentration);
+    std::vector<Particle3D<T,Descriptor>*> particles;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Box3D neighborhood(iX - halfWidth, iX + halfWidth,
+                                   iY - halfWidth, iY + halfWidth,
+                                   iZ - halfWidth, iZ + halfWidth);
+                particleField->findParticles(neighborhood, particles);
+                if (particles.empty()) {
+                    concentration->get(iX+offset.x,iY+offset.y,iZ+offset.z) = (T) 0;
+                } else {
+                    plint numTaggedParticles = 0;
+                    for (pluint iParticle=0; iParticle<particles.size(); ++iParticle) {
+                        if ((*tags)(particles[iParticle]->getTag())) {
+                            numTaggedParticles++;
+                        }
+                    }
+                    concentration->get(iX+offset.x,iY+offset.y,iZ+offset.z) = (T) numTaggedParticles / (T) particles.size();
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+ComputeConcentrationOfTaggedParticles3D<T,Descriptor>* ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::clone() const
+{
+    return new ComputeConcentrationOfTaggedParticles3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ComputeConcentrationOfTaggedParticles3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::nothing;          // Particle field.
+    modified[1] = modif::staticVariables;  // Scalar field.
+}
+
+
+/* ******** MaskedComputeConcentrationOfTaggedParticles3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::MaskedComputeConcentrationOfTaggedParticles3D(
+        util::SelectInt* tags_, plint halfWidth_, int whichFlag_)
+    : tags(tags_),
+      halfWidth(halfWidth_),
+      whichFlag(whichFlag_)
+{
+    PLB_ASSERT(halfWidth >= 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::~MaskedComputeConcentrationOfTaggedParticles3D()
+{
+    delete tags;
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::MaskedComputeConcentrationOfTaggedParticles3D(
+        MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+    : tags(rhs.tags->clone()),
+      halfWidth(rhs.halfWidth),
+      whichFlag(rhs.whichFlag)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>&
+    MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::operator=(
+            MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+{
+    MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::swap(
+        MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs)
+{
+    std::swap(tags, rhs.tags);
+    std::swap(halfWidth, rhs.halfWidth);
+    std::swap(whichFlag, rhs.whichFlag);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 3);
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    ScalarField3D<int>* mask = dynamic_cast<ScalarField3D<int>*>(blocks[1]);
+    PLB_ASSERT(mask);
+    ScalarField3D<T>* concentration = dynamic_cast<ScalarField3D<T>*>(blocks[2]);
+    PLB_ASSERT(concentration);
+
+    Dot3D ofsM = computeRelativeDisplacement(*particleField, *mask);
+    Dot3D ofsC = computeRelativeDisplacement(*particleField, *concentration);
+    std::vector<Particle3D<T,Descriptor>*> particles;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask->get(iX+ofsM.x,iY+ofsM.y,iZ+ofsM.z) == whichFlag) {
+                    Box3D neighborhood(iX - halfWidth, iX + halfWidth,
+                                       iY - halfWidth, iY + halfWidth,
+                                       iZ - halfWidth, iZ + halfWidth);
+                    particleField->findParticles(neighborhood, particles);
+                    if (particles.empty()) {
+                        concentration->get(iX+ofsC.x,iY+ofsC.y,iZ+ofsC.z) = (T) 0;
+                    } else {
+                        plint numTaggedParticles = 0;
+                        for (pluint iParticle=0; iParticle<particles.size(); ++iParticle) {
+                            if ((*tags)(particles[iParticle]->getTag())) {
+                                numTaggedParticles++;
+                            }
+                        }
+                        concentration->get(iX+ofsC.x,iY+ofsC.y,iZ+ofsC.z) = (T) numTaggedParticles / (T) particles.size();
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>*
+MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::clone() const
+{
+    return new MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::nothing;           // Particle field.
+    modified[1] = modif::nothing;           // Mask.
+    modified[2] = modif::staticVariables;   // Concentration.
+}
+
+
+/* ******** N_MaskedComputeConcentrationOfTaggedParticles3D *********************************** */
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::N_MaskedComputeConcentrationOfTaggedParticles3D(
+        util::SelectInt* tags_, plint halfWidth_, int whichFlag_)
+    : tags(tags_),
+      halfWidth(halfWidth_),
+      whichFlag(whichFlag_)
+{
+    PLB_ASSERT(halfWidth >= 0);
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::~N_MaskedComputeConcentrationOfTaggedParticles3D()
+{
+    delete tags;
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::N_MaskedComputeConcentrationOfTaggedParticles3D(
+        N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+    : tags(rhs.tags->clone()),
+      halfWidth(rhs.halfWidth),
+      whichFlag(rhs.whichFlag)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>&
+    N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::operator=(
+            N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor> const& rhs)
+{
+    N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>(rhs).swap(*this);
+    return *this;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::swap(
+        N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>& rhs)
+{
+    std::swap(tags, rhs.tags);
+    std::swap(halfWidth, rhs.halfWidth);
+    std::swap(whichFlag, rhs.whichFlag);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::processGenericBlocks (
+        Box3D domain, std::vector<AtomicBlock3D*> blocks )
+{
+    PLB_ASSERT(blocks.size() == 3);
+    ParticleField3D<T,Descriptor>* particleField = dynamic_cast<ParticleField3D<T,Descriptor>*>(blocks[0]);
+    PLB_ASSERT(particleField);
+    NTensorField3D<int>* mask = dynamic_cast<NTensorField3D<int>*>(blocks[1]);
+    PLB_ASSERT(mask);
+    PLB_ASSERT(mask->getNdim() == 1);
+    ScalarField3D<T>* concentration = dynamic_cast<ScalarField3D<T>*>(blocks[2]);
+    PLB_ASSERT(concentration);
+
+    Dot3D ofsM = computeRelativeDisplacement(*particleField, *mask);
+    Dot3D ofsC = computeRelativeDisplacement(*particleField, *concentration);
+    std::vector<Particle3D<T,Descriptor>*> particles;
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (*mask->get(iX+ofsM.x,iY+ofsM.y,iZ+ofsM.z) == whichFlag) {
+                    Box3D neighborhood(iX - halfWidth, iX + halfWidth,
+                                       iY - halfWidth, iY + halfWidth,
+                                       iZ - halfWidth, iZ + halfWidth);
+                    particleField->findParticles(neighborhood, particles);
+                    if (particles.empty()) {
+                        concentration->get(iX+ofsC.x,iY+ofsC.y,iZ+ofsC.z) = (T) 0;
+                    } else {
+                        plint numTaggedParticles = 0;
+                        for (pluint iParticle=0; iParticle<particles.size(); ++iParticle) {
+                            if ((*tags)(particles[iParticle]->getTag())) {
+                                numTaggedParticles++;
+                            }
+                        }
+                        concentration->get(iX+ofsC.x,iY+ofsC.y,iZ+ofsC.z) = (T) numTaggedParticles / (T) particles.size();
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>*
+N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::clone() const
+{
+    return new N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>(*this);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void N_MaskedComputeConcentrationOfTaggedParticles3D<T,Descriptor>::getTypeOfModification (
+        std::vector<modif::ModifT>& modified ) const
+{
+    modified[0] = modif::nothing;           // Particle field.
+    modified[1] = modif::nothing;           // Mask.
+    modified[2] = modif::staticVariables;   // Concentration.
+}
+
+
 template< typename T, template<typename U> class Descriptor,
           template<typename T_, template<typename U_> class Descriptor_> class ParticleFieldT >
 plint countParticles (
@@ -1617,6 +2387,16 @@ plint countParticles (
 template<typename T, template<typename U> class Descriptor>
 void injectParticles(std::vector<Particle3D<T,Descriptor>*>& injectedParticles,
                      MultiParticleField3D<DenseParticleField3D<T,Descriptor> >& particles, Box3D domain)
+{
+    std::vector<MultiBlock3D*> particleArg;
+    particleArg.push_back(&particles);
+    applyProcessingFunctional (
+            new InjectParticlesFunctional3D<T,Descriptor>(injectedParticles), domain, particleArg );
+}
+
+template<typename T, template<typename U> class Descriptor, class ParticleFieldT>
+void injectParticles(std::vector<Particle3D<T,Descriptor>*>& injectedParticles,
+                     MultiParticleField3D<ParticleFieldT>& particles, Box3D domain)
 {
     std::vector<MultiBlock3D*> particleArg;
     particleArg.push_back(&particles);

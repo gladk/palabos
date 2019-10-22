@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -758,7 +758,7 @@ void MaskedCopyConvertNTensorFunctional2D<T1,T2>::getTypeOfModification(std::vec
 
 template<typename T1, typename T2>
 BlockDomain::DomainT MaskedCopyConvertNTensorFunctional2D<T1,T2>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1522,7 +1522,7 @@ void BoxBulkNTensorStrainRateFunctional2D<T>::getTypeOfModification(std::vector<
 
 template<typename T>
 BlockDomain::DomainT BoxBulkNTensorStrainRateFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1568,7 +1568,7 @@ void MaskedBoxBulkNTensorStrainRateFunctional2D<T>::getTypeOfModification(std::v
 
 template<typename T>
 BlockDomain::DomainT MaskedBoxBulkNTensorStrainRateFunctional2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1810,7 +1810,7 @@ void A_plus_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>
 
 template<typename T>
 BlockDomain::DomainT A_plus_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1874,7 +1874,7 @@ void Masked_A_plus_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::
 
 template<typename T>
 BlockDomain::DomainT Masked_A_plus_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1930,7 +1930,7 @@ void A_minus_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_minus_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -1994,7 +1994,7 @@ void Masked_A_minus_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Masked_A_minus_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2051,7 +2051,7 @@ void Alpha_minus_A_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT Alpha_minus_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2114,7 +2114,7 @@ void Masked_Alpha_minus_A_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Masked_Alpha_minus_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2170,7 +2170,7 @@ void A_times_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_times_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2233,7 +2233,7 @@ void Masked_A_times_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Masked_A_times_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2289,7 +2289,7 @@ void A_dividedBy_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mo
 
 template<typename T>
 BlockDomain::DomainT A_dividedBy_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2352,7 +2352,7 @@ void Masked_A_dividedBy_alpha_NTensor2D<T>::getTypeOfModification(std::vector<mo
 
 template<typename T>
 BlockDomain::DomainT Masked_A_dividedBy_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2408,7 +2408,7 @@ void Alpha_dividedBy_A_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mo
 
 template<typename T>
 BlockDomain::DomainT Alpha_dividedBy_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2472,7 +2472,7 @@ void Masked_Alpha_dividedBy_A_NTensor2D<T>::getTypeOfModification(std::vector<mo
 
 template<typename T>
 BlockDomain::DomainT Masked_Alpha_dividedBy_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2529,7 +2529,7 @@ void A_toThePower_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::M
 
 template<typename T>
 BlockDomain::DomainT A_toThePower_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2592,7 +2592,7 @@ void Masked_A_toThePower_alpha_NTensor2D<T>::getTypeOfModification(std::vector<m
 
 template<typename T>
 BlockDomain::DomainT Masked_A_toThePower_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2648,7 +2648,7 @@ void Alpha_toThePower_A_NTensor2D<T>::getTypeOfModification(std::vector<modif::M
 
 template<typename T>
 BlockDomain::DomainT Alpha_toThePower_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2712,7 +2712,7 @@ void Masked_Alpha_toThePower_A_NTensor2D<T>::getTypeOfModification(std::vector<m
 
 template<typename T>
 BlockDomain::DomainT Masked_Alpha_toThePower_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2769,7 +2769,7 @@ void A_plus_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& mo
 
 template<typename T>
 BlockDomain::DomainT A_plus_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2832,7 +2832,7 @@ void Masked_A_plus_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Modi
 
 template<typename T>
 BlockDomain::DomainT Masked_A_plus_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2888,7 +2888,7 @@ void A_minus_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& m
 
 template<typename T>
 BlockDomain::DomainT A_minus_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -2951,7 +2951,7 @@ void Masked_A_minus_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT Masked_A_minus_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3007,7 +3007,7 @@ void A_times_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& m
 
 template<typename T>
 BlockDomain::DomainT A_times_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3070,7 +3070,7 @@ void Masked_A_times_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT Masked_A_times_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3126,7 +3126,7 @@ void A_dividedBy_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_dividedBy_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3189,7 +3189,7 @@ void Masked_A_dividedBy_B_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Masked_A_dividedBy_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3245,7 +3245,7 @@ void A_toThePower_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Modif
 
 template<typename T>
 BlockDomain::DomainT A_toThePower_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3308,7 +3308,7 @@ void Masked_A_toThePower_B_NTensor2D<T>::getTypeOfModification(std::vector<modif
 
 template<typename T>
 BlockDomain::DomainT Masked_A_toThePower_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3364,7 +3364,7 @@ void A_equals_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& 
 
 template<typename T>
 BlockDomain::DomainT A_equals_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3427,7 +3427,7 @@ void Masked_A_equals_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mo
 
 template<typename T>
 BlockDomain::DomainT Masked_A_equals_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3484,7 +3484,7 @@ void A_equals_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::Modif
 
 template<typename T>
 BlockDomain::DomainT A_equals_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3548,7 +3548,7 @@ void Masked_A_equals_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif
 
 template<typename T>
 BlockDomain::DomainT Masked_A_equals_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3604,7 +3604,7 @@ void A_lessThan_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>
 
 template<typename T>
 BlockDomain::DomainT A_lessThan_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 /* ******** Masked_A_lessThan_B_NTensor2D ************************************ */
@@ -3666,7 +3666,7 @@ void Masked_A_lessThan_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::
 
 template<typename T>
 BlockDomain::DomainT Masked_A_lessThan_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3723,7 +3723,7 @@ void A_lessThan_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT A_lessThan_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3787,7 +3787,7 @@ void Masked_A_lessThan_alpha_NTensor2D<T>::getTypeOfModification(std::vector<mod
 
 template<typename T>
 BlockDomain::DomainT Masked_A_lessThan_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3843,7 +3843,7 @@ void A_lessEqual_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT A_lessEqual_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3906,7 +3906,7 @@ void Masked_A_lessEqual_B_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT Masked_A_lessEqual_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -3963,7 +3963,7 @@ void A_lessEqual_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mo
 
 template<typename T>
 BlockDomain::DomainT A_lessEqual_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4027,7 +4027,7 @@ void Masked_A_lessEqual_alpha_NTensor2D<T>::getTypeOfModification(std::vector<mo
 
 template<typename T>
 BlockDomain::DomainT Masked_A_lessEqual_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4083,7 +4083,7 @@ void A_greaterThan_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Modi
 
 template<typename T>
 BlockDomain::DomainT A_greaterThan_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4146,7 +4146,7 @@ void Masked_A_greaterThan_B_NTensor2D<T>::getTypeOfModification(std::vector<modi
 
 template<typename T>
 BlockDomain::DomainT Masked_A_greaterThan_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4203,7 +4203,7 @@ void A_greaterThan_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif::
 
 template<typename T>
 BlockDomain::DomainT A_greaterThan_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4267,7 +4267,7 @@ void Masked_A_greaterThan_alpha_NTensor2D<T>::getTypeOfModification(std::vector<
 
 template<typename T>
 BlockDomain::DomainT Masked_A_greaterThan_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4323,7 +4323,7 @@ void A_greaterEqual_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Mod
 
 template<typename T>
 BlockDomain::DomainT A_greaterEqual_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4386,7 +4386,7 @@ void Masked_A_greaterEqual_B_NTensor2D<T>::getTypeOfModification(std::vector<mod
 
 template<typename T>
 BlockDomain::DomainT Masked_A_greaterEqual_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4443,7 +4443,7 @@ void A_greaterEqual_alpha_NTensor2D<T>::getTypeOfModification(std::vector<modif:
 
 template<typename T>
 BlockDomain::DomainT A_greaterEqual_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4507,7 +4507,7 @@ void Masked_A_greaterEqual_alpha_NTensor2D<T>::getTypeOfModification(std::vector
 
 template<typename T>
 BlockDomain::DomainT Masked_A_greaterEqual_alpha_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4563,7 +4563,7 @@ void A_and_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& mod
 
 template<typename T>
 BlockDomain::DomainT A_and_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4626,7 +4626,7 @@ void Masked_A_and_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::Modif
 
 template<typename T>
 BlockDomain::DomainT Masked_A_and_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4683,7 +4683,7 @@ void A_or_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modi
 
 template<typename T>
 BlockDomain::DomainT A_or_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4746,7 +4746,7 @@ void Masked_A_or_B_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT
 
 template<typename T>
 BlockDomain::DomainT Masked_A_or_B_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4795,7 +4795,7 @@ void Not_A_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>& modif
 
 template<typename T>
 BlockDomain::DomainT Not_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 
@@ -4851,7 +4851,7 @@ void Masked_Not_A_NTensor2D<T>::getTypeOfModification(std::vector<modif::ModifT>
 
 template<typename T>
 BlockDomain::DomainT Masked_Not_A_NTensor2D<T>::appliesTo() const {
-    return BlockDomain::bulkAndEnvelope;
+    return BlockDomain::bulk;
 }
 
 

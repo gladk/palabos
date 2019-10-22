@@ -1,11 +1,11 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
  *
- * The most recent release of Palabos can be downloaded at 
+ * The most recent release of Palabos can be downloaded at
  * <http://www.palabos.org/>
  *
  * The library Palabos is free software: you can redistribute it and/or
@@ -25,6 +25,7 @@
 /** \file
  * BounceBack dynamics models in 2D -- generic implementation.
  */
+
 #ifndef BOUNCE_BACK_MODELS_2D_HH
 #define BOUNCE_BACK_MODELS_2D_HH
 
@@ -32,7 +33,6 @@
 #include "atomicBlock/blockLattice2D.h"
 #include "core/cell.h"
 #include "atomicBlock/dataProcessorWrapper2D.h"
-#include <typeinfo>
 
 namespace plb {
 
@@ -43,10 +43,7 @@ class InitializeMomentumExchangeFunctional2D : public BoxProcessingFunctional2D_
 public:
     virtual void process(Box2D domain, BlockLattice2D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,2> tmp((plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,2>::zero()).getId();
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -57,8 +54,7 @@ public:
                         plint nextX = iX + Descriptor<T>::c[iPop][0];
                         plint nextY = iY + Descriptor<T>::c[iPop][1];
                         Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                        int partnerId = partner.getId();
-                        if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                        if (partner.hasMoments()) {
                             fluidDirections.push_back(iPop);
                         }
                     }
@@ -78,9 +74,9 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
-    virtual InitializeMomentumExchangeFunctional2D<T,Descriptor>* clone() const 
+    virtual InitializeMomentumExchangeFunctional2D<T,Descriptor>* clone() const
     {
         return new InitializeMomentumExchangeFunctional2D<T,Descriptor>(*this);
     }
@@ -112,10 +108,7 @@ public:
     }
     virtual void process(Box2D boundingBox, BlockLattice2D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,2> tmp((plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,2>::zero()).getId();
 
         Dot2D relativeOffset = lattice.getLocation();
         for (plint iX=boundingBox.x0; iX<=boundingBox.x1; ++iX) {
@@ -128,8 +121,7 @@ public:
                             plint nextX = iX + Descriptor<T>::c[iPop][0];
                             plint nextY = iY + Descriptor<T>::c[iPop][1];
                             Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                            int partnerId = partner.getId();
-                            if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                            if (partner.hasMoments()) {
                                 fluidDirections.push_back(iPop);
                             }
                         }
@@ -150,9 +142,9 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
-    virtual MomentumExchangeComplexDomainFunctional2D<T,Descriptor>* clone() const 
+    virtual MomentumExchangeComplexDomainFunctional2D<T,Descriptor>* clone() const
     {
         return new MomentumExchangeComplexDomainFunctional2D<T,Descriptor>(*this);
     }
@@ -160,15 +152,14 @@ private:
     DomainFunctional2D* domain;
 };
 
+/* ************* Class InitializeDotMomentumExchangeFunctional2D ** */
+
 template<typename T, template<typename U> class Descriptor>
 class InitializeDotMomentumExchangeFunctional2D : public DotProcessingFunctional2D_L<T,Descriptor> {
 public:
     virtual void process(DotList2D const& dotList, BlockLattice2D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,2> tmp((plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,2>::zero()).getId();
 
         for (plint iDot=0; iDot<dotList.getN(); ++iDot) {
             Dot2D const& dot = dotList.getDot(iDot);
@@ -181,8 +172,7 @@ public:
                     plint nextX = iX + Descriptor<T>::c[iPop][0];
                     plint nextY = iY + Descriptor<T>::c[iPop][1];
                     Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY).getDynamics();
-                    int partnerId = partner.getId();
-                    if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                    if (partner.hasMoments()) {
                         fluidDirections.push_back(iPop);
                     }
                 }
@@ -201,14 +191,13 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
-    virtual InitializeDotMomentumExchangeFunctional2D<T,Descriptor>* clone() const 
+    virtual InitializeDotMomentumExchangeFunctional2D<T,Descriptor>* clone() const
     {
         return new InitializeDotMomentumExchangeFunctional2D<T,Descriptor>(*this);
     }
 };
-
 
 template<typename T, template<class U> class Descriptor>
 void initializeMomentumExchange (
@@ -234,7 +223,6 @@ void initializeMomentumExchange (
     applyProcessingFunctional (
         new InitializeDotMomentumExchangeFunctional2D<T,Descriptor>(), dotList, lattice );
 }
-
 
 template<typename T, template<class U> class Descriptor>
 void initializeMomentumExchange (
@@ -263,4 +251,4 @@ void initializeMomentumExchange (
 
 }  // namespace plb
 
-#endif  // BOUNCE_BACK_MODELS_2D_H
+#endif  // BOUNCE_BACK_MODELS_2D_HH

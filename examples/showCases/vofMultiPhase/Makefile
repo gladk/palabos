@@ -17,8 +17,8 @@
 # Leading directory of the Palabos source code
 palabosRoot  = ../../..
 # Name of source files in current directory to compile and link with Palabos
-#projectFiles = damBreak3d.cpp
-projectFiles = fallingDroplet.cpp
+projectFiles = damBreak3d.cpp
+#projectFiles = fallingDroplet.cpp
 
 # Set optimization flags on/off
 optimize     = true
@@ -29,12 +29,14 @@ profile      = false
 # Set MPI-parallel mode on/off (parallelism in cluster-like environment)
 MPIparallel  = true
 # Set SMP-parallel mode on/off (shared-memory parallelism)
-SMPparallel  = true
+SMPparallel  = false
 # Decide whether to include calls to the POSIX API. On non-POSIX systems,
 #   including Windows, this flag must be false, unless a POSIX environment is
 #   emulated (such as with Cygwin).
 usePOSIX     = true
 
+# Path to external source files (other than Palabos)
+srcPaths =
 # Path to external libraries (other than Palabos)
 libraryPaths =
 # Path to inlude directories (other than Palabos)
@@ -47,11 +49,11 @@ serialCXX    = g++
 # Compiler to use with MPI parallelism
 parallelCXX  = mpicxx
 # General compiler flags (e.g. -Wall to turn on all warnings on g++)
-compileFlags = -Wall -Wnon-virtual-dtor
+compileFlags = -Wall -Wnon-virtual-dtor -Wno-deprecated-declarations #-DPLB_BSD
 # General linker flags (don't put library includes into this flag)
 linkFlags    =
 # Compiler flags to use when optimization mode is on
-optimFlags   = -O
+optimFlags   = -O3 #-O
 # Compiler flags to use when debug mode is on
 debugFlags   = -g
 # Compiler flags to use when profile mode is on
@@ -80,6 +82,7 @@ SConsArgs = palabosRoot=$(palabosRoot) \
             optimFlags="$(optimFlags)" \
             debugFlags="$(debugFlags)" \
             profileFlags="$(profileFlags)" \
+            srcPaths="$(srcPaths)" \
             libraryPaths="$(libraryPaths)" \
             includePaths="$(includePaths)" \
             libraries="$(libraries)"

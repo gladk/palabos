@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -25,6 +25,7 @@
 /** \file
  * BounceBack dynamics models in 3D -- generic implementation.
  */
+
 #ifndef BOUNCE_BACK_MODELS_3D_HH
 #define BOUNCE_BACK_MODELS_3D_HH
 
@@ -33,7 +34,7 @@
 #include "core/cell.h"
 #include "atomicBlock/dataProcessorWrapper3D.h"
 #include "multiBlock/multiBlockGenerator3D.h"
-#include <typeinfo>
+#include "latticeBoltzmann/indexTemplates.h"
 
 namespace plb {
 
@@ -44,10 +45,7 @@ class InitializeMomentumExchangeFunctional3D : public BoxProcessingFunctional3D_
 public:
     virtual void process(Box3D domain, BlockLattice3D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,3>::zero()).getId();
 
         for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
             for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
@@ -60,8 +58,7 @@ public:
                             plint nextY = iY + Descriptor<T>::c[iPop][1];
                             plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                             Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                            int partnerId = partner.getId();
-                            if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                            if (partner.hasMoments()) {
                                 fluidDirections.push_back(iPop);
                             }
                         }
@@ -82,7 +79,7 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
     virtual InitializeMomentumExchangeFunctional3D<T,Descriptor>* clone() const 
     {
@@ -90,7 +87,7 @@ public:
     }
 };
 
-/* ************* Class MomentumExchangeComplexDomainFunctional3D ** */
+/* ************* Class MomentumExchangeComplexDomainFunctional3D ****************** */
 
 template<typename T, template<typename U> class Descriptor>
 class MomentumExchangeComplexDomainFunctional3D
@@ -116,10 +113,7 @@ public:
     }
     virtual void process(Box3D boundingBox, BlockLattice3D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,3>::zero()).getId();
 
         Dot3D relativeOffset = lattice.getLocation();
         for (plint iX=boundingBox.x0; iX<=boundingBox.x1; ++iX) {
@@ -134,8 +128,7 @@ public:
                                 plint nextY = iY + Descriptor<T>::c[iPop][1];
                                 plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                                 Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                                int partnerId = partner.getId();
-                                if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                                if (partner.hasMoments()) {
                                     fluidDirections.push_back(iPop);
                                 }
                             }
@@ -157,7 +150,7 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
     virtual MomentumExchangeComplexDomainFunctional3D<T,Descriptor>* clone() const 
     {
@@ -172,10 +165,7 @@ class InitializeDotMomentumExchangeFunctional3D : public DotProcessingFunctional
 public:
     virtual void process(DotList3D const& dotList, BlockLattice3D<T,Descriptor>& lattice)
     {
-        static const int bounceBackId = BounceBack<T,Descriptor>().getId();
-        static const int noDynamicsId = NoDynamics<T,Descriptor>().getId();
-        static const Array<plint,3> tmp((plint) 0, (plint) 0, (plint) 0);
-        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(tmp).getId();
+        static const int mEBounceBackId = MomentumExchangeBounceBack<T,Descriptor>(Array<plint,3>::zero()).getId();
 
         for (plint iDot=0; iDot<dotList.getN(); ++iDot) {
             Dot3D const& dot = dotList.getDot(iDot);
@@ -190,8 +180,7 @@ public:
                     plint nextY = iY + Descriptor<T>::c[iPop][1];
                     plint nextZ = iZ + Descriptor<T>::c[iPop][2];
                     Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
-                    int partnerId = partner.getId();
-                    if (partnerId != mEBounceBackId && partnerId != bounceBackId && partnerId != noDynamicsId) {
+                    if (partner.hasMoments()) {
                         fluidDirections.push_back(iPop);
                     }
                 }
@@ -210,7 +199,7 @@ public:
         return BlockDomain::bulk;
     }
     virtual void getTypeOfModification(std::vector<modif::ModifT>& modified) const {
-        modified[0] = modif::staticVariables;
+        modified[0] = modif::dynamicVariables;
     }
     virtual InitializeDotMomentumExchangeFunctional3D<T,Descriptor>* clone() const 
     {
@@ -449,6 +438,149 @@ MultiNTensorField3D<int>* maskedCountBBNeighbors( MultiBlockLattice3D<T,Descript
     return neighbors;
 }
 
+/* *************** Class ComputeMomentumExchangeFunctional3D ************* */
+
+template<typename T, template<typename U> class Descriptor>
+ComputeMomentumExchangeFunctional3D<T,Descriptor>::ComputeMomentumExchangeFunctional3D()
+    : forceIds (
+            this->getStatistics().subscribeSum(),
+            this->getStatistics().subscribeSum(),
+            this->getStatistics().subscribeSum() )
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+void ComputeMomentumExchangeFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice )
+{
+    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                Dynamics<T,Descriptor>& dynamics = cell.getDynamics();
+                if (dynamics.getId() == bounceBackId) {
+                    std::vector<plint> fluidDirections;
+                    Array<T,3> momentum = Array<T,3>::zero();
+                    for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
+                        plint nextX = iX + Descriptor<T>::c[iPop][0];
+                        plint nextY = iY + Descriptor<T>::c[iPop][1];
+                        plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                        Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
+                        if (partner.hasMoments())
+                        {
+                            plint iOpp = indexTemplates::opposite<Descriptor<T> >(iPop);
+                            // The momentum contribution is multiplied by two:
+                            //   One contribution for the momentum loss into the obstacle,
+                            //   and one contribution for the momentum gain in the subsequent
+                            //   after-bounce-back streaming step.
+                            momentum[0] += (T)2*Descriptor<T>::c[iPop][0]*cell[iOpp];
+                            momentum[1] += (T)2*Descriptor<T>::c[iPop][1]*cell[iOpp];
+                            momentum[2] += (T)2*Descriptor<T>::c[iPop][2]*cell[iOpp];
+                        }
+                    }
+                    this->getStatistics().gatherSum(forceIds[0], -momentum[0]);
+                    this->getStatistics().gatherSum(forceIds[1], -momentum[1]);
+                    this->getStatistics().gatherSum(forceIds[2], -momentum[2]);
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+Array<T,3> ComputeMomentumExchangeFunctional3D<T,Descriptor>::getForce() const {
+    return Array<T,3> (
+            this->getStatistics().getSum(forceIds[0]),
+            this->getStatistics().getSum(forceIds[1]),
+            this->getStatistics().getSum(forceIds[2]) );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void ComputeMomentumExchangeFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+}
+
+template<typename T, template<typename U> class Descriptor>
+ComputeMomentumExchangeFunctional3D<T,Descriptor>* ComputeMomentumExchangeFunctional3D<T,Descriptor>::clone() const 
+{
+    return new ComputeMomentumExchangeFunctional3D<T,Descriptor>(*this);
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>::MaskedComputeMomentumExchangeFunctional3D()
+    : forceIds (
+            this->getStatistics().subscribeSum(),
+            this->getStatistics().subscribeSum(),
+            this->getStatistics().subscribeSum() )
+{ }
+
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>::process (
+        Box3D domain, BlockLattice3D<T,Descriptor>& lattice, ScalarField3D<int>& mask )
+{
+    static const int bounceBackId = BounceBack<T,Descriptor>().getId();
+
+    Dot3D offset = computeRelativeDisplacement(lattice, mask);
+
+    for (plint iX=domain.x0; iX<=domain.x1; ++iX) {
+        for (plint iY=domain.y0; iY<=domain.y1; ++iY) {
+            for (plint iZ=domain.z0; iZ<=domain.z1; ++iZ) {
+                if (mask.get(iX+offset.x, iY+offset.y, iZ+offset.z)) {
+                    Cell<T,Descriptor>& cell = lattice.get(iX,iY,iZ);
+                    Dynamics<T,Descriptor>& dynamics = cell.getDynamics();
+                    if (dynamics.getId() == bounceBackId) {
+                        std::vector<plint> fluidDirections;
+                        Array<T,3> momentum = Array<T,3>::zero();
+                        for (plint iPop=1; iPop<Descriptor<T>::q; ++iPop) {
+                            plint nextX = iX + Descriptor<T>::c[iPop][0];
+                            plint nextY = iY + Descriptor<T>::c[iPop][1];
+                            plint nextZ = iZ + Descriptor<T>::c[iPop][2];
+                            Dynamics<T,Descriptor>& partner = lattice.get(nextX,nextY,nextZ).getDynamics();
+                            if (partner.hasMoments())
+                            {
+                                plint iOpp = indexTemplates::opposite<Descriptor<T> >(iPop);
+                                // The momentum contribution is multiplied by two:
+                                //   One contribution for the momentum loss into the obstacle,
+                                //   and one contribution for the momentum gain in the subsequent
+                                //   after-bounce-back streaming step.
+                                momentum[0] += (T)2*Descriptor<T>::c[iPop][0]*cell[iOpp];
+                                momentum[1] += (T)2*Descriptor<T>::c[iPop][1]*cell[iOpp];
+                                momentum[2] += (T)2*Descriptor<T>::c[iPop][2]*cell[iOpp];
+                            }
+                        }
+                        this->getStatistics().gatherSum(forceIds[0], -momentum[0]);
+                        this->getStatistics().gatherSum(forceIds[1], -momentum[1]);
+                        this->getStatistics().gatherSum(forceIds[2], -momentum[2]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+Array<T,3> MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>::getForce() const {
+    return Array<T,3> (
+            this->getStatistics().getSum(forceIds[0]),
+            this->getStatistics().getSum(forceIds[1]),
+            this->getStatistics().getSum(forceIds[2]) );
+}
+
+template<typename T, template<typename U> class Descriptor>
+void MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>::getTypeOfModification(std::vector<modif::ModifT>& modified) const {
+    modified[0] = modif::nothing;
+    modified[1] = modif::nothing;
+}
+
+template<typename T, template<typename U> class Descriptor>
+MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>* MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>::clone() const 
+{
+    return new MaskedComputeMomentumExchangeFunctional3D<T,Descriptor>(*this);
+}
+
 }  // namespace plb
 
-#endif  // BOUNCE_BACK_MODELS_3D_H
+#endif  // BOUNCE_BACK_MODELS_3D_HH

@@ -1,11 +1,11 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
  *
- * The most recent release of Palabos can be downloaded at 
+ * The most recent release of Palabos can be downloaded at
  * <http://www.palabos.org/>
  *
  * The library Palabos is free software: you can redistribute it and/or
@@ -22,107 +22,114 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Main author: Dimitrios Kontaxakis */
-
 #ifndef TRIANGLE_SET_GENERATOR_HH
 #define TRIANGLE_SET_GENERATOR_HH
 
 #include "core/globalDefs.h"
+#include "core/geometry3D.h"
+#include "offLattice/triangleBoundary3D.h"
 #include "offLattice/triangleSetGenerator.h"
 
 namespace plb {
 
 template<typename T>
-TriangleSet<T> constructSphere(Array<T,3> const& center, T radius, plint minNumOfTriangles)
+TriangleSet<T> constructEllipsoid(Array<T,3> const& center, T a, T b, T c, plint minNumOfTriangles, T eps)
 {
-    std::vector<typename TriangleSet<T>::Triangle> triangles;
-#ifdef PLB_DEBUG
-    static const T eps = std::numeric_limits<T>::epsilon();
-#endif
-    PLB_ASSERT(radius > (T) 0.0 && !util::fpequal(radius, (T) 0.0, eps) &&
-               minNumOfTriangles >= 8);
+    TriangleSet<T> ellipsoid(constructSphere<T>(center, (T) 1, minNumOfTriangles, eps));
+    ellipsoid.scale(a, b, c);
+    return ellipsoid;
+}
+
+template<typename T>
+TriangleSet<T> constructSphere(Array<T,3> const& center, T radius, plint minNumOfTriangles, T eps)
+{
+    PLB_ASSERT(util::greaterThan(radius, (T) 0) && minNumOfTriangles >= 8);
+
+    typedef typename TriangleSet<T>::Triangle Triangle;
+
+    std::vector<Triangle> triangles;
 
     // Create a triangularized unit sphere
 
     // Initial 6 vertices
 
     Array<T,3> va;
-    va[0] = (T) 1.0;
-    va[1] = (T) 0.0;
-    va[2] = (T) 0.0;
+    va[0] = (T) 1;
+    va[1] = (T) 0;
+    va[2] = (T) 0;
 
     Array<T,3> vb;
-    vb[0] = (T) 0.0;
-    vb[1] = (T) 1.0;
-    vb[2] = (T) 0.0;
+    vb[0] = (T) 0;
+    vb[1] = (T) 1;
+    vb[2] = (T) 0;
 
     Array<T,3> vc;
-    vc[0] = (T) (-1.0);
-    vc[1] = (T) 0.0;
-    vc[2] = (T) 0.0;
+    vc[0] = (T) -1;
+    vc[1] = (T)  0;
+    vc[2] = (T)  0;
 
     Array<T,3> vd;
-    vd[0] = (T) 0.0;
-    vd[1] = (T) (-1.0);
-    vd[2] = (T) 0.0;
+    vd[0] = (T)  0;
+    vd[1] = (T) -1;
+    vd[2] = (T)  0;
 
     Array<T,3> ve;
-    ve[0] = (T) 0.0;
-    ve[1] = (T) 0.0;
-    ve[2] = (T) 1.0;
+    ve[0] = (T) 0;
+    ve[1] = (T) 0;
+    ve[2] = (T) 1;
 
     Array<T,3> vf;
-    vf[0] = (T) 0.0;
-    vf[1] = (T) 0.0;
-    vf[2] = (T) (-1.0);
+    vf[0] = (T)  0;
+    vf[1] = (T)  0;
+    vf[2] = (T) -1;
 
     // Initial 8 triangles
 
-    typename TriangleSet<T>::Triangle tmp;
+    Triangle triangle;
 
-    tmp[0] = ve;
-    tmp[1] = va;
-    tmp[2] = vb;
-    triangles.push_back(tmp);
+    triangle[0] = ve;
+    triangle[1] = va;
+    triangle[2] = vb;
+    triangles.push_back(triangle);
 
-    tmp[0] = ve;
-    tmp[1] = vb;
-    tmp[2] = vc;
-    triangles.push_back(tmp);
+    triangle[0] = ve;
+    triangle[1] = vb;
+    triangle[2] = vc;
+    triangles.push_back(triangle);
 
-    tmp[0] = ve;
-    tmp[1] = vc;
-    tmp[2] = vd;
-    triangles.push_back(tmp);
+    triangle[0] = ve;
+    triangle[1] = vc;
+    triangle[2] = vd;
+    triangles.push_back(triangle);
 
-    tmp[0] = ve;
-    tmp[1] = vd;
-    tmp[2] = va;
-    triangles.push_back(tmp);
+    triangle[0] = ve;
+    triangle[1] = vd;
+    triangle[2] = va;
+    triangles.push_back(triangle);
 
-    tmp[0] = vf;
-    tmp[1] = vb;
-    tmp[2] = va;
-    triangles.push_back(tmp);
+    triangle[0] = vf;
+    triangle[1] = vb;
+    triangle[2] = va;
+    triangles.push_back(triangle);
 
-    tmp[0] = vf;
-    tmp[1] = vc;
-    tmp[2] = vb;
-    triangles.push_back(tmp);
+    triangle[0] = vf;
+    triangle[1] = vc;
+    triangle[2] = vb;
+    triangles.push_back(triangle);
 
-    tmp[0] = vf;
-    tmp[1] = vd;
-    tmp[2] = vc;
-    triangles.push_back(tmp);
+    triangle[0] = vf;
+    triangle[1] = vd;
+    triangle[2] = vc;
+    triangles.push_back(triangle);
 
-    tmp[0] = vf;
-    tmp[1] = va;
-    tmp[2] = vd;
-    triangles.push_back(tmp);
+    triangle[0] = vf;
+    triangle[1] = va;
+    triangle[2] = vd;
+    triangles.push_back(triangle);
 
     // Perform refinement iterations
 
-    plint size;
+    plint size = 0;
     while ((size = triangles.size()) < minNumOfTriangles) {
         for (plint i = 0; i < size; i++) {
             va = triangles[i][0];
@@ -141,26 +148,26 @@ TriangleSet<T> constructSphere(Array<T,3> const& center, T radius, plint minNumO
             triangles[i][1] = ve;
             triangles[i][2] = vf;
 
-            tmp[0] = va;
-            tmp[1] = vd;
-            tmp[2] = vf;
-            triangles.push_back(tmp);
+            triangle[0] = va;
+            triangle[1] = vd;
+            triangle[2] = vf;
+            triangles.push_back(triangle);
 
-            tmp[0] = vd;
-            tmp[1] = vb;
-            tmp[2] = ve;
-            triangles.push_back(tmp);
+            triangle[0] = vd;
+            triangle[1] = vb;
+            triangle[2] = ve;
+            triangles.push_back(triangle);
 
-            tmp[0] = vf;
-            tmp[1] = ve;
-            tmp[2] = vc;
-            triangles.push_back(tmp);
+            triangle[0] = vf;
+            triangle[1] = ve;
+            triangle[2] = vc;
+            triangles.push_back(triangle);
         }
     }
 
     // Scale and translate the mesh
 
-    TriangleSet<T> triangleSet(triangles);
+    TriangleSet<T> triangleSet(triangles, eps);
 
     triangleSet.scale(radius);
     triangleSet.translate(center);
@@ -169,266 +176,330 @@ TriangleSet<T> constructSphere(Array<T,3> const& center, T radius, plint minNumO
 }
 
 template<typename T>
-TriangleSet<T> constructCylinder( Array<T,3> const& inletCenter, T inletRadius, T outletRadius,
-                                  T length, plint nAxial, plint nCirc,
-                                  std::vector<Array<T,3> >& inletPoints )
+TriangleSet<T> constructHalfSphere(Array<T,3> const& center, T radius, plint minNumOfTriangles, T eps)
 {
-    static const T eps = std::numeric_limits<T>::epsilon();
-    std::vector<typename TriangleSet<T>::Triangle> triangles;
-    PLB_ASSERT( inletRadius > (T) 0.0 && !util::fpequal( inletRadius, (T) 0.0, eps) &&
-               outletRadius > (T) 0.0 && !util::fpequal(outletRadius, (T) 0.0, eps) &&
-                     length > (T) 0.0 && !util::fpequal(      length, (T) 0.0, eps) &&
-               nAxial >= 2 && nCirc >= 2);
+    PLB_ASSERT(util::greaterThan(radius, (T) 0) && minNumOfTriangles >= 4);
 
-    inletPoints.resize(0);
-    triangles.resize(0);
+    typedef typename TriangleSet<T>::Triangle Triangle;
 
-    // Construction of the cylindrical grid and triangulation
+    std::vector<Triangle> triangles;
 
-    T pi = std::acos((T) -1.0);
+    // Create a triangularized unit half-sphere
 
-    T dtheta = (T) 2.0*pi / nCirc;
-    T dx = length / (nAxial-(T)1.0);
-    T dr = (outletRadius-inletRadius) / length * dx;
+    // Initial 5 vertices
 
-    T x0 = inletCenter[0];
-    T y0 = inletCenter[1];
-    T z0 = inletCenter[2];
+    Array<T,3> va;
+    va[0] = (T) 1;
+    va[1] = (T) 0;
+    va[2] = (T) 0;
 
-    for (plint i = 0; i < nAxial-1; i++) {
-        T x = x0 + i*dx;
-        T r = (outletRadius-inletRadius) * (x-x0) / length + inletRadius;
-        for (plint j = 0; j < nCirc; j++) {
-            T theta = j * dtheta;
+    Array<T,3> vb;
+    vb[0] = (T) 0;
+    vb[1] = (T) 1;
+    vb[2] = (T) 0;
 
-            Array<Array<T,3>, 4> v;
+    Array<T,3> vc;
+    vc[0] = (T) -1;
+    vc[1] = (T)  0;
+    vc[2] = (T)  0;
 
-            v[0][0] = x;
-            v[0][1] = y0 + r * std::cos(theta);
-            v[0][2] = z0 + r * std::sin(theta);
+    Array<T,3> vd;
+    vd[0] = (T)  0;
+    vd[1] = (T) -1;
+    vd[2] = (T)  0;
 
-            v[1][0] = x;
-            v[1][1] = y0 + r * std::cos(theta + dtheta);
-            v[1][2] = z0 + r * std::sin(theta + dtheta);
-
-            v[2][0] = x + dx;
-            v[2][1] = y0 + (r + dr) * std::cos(theta + dtheta);
-            v[2][2] = z0 + (r + dr) * std::sin(theta + dtheta);
-
-            v[3][0] = x + dx;
-            v[3][1] = y0 + (r + dr) * std::cos(theta);
-            v[3][2] = z0 + (r + dr) * std::sin(theta);
-
-            Array<T,3> vc;
-
-            vc[0] = x + (T) 0.5 * dx;
-            vc[1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta + (T) 0.5 * dtheta);
-            vc[2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta + (T) 0.5 * dtheta);
-
-            Array<Array<T,3>, 4> vce;
+    Array<T,3> ve;
+    ve[0] = (T) 0;
+    ve[1] = (T) 0;
+    ve[2] = (T) 1;
 
 
-            vce[0][0] = x;
-            vce[0][1] = y0 + r * std::cos(theta + (T) 0.5 * dtheta);
-            vce[0][2] = z0 + r * std::sin(theta + (T) 0.5 * dtheta);
+    // Initial 4 triangles
 
-            if (i==0) {
-                inletPoints.push_back(v[0]);
-                inletPoints.push_back(vce[0]);
-            }
+    Triangle triangle;
 
-            vce[1][0] = x + (T) 0.5 * dx;
-            vce[1][1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta + dtheta);
-            vce[1][2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta + dtheta);
+    triangle[0] = ve;
+    triangle[1] = va;
+    triangle[2] = vb;
+    triangles.push_back(triangle);
 
-            vce[2][0] = x + dx;
-            vce[2][1] = y0 + (r + dr) * std::cos(theta + (T) 0.5 * dtheta);
-            vce[2][2] = z0 + (r + dr) * std::sin(theta + (T) 0.5 * dtheta);
+    triangle[0] = ve;
+    triangle[1] = vb;
+    triangle[2] = vc;
+    triangles.push_back(triangle);
 
-            vce[3][0] = x + (T) 0.5 * dx;
-            vce[3][1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta);
-            vce[3][2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta);
+    triangle[0] = ve;
+    triangle[1] = vc;
+    triangle[2] = vd;
+    triangles.push_back(triangle);
 
-            typename TriangleSet<T>::Triangle tmp;
+    triangle[0] = ve;
+    triangle[1] = vd;
+    triangle[2] = va;
+    triangles.push_back(triangle);
 
-            tmp[0] = vc;
-            tmp[1] = v[0];
-            tmp[2] = vce[0];
-            triangles.push_back(tmp);
+    // Perform refinement iterations
 
-            tmp[0] = vc;
-            tmp[1] = vce[0];
-            tmp[2] = v[1];
-            triangles.push_back(tmp);
+    Array<T,3> vf;
+    plint size = 0;
+    while ((size = triangles.size()) < minNumOfTriangles) {
+        for (plint i = 0; i < size; i++) {
+            va = triangles[i][0];
+            vb = triangles[i][1];
+            vc = triangles[i][2];
 
-            tmp[0] = vc;
-            tmp[1] = v[1];
-            tmp[2] = vce[1];
-            triangles.push_back(tmp);
+            vd = (T) 0.5 * (va + vb);
+            ve = (T) 0.5 * (vb + vc);
+            vf = (T) 0.5 * (vc + va);
 
-            tmp[0] = vc;
-            tmp[1] = vce[1];
-            tmp[2] = v[2];
-            triangles.push_back(tmp);
+            vd /= norm(vd);
+            ve /= norm(ve);
+            vf /= norm(vf);
 
-            tmp[0] = vc;
-            tmp[1] = v[2];
-            tmp[2] = vce[2];
-            triangles.push_back(tmp);
+            triangles[i][0] = vd;
+            triangles[i][1] = ve;
+            triangles[i][2] = vf;
 
-            tmp[0] = vc;
-            tmp[1] = vce[2];
-            tmp[2] = v[3];
-            triangles.push_back(tmp);
+            triangle[0] = va;
+            triangle[1] = vd;
+            triangle[2] = vf;
+            triangles.push_back(triangle);
 
-            tmp[0] = vc;
-            tmp[1] = v[3];
-            tmp[2] = vce[3];
-            triangles.push_back(tmp);
+            triangle[0] = vd;
+            triangle[1] = vb;
+            triangle[2] = ve;
+            triangles.push_back(triangle);
 
-            tmp[0] = vc;
-            tmp[1] = vce[3];
-            tmp[2] = v[0];
-            triangles.push_back(tmp);
+            triangle[0] = vf;
+            triangle[1] = ve;
+            triangle[2] = vc;
+            triangles.push_back(triangle);
         }
     }
-    return TriangleSet<T>(triangles);
+
+    // Scale and translate the mesh
+
+    TriangleSet<T> triangleSet(triangles, eps);
+
+    triangleSet.scale(radius);
+    triangleSet.translate(center);
+
+    return triangleSet;
 }
+
+template<typename T>
+static void sphereIsomorphToCenter(Array<T,3>& p, Array<T,3> const& center, T radius)
+{
+    static T pi = std::acos((T) -1);
+    Array<T,3> v(p - center);
+    T a = norm(v);
+    if (a > getEpsilon<T>((T) 100)) {
+        v /= a;
+        p = center + v * radius * ((T) 1 - (T) 2 / pi * std::acos(a / radius));
+    }
+}
+
+template<typename T>
+TriangleSet<T> constructDisk(Array<T,3> const& center, T radius, plint minNumOfTriangles, T eps)
+{
+    typedef typename TriangleSet<T>::Triangle Triangle;
+    TriangleSet<T> halfSphere(constructHalfSphere(center, radius, minNumOfTriangles, eps));
+    std::vector<Triangle> const& triangles = halfSphere.getTriangles();
+    std::vector<Triangle> diskTriangles;
+    for (pluint i = 0; i < triangles.size(); ++i) {
+        Triangle triangle = triangles[i];
+        triangle[0][2] = center[2];
+        triangle[1][2] = center[2];
+        triangle[2][2] = center[2];
+        sphereIsomorphToCenter(triangle[0], center, radius);
+        sphereIsomorphToCenter(triangle[1], center, radius);
+        sphereIsomorphToCenter(triangle[2], center, radius);
+        diskTriangles.push_back(triangle);
+    }
+    return TriangleSet<T>(diskTriangles, eps);
+}
+
 template<typename T>
 TriangleSet<T> constructCylinder(Array<T,3> const& inletCenter, T inletRadius, T outletRadius,
-                                 T length, plint nAxial, plint nCirc)
+        T length, plint nAxial, plint nCirc, T eps)
 {
-    static const T eps = std::numeric_limits<T>::epsilon();
-    std::vector<typename TriangleSet<T>::Triangle> triangles;
-    PLB_ASSERT( inletRadius > (T) 0.0 && !util::fpequal( inletRadius, (T) 0.0, eps) &&
-               outletRadius > (T) 0.0 && !util::fpequal(outletRadius, (T) 0.0, eps) &&
-                     length > (T) 0.0 && !util::fpequal(      length, (T) 0.0, eps) &&
+    PLB_ASSERT(util::greaterThan( inletRadius, (T) 0) &&
+               util::greaterThan(outletRadius, (T) 0) &&
+               util::greaterThan(      length, (T) 0) &&
                nAxial >= 2 && nCirc >= 2);
 
-    triangles.resize(0);
+    // This is needed to be backwards compatible.
+
+    nAxial = 2 * nAxial - 1;
+    nCirc *= 2;
 
     // Construction of the cylindrical grid and triangulation
 
-    T pi = std::acos((T) -1.0);
+    typedef typename TriangleSet<T>::Triangle Triangle;
 
-    T dtheta = (T) 2.0*pi / nCirc;
-    T dx = length / (nAxial-(T)1.0);
-    T dr = (outletRadius-inletRadius) / length * dx;
+    std::vector<Triangle> triangles;
+
+    static T pi = std::acos((T) -1);
+
+    T dtheta = (T) 2 * pi / nCirc;
+    T dx = length / (T) (nAxial - 1);
 
     T x0 = inletCenter[0];
     T y0 = inletCenter[1];
     T z0 = inletCenter[2];
 
-    for (plint i = 0; i < nAxial-1; i++) {
-        T x = x0 + i*dx;
-        T r = (outletRadius-inletRadius) * (x-x0) / length + inletRadius;
-        for (plint j = 0; j < nCirc; j++) {
-            T theta = j * dtheta;
-
-            Array<Array<T,3>, 4> v;
-
-            v[0][0] = x;
-            v[0][1] = y0 + r * std::cos(theta);
-            v[0][2] = z0 + r * std::sin(theta);
-
-            v[1][0] = x;
-            v[1][1] = y0 + r * std::cos(theta + dtheta);
-            v[1][2] = z0 + r * std::sin(theta + dtheta);
-
-            v[2][0] = x + dx;
-            v[2][1] = y0 + (r + dr) * std::cos(theta + dtheta);
-            v[2][2] = z0 + (r + dr) * std::sin(theta + dtheta);
-
-            v[3][0] = x + dx;
-            v[3][1] = y0 + (r + dr) * std::cos(theta);
-            v[3][2] = z0 + (r + dr) * std::sin(theta);
-
-            Array<T,3> vc;
-
-            vc[0] = x + (T) 0.5 * dx;
-            vc[1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta + (T) 0.5 * dtheta);
-            vc[2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta + (T) 0.5 * dtheta);
-
-            Array<Array<T,3>, 4> vce;
-
-            vce[0][0] = x;
-            vce[0][1] = y0 + r * std::cos(theta + (T) 0.5 * dtheta);
-            vce[0][2] = z0 + r * std::sin(theta + (T) 0.5 * dtheta);
-
-            vce[1][0] = x + (T) 0.5 * dx;
-            vce[1][1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta + dtheta);
-            vce[1][2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta + dtheta);
-
-            vce[2][0] = x + dx;
-            vce[2][1] = y0 + (r + dr) * std::cos(theta + (T) 0.5 * dtheta);
-            vce[2][2] = z0 + (r + dr) * std::sin(theta + (T) 0.5 * dtheta);
-
-            vce[3][0] = x + (T) 0.5 * dx;
-            vce[3][1] = y0 + (r + (T) 0.5 * dr) * std::cos(theta);
-            vce[3][2] = z0 + (r + (T) 0.5 * dr) * std::sin(theta);
-
-            typename TriangleSet<T>::Triangle tmp;
-
-            tmp[0] = vc;
-            tmp[1] = v[0];
-            tmp[2] = vce[0];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = vce[0];
-            tmp[2] = v[1];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = v[1];
-            tmp[2] = vce[1];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = vce[1];
-            tmp[2] = v[2];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = v[2];
-            tmp[2] = vce[2];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = vce[2];
-            tmp[2] = v[3];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = v[3];
-            tmp[2] = vce[3];
-            triangles.push_back(tmp);
-
-            tmp[0] = vc;
-            tmp[1] = vce[3];
-            tmp[2] = v[0];
-            triangles.push_back(tmp);
-        }
+    std::vector<Array<T,3> > circle0(nCirc);
+    for (plint i = 0; i < nCirc; i++) {
+        T r = inletRadius;
+        T theta = (T) i * dtheta;
+        circle0[i] = Array<T,3>(x0, y0 + r * std::cos(theta), z0 + r * std::sin(theta));
     }
-    return TriangleSet<T>(triangles);
+
+    std::vector<Array<T,3> > circle1(nCirc);
+    for (plint i = 0; i < nAxial - 1; i++) {
+        T x = x0 + (T) (i + 1) * dx;
+        T r = (outletRadius - inletRadius) * (x - x0) / length + inletRadius;
+        for (plint i = 0; i < nCirc; i++) {
+            T theta = (T) i * dtheta;
+            circle1[i] = Array<T,3>(x, y0 + r * std::cos(theta), z0 + r * std::sin(theta));
+        }
+
+        for (plint i = 0; i < nCirc; i++) {
+            Array<T,3> va = circle0[i];
+            Array<T,3> vb = circle1[i];
+            Array<T,3> vc = i != nCirc - 1 ? circle1[i + 1] : circle1[0];
+            Array<T,3> vd = i != nCirc - 1 ? circle0[i + 1] : circle0[0];
+
+            Triangle triangle;
+
+            triangle[0] = va;
+            triangle[1] = vd;
+            triangle[2] = vb;
+            triangles.push_back(triangle);
+
+            triangle[0] = vb;
+            triangle[1] = vd;
+            triangle[2] = vc;
+            triangles.push_back(triangle);
+        }
+
+        std::swap(circle0, circle1);
+    }
+
+    return TriangleSet<T>(triangles, eps);
 }
 
 template<typename T>
-void addSurface (
-        Array<T,3> const& lowerCorner,
-        Array<T,3> const& delta1, plint n1, Array<T,3> const& delta2, plint n2,
-        std::vector<typename TriangleSet<T>::Triangle>& triangles )
+TriangleSet<T> constructCylinder(Array<T,3> const& inletCenter, T inletRadius, T outletRadius, T length,
+        plint nAxial, plint nCirc, std::vector<Array<T,3> >& inletPoints, T eps)
+{
+    PLB_ASSERT(util::greaterThan( inletRadius, (T) 0) &&
+               util::greaterThan(outletRadius, (T) 0) &&
+               util::greaterThan(      length, (T) 0) &&
+               nAxial >= 2 && nCirc >= 2);
+
+    // This is needed to be backwards compatible.
+
+    nAxial = 2 * nAxial - 1;
+    nCirc *= 2;
+
+    // Construction of the cylindrical grid and triangulation
+
+    typedef typename TriangleSet<T>::Triangle Triangle;
+
+    std::vector<Triangle> triangles;
+    inletPoints.clear();
+
+    static T pi = std::acos((T) -1);
+
+    T dtheta = (T) 2 * pi / nCirc;
+    T dx = length / (T) (nAxial - 1);
+
+    T x0 = inletCenter[0];
+    T y0 = inletCenter[1];
+    T z0 = inletCenter[2];
+
+    std::vector<Array<T,3> > circle0(nCirc);
+    for (plint i = 0; i < nCirc; i++) {
+        T r = inletRadius;
+        T theta = (T) i * dtheta;
+        circle0[i] = Array<T,3>(x0, y0 + r * std::cos(theta), z0 + r * std::sin(theta));
+    }
+    inletPoints = circle0;
+
+    std::vector<Array<T,3> > circle1(nCirc);
+    for (plint i = 0; i < nAxial - 1; i++) {
+        T x = x0 + (T) (i + 1) * dx;
+        T r = (outletRadius - inletRadius) * (x - x0) / length + inletRadius;
+        for (plint i = 0; i < nCirc; i++) {
+            T theta = (T) i * dtheta;
+            circle1[i] = Array<T,3>(x, y0 + r * std::cos(theta), z0 + r * std::sin(theta));
+        }
+
+        for (plint i = 0; i < nCirc; i++) {
+            Array<T,3> va = circle0[i];
+            Array<T,3> vb = circle1[i];
+            Array<T,3> vc = i != nCirc - 1 ? circle1[i + 1] : circle1[0];
+            Array<T,3> vd = i != nCirc - 1 ? circle0[i + 1] : circle0[0];
+
+            Triangle triangle;
+
+            triangle[0] = va;
+            triangle[1] = vd;
+            triangle[2] = vb;
+            triangles.push_back(triangle);
+
+            triangle[0] = vb;
+            triangle[1] = vd;
+            triangle[2] = vc;
+            triangles.push_back(triangle);
+        }
+
+        std::swap(circle0, circle1);
+    }
+
+    return TriangleSet<T>(triangles, eps);
+}
+
+template<typename T>
+TriangleSet<T> constructCylinder(Array<T,3> const& inletCenter, Array<T,3> const& axis, T inletRadius, T outletRadius,
+        T length, plint nAxial, plint nCirc, std::vector<Array<T,3> >& inletPoints, T eps)
+{
+    TriangleSet<T> cylinder(constructCylinder(Array<T,3>(T(),T(),T()), inletRadius, outletRadius, length,
+                nAxial, nCirc, inletPoints, eps));
+    Array<T,3> xAxis((T) 1, T(), T());
+    Array<T,3> rotAxis;
+    T alignment = dot(xAxis, axis);
+    if (!util::isOne(alignment)) {
+        crossProduct<T>(xAxis, axis, rotAxis);
+        rotAxis /= norm(rotAxis);
+        T angle = angleBetweenVectors(xAxis, axis);
+        cylinder.rotateAtOrigin(rotAxis, angle);
+        for (pluint i = 0; i < inletPoints.size(); ++i) {
+            inletPoints[i] = rotateAtOrigin(inletPoints[i], rotAxis, angle);
+        }
+    }
+    cylinder.translate(inletCenter);
+    for (pluint i = 0; i < inletPoints.size(); ++i) {
+        inletPoints[i] += inletCenter;
+    }
+    return cylinder;
+}
+
+template<typename T>
+static void addSurface(Array<T,3> const& lowerCorner, Array<T,3> const& delta1, plint n1, Array<T,3> const& delta2, plint n2,
+        std::vector<typename TriangleSet<T>::Triangle>& triangles)
 {
     Array<T,3> pos1(lowerCorner);
-    for(plint i1=0; i1<n1; ++i1, pos1+=delta1) {
+    for(plint i1 = 0; i1 < n1; ++i1, pos1 += delta1) {
         Array<T,3> pos2(pos1);
-        for(plint i2=0; i2<n2; ++i2, pos2+=delta2) {
+        for(plint i2 = 0; i2 < n2; ++i2, pos2 += delta2) {
             typename TriangleSet<T>::Triangle triangle;
             triangle[0] = pos2;
-            triangle[1] = pos2+delta1;
-            triangle[2] = pos2+delta2;
+            triangle[1] = pos2 + delta1;
+            triangle[2] = pos2 + delta2;
             triangles.push_back(triangle);
-            triangle[0] += delta1+delta2;
+            triangle[0] += delta1 + delta2;
             std::swap(triangle[1], triangle[2]);
             triangles.push_back(triangle);
         }
@@ -436,73 +507,92 @@ void addSurface (
 }
 
 template<typename T>
-TriangleSet<T> constructCuboid (
-        Array<T,3> const& lowerCorner, Array<T,3> const& upperCorner,
-        Array<plint,3> const& nSegments )
+TriangleSet<T> constructCuboidWithInletOutlet(Array<T,3> const& lowerCorner, Array<T,3> const& upperCorner,
+        Array<plint,3> const& nSegments, plint inletOutletDirection, T eps)
+{
+    PLB_ASSERT(inletOutletDirection == 0 || inletOutletDirection == 1 || inletOutletDirection == 2);
+    std::vector<typename TriangleSet<T>::Triangle> triangles;
+    T lx = upperCorner[0] - lowerCorner[0];
+    T ly = upperCorner[1] - lowerCorner[1];
+    T lz = upperCorner[2] - lowerCorner[2];
+    Array<T,3> deltaX(lx / (T) nSegments[0], T(), T());
+    Array<T,3> deltaY(T(), ly / (T) nSegments[1], T());
+    Array<T,3> deltaZ(T(), T(), lz / (T) nSegments[2]);
+
+    if (inletOutletDirection != 0) {
+        addSurface(lowerCorner,
+                   deltaZ, nSegments[2], deltaY, nSegments[1], triangles);
+        addSurface(lowerCorner + Array<T,3>(lx, T(), T()),
+                   deltaY, nSegments[1], deltaZ, nSegments[2], triangles);
+    }
+
+    if (inletOutletDirection != 1) {
+        addSurface(lowerCorner,
+                   deltaX, nSegments[0], deltaZ, nSegments[2], triangles);
+        addSurface(lowerCorner + Array<T,3>(T(), ly, T()),
+                   deltaZ, nSegments[2], deltaX, nSegments[0], triangles);
+    }
+
+    if (inletOutletDirection != 2) {
+        addSurface(lowerCorner,
+                   deltaY, nSegments[1], deltaX, nSegments[0], triangles);
+        addSurface(lowerCorner + Array<T,3>(T(), T(), lz),
+                   deltaX, nSegments[0], deltaY, nSegments[1], triangles);
+    }
+
+    return TriangleSet<T>(triangles, eps);
+}
+
+template<typename T>
+TriangleSet<T> constructCuboidWithInletOutlet(Cuboid<T> const& cuboid, Array<plint,3> const& nSegments,
+        plint inletOutletDirection, T eps)
+{
+    return constructCuboidWithInletOutlet<T>(cuboid.lowerLeftCorner, cuboid.upperRightCorner,
+            nSegments, inletOutletDirection, eps);
+}
+
+template<typename T>
+TriangleSet<T> constructCuboid(Array<T,3> const& lowerCorner, Array<T,3> const& upperCorner,
+        Array<plint,3> const& nSegments, T eps)
 {
     std::vector<typename TriangleSet<T>::Triangle> triangles;
-    T lx = upperCorner[0]-lowerCorner[0];
-    T ly = upperCorner[1]-lowerCorner[1];
-    T lz = upperCorner[2]-lowerCorner[2];
-    Array<T,3> deltaX(lx/(T)nSegments[0], T(), T());
-    Array<T,3> deltaY(T(), ly/(T)nSegments[1], T());
-    Array<T,3> deltaZ(T(), T(), lz/(T)nSegments[2]);
+    T lx = upperCorner[0] - lowerCorner[0];
+    T ly = upperCorner[1] - lowerCorner[1];
+    T lz = upperCorner[2] - lowerCorner[2];
+    Array<T,3> deltaX(lx / (T) nSegments[0], T(), T());
+    Array<T,3> deltaY(T(), ly / (T) nSegments[1], T());
+    Array<T,3> deltaZ(T(), T(), lz / (T) nSegments[2]);
 
     addSurface(lowerCorner,
                deltaZ, nSegments[2], deltaY, nSegments[1], triangles);
-    addSurface(lowerCorner+Array<T,3>(lx,T(),T()),
+    addSurface(lowerCorner + Array<T,3>(lx, T(), T()),
                deltaY, nSegments[1], deltaZ, nSegments[2], triangles);
 
     addSurface(lowerCorner,
                deltaX, nSegments[0], deltaZ, nSegments[2], triangles);
-    addSurface(lowerCorner+Array<T,3>(T(),ly,T()),
+    addSurface(lowerCorner + Array<T,3>(T(), ly, T()),
                deltaZ, nSegments[2], deltaX, nSegments[0], triangles);
 
     addSurface(lowerCorner,
                deltaY, nSegments[1], deltaX, nSegments[0], triangles);
-    addSurface(lowerCorner+Array<T,3>(T(),T(),lz),
+    addSurface(lowerCorner + Array<T,3>(T(), T(), lz),
                deltaX, nSegments[0], deltaY, nSegments[1], triangles);
 
-    return TriangleSet<T>(triangles);
+    return TriangleSet<T>(triangles, eps);
 }
 
-
 template<typename T>
-TriangleSet<T> constructCylinder( Array<T,3> const& inletCenter, Array<T,3> const& axis,
-                                  T inletRadius, T outletRadius,
-                                  T length, plint nAxial, plint nCirc,
-                                  std::vector<Array<T,3> >& inletPoints )
+TriangleSet<T> constructCuboid(Cuboid<T> const& cuboid, Array<plint,3> const& nSegments, T eps)
 {
-    TriangleSet<T> cylinder (
-            constructCylinder(Array<T,3>(T(),T(),T()), inletRadius, outletRadius,
-            length, nAxial, nCirc, inletPoints) );
-    Array<T,3> xAxis((T)1,T(),T());
-    Array<T,3> rotAxis;
-    T alignment = dot(xAxis, axis);
-    T eps = (T)100.*std::numeric_limits<T>::epsilon();
-    if (!util::fpequal(alignment, (T)1., eps)) {
-        crossProduct<T>(xAxis, axis, rotAxis);
-        rotAxis /= norm(rotAxis);
-        T angle = angleBetweenVectors(xAxis, axis);
-        cylinder.rotateAtOrigin(rotAxis, angle);
-        for (pluint i=0; i<inletPoints.size(); ++i) {
-            inletPoints[i] = rotateAtOrigin(inletPoints[i], rotAxis, angle);
-        }
-    }
-    cylinder.translate(inletCenter);
-    for (pluint i=0; i<inletPoints.size(); ++i) {
-        inletPoints[i] += inletCenter;
-    }
-    return cylinder;
+    return constructCuboid<T>(cuboid.lowerLeftCorner, cuboid.upperRightCorner, nSegments, eps);
 }
 
-
 template<typename T>
-TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sortDirection, std::vector<T> patchLengths)
+TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sortDirection, std::vector<T> const& patchLengths)
 {
     typedef typename TriangleSet<T>::Triangle Triangle;
 
-    std::vector<Triangle> fullGeometry( geometryWithOpenings.getTriangles() );
+    std::vector<Triangle> fullGeometry(geometryWithOpenings.getTriangles());
 
     DEFscaledMesh<T>* defMesh = new DEFscaledMesh<T>(geometryWithOpenings);
     TriangularSurfaceMesh<T>& mesh = defMesh->getMesh();
@@ -511,7 +601,7 @@ TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sort
     std::sort(holes.begin(), holes.end(), LidLessThan<T>(sortDirection, mesh));
 
     PLB_ASSERT( holes.size() == patchLengths.size() );
-    
+
     for (pluint iHole=0; iHole<holes.size(); ++iHole) {
         Array<T,3> baryCenter = computeGeometricCenter(mesh,holes[iHole]);
         plint numHoleVertices = (plint) holes[iHole].boundaryVertices.size();
@@ -519,36 +609,37 @@ TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sort
         Array<T,3> normal = computeNormal(mesh, holes[iHole]);
         T aveRadius = computeGeometricRadius(mesh,holes[iHole]);
 
-        Array<T,3> nextCenter = baryCenter + normal*aveRadius*(T)10./(T)numHoleVertices;
+        Array<T,3> nextCenter = baryCenter + normal * aveRadius * (T) 10 / (T) numHoleVertices;
 
         plint numInletPoints = numHoleVertices;
-        bool oddNumber = numHoleVertices%2==1;
+        bool oddNumber = numHoleVertices % 2 == 1;
         if (oddNumber) numInletPoints--; // Must be even for cylinder construction algorithm.
         std::vector<Array<T,3> > inletPoints;
-        plint numPointsOnLength = numInletPoints*patchLengths[iHole]/aveRadius/8;
-        if (numPointsOnLength<3) numPointsOnLength = 3;
+        plint numPointsOnLength = numInletPoints * patchLengths[iHole] / aveRadius / 8;
+        if (numPointsOnLength < 3) numPointsOnLength = 3;
         TriangleSet<T> piece = constructCylinder(nextCenter, normal, aveRadius, aveRadius, patchLengths[iHole],
-                                                 numPointsOnLength, numInletPoints/2, inletPoints);
+                                                 numPointsOnLength, numInletPoints / 2, inletPoints,
+                                                 geometryWithOpenings.getEpsilon());
         std::vector<Triangle> pieceTriangles = piece.getTriangles();
 
         plint newId = 0;
         T minDistance = std::numeric_limits<T>::max();
         plint minDistanceId = -1;
-        for (plint i=0; i<numHoleVertices; ++i) {
+        for (plint i = 0; i < numHoleVertices; ++i) {
             plint iVertex = holes[iHole].boundaryVertices[i];
             Array<T,3> p1 = mesh.getVertex(iVertex);
             T nextDistance = norm(inletPoints[newId]-p1);
-            if (nextDistance<minDistance) {
+            if (nextDistance < minDistance) {
                 minDistance = nextDistance;
                 minDistanceId = i;
             }
         }
         plint oldId = minDistanceId;
         plint newId_p1 = 0;
-        for (plint i=0; i<numInletPoints; ++i) {
-            plint newId_p1 = (newId+1) % numInletPoints;
-            plint oldId_p1 = oldId-1;
-            if (oldId_p1<0) oldId_p1 = numHoleVertices-1;
+        for (plint i = 0; i < numInletPoints; ++i) {
+            plint newId_p1 = (newId + 1) % numInletPoints;
+            plint oldId_p1 = oldId - 1;
+            if (oldId_p1 < 0) oldId_p1 = numHoleVertices - 1;
 
             plint oldVertex1 = holes[iHole].boundaryVertices[oldId];
             plint oldVertex2 = holes[iHole].boundaryVertices[oldId_p1];
@@ -557,8 +648,8 @@ TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sort
             Array<T,3> p3 = mesh.getVertex(oldVertex2);
             Array<T,3> p4 = inletPoints[newId_p1];
 
-            pieceTriangles.push_back(Triangle(p1,p3,p2));
-            pieceTriangles.push_back(Triangle(p2,p3,p4));
+            pieceTriangles.push_back(Triangle(p1, p3, p2));
+            pieceTriangles.push_back(Triangle(p2, p3, p4));
 
             std::swap(newId, newId_p1);
             std::swap(oldId, oldId_p1);
@@ -567,36 +658,35 @@ TriangleSet<T> patchTubes(TriangleSet<T> const& geometryWithOpenings, plint sort
         if (oddNumber) {
             plint id_a = holes[iHole].boundaryVertices[oldId];
             plint oldId_p2 = oldId-1;
-            if (oldId_p2<0) oldId_p2 = numHoleVertices-1;
+            if (oldId_p2 < 0) oldId_p2 = numHoleVertices - 1;
             plint id_b = holes[iHole].boundaryVertices[oldId_p2];
             plint id_c = newId_p1;
             Array<T,3> a = mesh.getVertex(id_a);
             Array<T,3> b = mesh.getVertex(id_b);
             Array<T,3> c = inletPoints[id_c];
-            pieceTriangles.push_back(Triangle(a,b,c));
+            pieceTriangles.push_back(Triangle(a, b, c));
         }
 
 
         fullGeometry.insert(fullGeometry.end(), pieceTriangles.begin(), pieceTriangles.end());
     }
 
-    return TriangleSet<T>(fullGeometry, geometryWithOpenings.getPrecision());
+    return TriangleSet<T>(fullGeometry, geometryWithOpenings.getEpsilon());
 }
 
 template<typename T>
-TriangleSet<T> constructRectangle(T lx, T ly, plint nx, plint ny)
+TriangleSet<T> constructRectangle(T lx, T ly, plint nx, plint ny, T eps)
 {
-#ifdef PLB_DEBUG
-    static const T eps = std::numeric_limits<T>::epsilon();
-#endif
-    PLB_ASSERT(lx > (T) 0.0 && !util::fpequal(lx, (T) 0.0, eps) &&
-               ly > (T) 0.0 && !util::fpequal(ly, (T) 0.0, eps) &&
+    PLB_ASSERT(util::greaterThan(lx, (T) 0) &&
+               util::greaterThan(ly, (T) 0) &&
                nx >= 2 && ny >= 2);
 
     T dx = lx / (T) (nx - 1);
     T dy = ly / (T) (ny - 1);
 
-    std::vector<typename TriangleSet<T>::Triangle> triangles;
+    typedef typename TriangleSet<T>::Triangle Triangle;
+
+    std::vector<Triangle> triangles;
     T z = (T) 0;
     for (plint i = 0; i < nx-1; i++) {
         T x0 = i * dx;
@@ -610,50 +700,51 @@ TriangleSet<T> constructRectangle(T lx, T ly, plint nx, plint ny)
             v1 = Array<T,3>(x1, y0, z);
             v2 = Array<T,3>(x1, y1, z);
 
-            typename TriangleSet<T>::Triangle tmp;
-            tmp[0] = v0;
-            tmp[1] = v1;
-            tmp[2] = v2;
+            Triangle triangle;
+            triangle[0] = v0;
+            triangle[1] = v1;
+            triangle[2] = v2;
 
-            triangles.push_back(tmp);
+            triangles.push_back(triangle);
 
             v1 = Array<T,3>(x0, y1, z);
 
-            tmp[1] = v2;
-            tmp[2] = v1;
+            triangle[1] = v2;
+            triangle[2] = v1;
 
-            triangles.push_back(tmp);
+            triangles.push_back(triangle);
         }
     }
 
-    return TriangleSet<T>(triangles);
+    return TriangleSet<T>(triangles, eps);
 }
 
 template<typename T>
-TriangleSet<T> constructGenericRectangle(T lx, T ly, plint nx, plint ny, Array<T,3> const& center, Array<T,3> const& normal)
+TriangleSet<T> constructGenericRectangle(T lx, T ly, plint nx, plint ny, Array<T,3> const& center, Array<T,3> const& normal, T eps)
 {
-    static const T eps = std::numeric_limits<T>::epsilon();
-    PLB_ASSERT(lx > (T) 0.0 && !util::fpequal(lx, (T) 0.0, eps) &&
-               ly > (T) 0.0 && !util::fpequal(ly, (T) 0.0, eps) &&
+    PLB_ASSERT(util::greaterThan(lx, (T) 0) &&
+               util::greaterThan(ly, (T) 0) &&
                nx >= 2 && ny >= 2);
 
-    TriangleSet<T> rectangle = constructRectangle<T>(lx, ly, nx, ny);
-    Array<T,3> oldCenter((T)0.5 * lx, (T)0.5 * ly, (T) 0.0);
+    static T pi = std::acos((T) -1);
+
+    TriangleSet<T> rectangle = constructRectangle<T>(lx, ly, nx, ny, eps);
+    Array<T,3> oldCenter((T) 0.5 * lx, (T) 0.5 * ly, (T) 0.0);
     rectangle.translate(-oldCenter);
 
     T r = norm(normal);
-    PLB_ASSERT(!util::fpequal(r, (T) 0.0, eps));
+    PLB_ASSERT(!util::isZero(r));
     Array<T,3> unitNormal = normal / r;
     T theta = std::acos(unitNormal[2]);
     Array<T,3> zAxis((T) 0.0, (T) 0.0, (T) 1.0);
     Array<T,3> normedAxis = crossProduct<T>(zAxis, unitNormal);
     T l = norm(normedAxis);
-    if (util::fpequal_abs(l, (T) 0.0, eps)) {
+    if (util::isZero(l)) {
         normedAxis = Array<T,3>((T) 1.0, (T) 0.0, (T) 0.0);
         if (dot<T>(zAxis, unitNormal) > 0.0) {
             theta = 0.0;
         } else {
-            theta = std::acos((T) -1.0);
+            theta = pi;
         }
     } else {
         normedAxis /= l;
@@ -665,23 +756,25 @@ TriangleSet<T> constructGenericRectangle(T lx, T ly, plint nx, plint ny, Array<T
 }
 
 template<typename T>
-TriangleSet<T> constructStrip(std::vector<Array<T,3> > from, std::vector<Array<T,3> > to)
+TriangleSet<T> constructStrip(std::vector<Array<T,3> > const& from, std::vector<Array<T,3> > const& to, T eps)
 {
     PLB_ASSERT(from.size() >= 2);
     PLB_ASSERT(from.size() == to.size());
     plint size = from.size();
 
-    std::vector<typename TriangleSet<T>::Triangle> triangles;
+    typedef typename TriangleSet<T>::Triangle Triangle;
+
+    std::vector<Triangle> triangles;
 
     plint count = 0;
-    for (plint i = 0; i < size-1; i++) {
+    for (plint i = 0; i < size - 1; i++) {
         Array<T,3> from0 = from[i];
-        Array<T,3> from1 = from[i+1];
+        Array<T,3> from1 = from[i + 1];
 
         Array<T,3> to0 = to[i];
-        Array<T,3> to1 = to[i+1];
+        Array<T,3> to1 = to[i + 1];
 
-        typename TriangleSet<T>::Triangle triangle;
+        Triangle triangle;
         if (count % 2 == 0) {
             triangle[0] = from0;
             triangle[1] = from1;
@@ -706,7 +799,67 @@ TriangleSet<T> constructStrip(std::vector<Array<T,3> > from, std::vector<Array<T
         count++;
     }
 
-    return TriangleSet<T>(triangles);
+    return TriangleSet<T>(triangles, eps);
+}
+
+template<typename T>
+TriangleSet<T> constructAnnulus(Array<T,3> const& center, T innerRadius, T outerRadius, plint nCirc, T eps)
+{
+    PLB_ASSERT(util::greaterThan(innerRadius, (T) 0) &&
+               util::greaterThan(outerRadius, (T) 0) &&
+              !util::fpequal(innerRadius, outerRadius) && nCirc >= 3);
+
+    static T pi = std::acos((T) -1);
+
+    T dtheta = (T) 2 * pi / nCirc;
+
+    T x0 = center[0];
+    T y0 = center[1];
+    T z0 = center[2];
+
+    std::vector<Array<T,3> > from(nCirc + 1), to(nCirc + 1);
+    for (plint i = 0; i < nCirc; i++) {
+        T theta = -i * dtheta;  // The minus is to have +x orientation.
+
+        T cosTheta = std::cos(theta);
+        T sinTheta = std::sin(theta);
+
+        from[i][0] = x0;
+        from[i][1] = y0 + innerRadius * cosTheta;
+        from[i][2] = z0 + innerRadius * sinTheta;
+
+        to[i][0] = x0;
+        to[i][1] = y0 + outerRadius * cosTheta;
+        to[i][2] = z0 + outerRadius * sinTheta;
+    }
+    from[nCirc] = from[0];
+    to[nCirc] = to[0];
+
+    return constructStrip<T>(from, to, eps);
+}
+
+template<typename T>
+TriangleSet<T> sparseBlockStructureToTriangleSet(MultiBlock3D const& block, bool highResolution, T eps)
+{
+    std::map<plint, Box3D> const& bulks = block.getSparseBlockStructure().getBulks();
+    Array<plint,3> nSegments(1, 1, 1);
+
+    TriangleSet<T> bulkSet(eps);
+    std::map<plint, Box3D>::const_iterator it;
+    for (it = bulks.begin(); it != bulks.end(); ++it) {
+        Box3D const& bulk = it->second;
+        Array<T,3> lowerCorner((T) bulk.x0, (T) bulk.y0, (T) bulk.z0);
+        Array<T,3> upperCorner((T) bulk.x1, (T) bulk.y1, (T) bulk.z1);
+        if (highResolution) {
+            nSegments[0] = bulk.x1 - bulk.x0;
+            nSegments[1] = bulk.y1 - bulk.y0;
+            nSegments[2] = bulk.z1 - bulk.z0;
+        }
+        TriangleSet<T> set = constructCuboid(lowerCorner, upperCorner, nSegments, eps);
+        bulkSet.append(set);
+    }
+
+    return bulkSet;
 }
 
 } // namespace plb

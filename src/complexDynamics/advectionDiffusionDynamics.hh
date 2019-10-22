@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -86,6 +86,92 @@ T AdvectionDiffusionDynamics<T,Descriptor>::computeEbar(Cell<T,Descriptor> const
     return T();
 }
 
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionDynamics<T,Descriptor>::computeVelocity (
+        Cell<T,Descriptor> const& cell, Array<T,Descriptor<T>::d>& u ) const
+{
+
+    const T *u_ = cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt);
+    for(plint i=0; i<Descriptor<T>::d; ++i){
+        u[i] = u_[i];
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+plint AdvectionDiffusionDynamics<T,Descriptor>::numDecomposedVariables(plint order) const {
+    // Start with the decomposed version of the populations.
+    plint numVariables = 1 + Descriptor<T>::d + Descriptor<T>::q;
+
+    // Add the variables in the external scalars.
+    numVariables += Descriptor<T>::ExternalField::numScalars;
+    return numVariables;
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionDynamics<T,Descriptor>::decompose (
+        Cell<T,Descriptor> const& cell, std::vector<T>& rawData, plint order ) const
+{
+    rawData.resize(numDecomposedVariables(order));
+
+    if (order==0) {
+        T rhoBar;
+        Array<T,Descriptor<T>::d> j;
+        advectionDiffusionMomentTemplates<T,Descriptor>::get_rhoBar_jEq(cell, rhoBar, j);
+        T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+        rawData[0] = rhoBar;
+        j.to_cArray(&rawData[1]);
+
+        for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+            rawData[1+Descriptor<T>::d+iPop] =
+                cell[iPop] - this->computeEquilibrium(iPop, rhoBar, j, jSqr);
+        }
+
+        int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+        for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+            rawData[offset+iExt] = *cell.getExternal(iExt);
+        }
+    }
+    else {
+        PLB_ASSERT(false);
+        // there is no PiNeq in Advection/Diffusion - let's hope, this is never needed!
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionDynamics<T,Descriptor>::recompose (
+        Cell<T,Descriptor>& cell, std::vector<T> const& rawData, plint order ) const
+{
+    PLB_PRECONDITION( (plint)rawData.size() == numDecomposedVariables(order) );
+
+    if (order==0) {
+        T rhoBar = rawData[0];
+        Array<T,Descriptor<T>::d> j;
+        j.from_cArray(&rawData[1]);
+        T jSqr = VectorTemplate<T,Descriptor>::normSqr(j);
+
+        for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+            cell[iPop] = this->computeEquilibrium(iPop, rhoBar, j, jSqr)
+                          + rawData[1+Descriptor<T>::d+iPop];
+        }
+
+        int offset = 1+Descriptor<T>::d+Descriptor<T>::q;
+        for (plint iExt=0; iExt<Descriptor<T>::ExternalField::numScalars; ++iExt) {
+            *cell.getExternal(iExt) = rawData[offset+iExt];
+        }
+    }
+    else {
+        PLB_ASSERT(false);
+        // there is no PiNeq in Advection/Diffusion - let's hope, this is never needed!
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionDynamics<T,Descriptor>::rescale (
+        std::vector<T>& rawData, T xDxInv, T xDt, plint order ) const
+{
+    // TODO: rescale velcotiy in the external scalars.
+}
+
 
 /* *************** Class SmagorinskyAdvectionDiffusionRLBdynamics *************** */
 
@@ -106,7 +192,7 @@ template<typename T, template<typename U> class Descriptor>
 SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::SmagorinskyAdvectionDiffusionRLBdynamics(HierarchicUnserializer& unserializer)
     : AdvectionDiffusionDynamics<T,Descriptor>((T)1)
 {
-    unserialize(unserializer);
+    this->unserialize(unserializer);
 }
 
 
@@ -124,8 +210,6 @@ int SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    // The order is important: it must be the same as the parameters of the
-    // constructor, because otherwise the TwoParamGenerator fails.
     AdvectionDiffusionDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue(invT0);
     serializer.addValue(cSmago);
@@ -179,14 +263,117 @@ void SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::collideExternal (
 }
 
 
-/** \param j The parameter j is defined as j = j_advDiff = rho_advDiff*u_fluid
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
  */
 template<typename T, template<typename U> class Descriptor>
 T SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::computeEquilibrium (
-        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
 { 
     return advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            bgk_ma1_equilibrium(iPop, rhoBar, j);
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
+}
+
+
+/* *************** Class AdvectionDiffusionPerkoDynamics *************** */
+
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionPerkoDynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionPerkoDynamics<T,Descriptor> >("AdvectionDiffusion_Perko");
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionPerkoDynamics<T,Descriptor>::AdvectionDiffusionPerkoDynamics (T omega_, T omegaRef_ )
+    : AdvectionDiffusionDynamics<T,Descriptor>(omega_),
+      omegaRef(omegaRef_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionPerkoDynamics<T,Descriptor>::AdvectionDiffusionPerkoDynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionPerkoDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    AdvectionDiffusionDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(omegaRef);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionPerkoDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    AdvectionDiffusionDynamics<T,Descriptor>::unserialize(unserializer);
+    omegaRef = unserializer.readValue<T>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionPerkoDynamics<T,Descriptor>* AdvectionDiffusionPerkoDynamics<T,Descriptor>::clone() const {
+    return new AdvectionDiffusionPerkoDynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionPerkoDynamics<T,Descriptor>::getId() const {
+    return id;
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionPerkoDynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics ) 
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> jEq, jNeq;
+    advectionDiffusionMomentTemplates<T,Descriptor>::get_rhoBar_jEq_jNeq(cell, rhoBar, jEq, jNeq);
+
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_bgk_collision(cell, rhoBar, jEq, omegaRef);
+
+    T kappa = (T) 1 - this->getOmega() / omegaRef;
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        T correction = omegaRef * Descriptor<T>::t[iPop]*kappa*Descriptor<T>::invCs2*
+                           intDot<T,Descriptor<T>::d>(Descriptor<T>::c[iPop], jNeq);
+        cell[iPop] += correction;
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionPerkoDynamics<T,Descriptor>::collideExternal (
+            Cell<T,Descriptor>& cell, T rhoBar,
+            Array<T,Descriptor<T>::d> const& jEq, T thetaBar, BlockStatistics& statistics )
+{
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_j(cell, j);
+    Array<T,Descriptor<T>::d> jNeq(j-jEq);
+
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_bgk_collision(cell, rhoBar, jEq, omegaRef);
+
+    T kappa = (T) 1 - this->getOmega() / omegaRef;
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        T correction = omegaRef * Descriptor<T>::t[iPop]*kappa*Descriptor<T>::invCs2*
+                           intDot(Descriptor<T>::c[iPop], jNeq);
+        cell[iPop] += correction;
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
+ */
+template<typename T, template<typename U> class Descriptor>
+T AdvectionDiffusionPerkoDynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
+{ 
+    return advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
 }
 
 
@@ -194,7 +381,7 @@ T SmagorinskyAdvectionDiffusionRLBdynamics<T,Descriptor>::computeEquilibrium (
 
 template<typename T, template<typename U> class Descriptor>
 int AdvectionDiffusionRLBdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,AdvectionDiffusionRLBdynamics<T,Descriptor> >("AdvectionDiffusion_RLB");
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionRLBdynamics<T,Descriptor> >("AdvectionDiffusion_RLB");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -202,6 +389,13 @@ template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionRLBdynamics<T,Descriptor>::AdvectionDiffusionRLBdynamics (T omega_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionRLBdynamics<T,Descriptor>::AdvectionDiffusionRLBdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionRLBdynamics<T,Descriptor>* AdvectionDiffusionRLBdynamics<T,Descriptor>::clone() const {
@@ -246,14 +440,92 @@ void AdvectionDiffusionRLBdynamics<T,Descriptor>::collideExternal (
     }
 }
 
-/** \param j The parameter j is defined as j = j_advDiff = rho_advDiff*u_fluid
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
  */
 template<typename T, template<typename U> class Descriptor>
 T AdvectionDiffusionRLBdynamics<T,Descriptor>::computeEquilibrium (
-        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
 { 
     return advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            bgk_ma1_equilibrium(iPop, rhoBar, j);
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
+}
+
+
+/* *************** Class AdvectionDiffusionWithSourceLinearRLBdynamics *************** */
+
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor> >("AdvectionDiffusionWithSourceLinear_RLB");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::AdvectionDiffusionWithSourceLinearRLBdynamics (T omega_ )
+    : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::AdvectionDiffusionWithSourceLinearRLBdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>* AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::clone() const {
+    return new AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics ) 
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> jEq, jNeq;
+    advectionDiffusionMomentTemplates<T,Descriptor>::get_rhoBar_jEq_jNeq_linear(cell, rhoBar, jEq, jNeq);
+
+    T sourceTerm = *cell.getExternal(Descriptor<T>::ExternalField::scalarBeginsAt);
+    
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_rlb_collision(cell, rhoBar, jEq, jNeq, this->getOmega(), sourceTerm );
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::collideExternal (
+            Cell<T,Descriptor>& cell, T rhoBar,
+            Array<T,Descriptor<T>::d> const& jEq, T thetaBar, BlockStatistics& statistics )
+{
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_j(cell, j);
+    Array<T,Descriptor<T>::d> jNeq(j-jEq);
+
+    T sourceTerm = *cell.getExternal(Descriptor<T>::ExternalField::scalarBeginsAt);
+    
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_rlb_collision(cell, rhoBar, jEq, jNeq, this->getOmega(), sourceTerm );
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
+ */
+template<typename T, template<typename U> class Descriptor>
+T AdvectionDiffusionWithSourceLinearRLBdynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
+{ 
+    return advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
 }
 
 
@@ -261,7 +533,7 @@ T AdvectionDiffusionRLBdynamics<T,Descriptor>::computeEquilibrium (
 
 template<typename T, template<typename U> class Descriptor>
 int AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor> >("AdvectionDiffusionWithSource_RLB");
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor> >("AdvectionDiffusionWithSource_RLB");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -269,6 +541,13 @@ template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::AdvectionDiffusionWithSourceRLBdynamics (T omega_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::AdvectionDiffusionWithSourceRLBdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>* AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::clone() const {
@@ -317,14 +596,121 @@ void AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::collideExternal (
     }
 }
 
-/** \param j The parameter j is defined as j = j_advDiff = rho_advDiff*u_fluid
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
  */
 template<typename T, template<typename U> class Descriptor>
 T AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::computeEquilibrium (
-        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
 { 
     return advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            bgk_ma1_equilibrium(iPop, rhoBar, j);
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
+}
+
+
+/* *************** Class AdvectionDiffusionWithSourcePerkoDynamics *************** */
+
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor> >("AdvectionDiffusionWithSource_Perko");
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::AdvectionDiffusionWithSourcePerkoDynamics (T omega_, T omegaRef_ )
+    : AdvectionDiffusionDynamics<T,Descriptor>(omega_),
+      omegaRef(omegaRef_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::AdvectionDiffusionWithSourcePerkoDynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
+{
+    AdvectionDiffusionDynamics<T,Descriptor>::serialize(serializer);
+    serializer.addValue(omegaRef);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::unserialize(HierarchicUnserializer& unserializer)
+{
+    AdvectionDiffusionDynamics<T,Descriptor>::unserialize(unserializer);
+    omegaRef = unserializer.readValue<T>();
+}
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>* AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::clone() const {
+    return new AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::getId() const {
+    return id;
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics ) 
+{
+    T rhoBar;
+    Array<T,Descriptor<T>::d> jEq, jNeq;
+    advectionDiffusionMomentTemplates<T,Descriptor>::get_rhoBar_jEq_jNeq(cell, rhoBar, jEq, jNeq);
+
+    T sourceTerm = *cell.getExternal(Descriptor<T>::ExternalField::scalarBeginsAt);
+
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_bgk_collision(cell, rhoBar, jEq, omegaRef, sourceTerm);
+
+    T kappa = (T) 1 - this->getOmega() / omegaRef;
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        T correction = omegaRef * Descriptor<T>::t[iPop]*kappa*Descriptor<T>::invCs2*
+                           intDot<T,Descriptor<T>::d>(Descriptor<T>::c[iPop], jNeq);
+        cell[iPop] += correction;
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+template<typename T, template<typename U> class Descriptor>
+void AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::collideExternal (
+            Cell<T,Descriptor>& cell, T rhoBar,
+            Array<T,Descriptor<T>::d> const& jEq, T thetaBar, BlockStatistics& statistics )
+{
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_j(cell, j);
+    Array<T,Descriptor<T>::d> jNeq(j-jEq);
+
+    T sourceTerm = *cell.getExternal(Descriptor<T>::ExternalField::scalarBeginsAt);
+
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            no_corr_bgk_collision(cell, rhoBar, jEq, omegaRef, sourceTerm);
+
+    T kappa = (T) 1 - this->getOmega() / omegaRef;
+
+    for (plint iPop=0; iPop<Descriptor<T>::q; ++iPop) {
+        T correction = omegaRef * Descriptor<T>::t[iPop]*kappa*Descriptor<T>::invCs2*
+                           intDot(Descriptor<T>::c[iPop], jNeq);
+        cell[iPop] += correction;
+    }
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, rhoBar, uSqr);
+    }
+}
+
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
+ */
+template<typename T, template<typename U> class Descriptor>
+T AdvectionDiffusionWithSourcePerkoDynamics<T,Descriptor>::computeEquilibrium (
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
+{ 
+    return advectionDiffusionDynamicsTemplates<T,Descriptor>::
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
 }
 
 
@@ -332,7 +718,7 @@ T AdvectionDiffusionWithSourceRLBdynamics<T,Descriptor>::computeEquilibrium (
 
 template<typename T, template<typename U> class Descriptor>
 int AdvectionDiffusionBGKdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,AdvectionDiffusionBGKdynamics<T,Descriptor> >("AdvectionDiffusion_BGK");
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionBGKdynamics<T,Descriptor> >("AdvectionDiffusion_BGK");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -341,6 +727,13 @@ AdvectionDiffusionBGKdynamics<T,Descriptor>::AdvectionDiffusionBGKdynamics (
         T omega_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionBGKdynamics<T,Descriptor>::AdvectionDiffusionBGKdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionBGKdynamics<T,Descriptor>* AdvectionDiffusionBGKdynamics<T,Descriptor>::clone() const {
@@ -371,25 +764,24 @@ void AdvectionDiffusionBGKdynamics<T,Descriptor>::collide (
 template<typename T, template<typename U> class Descriptor>
 void AdvectionDiffusionBGKdynamics<T,Descriptor>::collideExternal (
             Cell<T,Descriptor>& cell, T rhoBar,
-            Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& statistics )
+            Array<T,Descriptor<T>::d> const& jEq, T thetaBar, BlockStatistics& statistics )
 {
-    
     T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            no_corr_bgk_collision(cell, rhoBar, j, this->getOmega());
+            no_corr_bgk_collision(cell, rhoBar, jEq, this->getOmega());
     
     if (cell.takesStatistics()) {
         gatherStatistics(statistics, rhoBar, uSqr);
     }
 }
 
-/** \param j The parameter j is defined as j = j_advDiff = rho_advDiff*u_fluid
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
  */
 template<typename T, template<typename U> class Descriptor>
 T AdvectionDiffusionBGKdynamics<T,Descriptor>::computeEquilibrium (
-        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
 { 
     return advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            bgk_ma1_equilibrium(iPop, rhoBar, j);
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
 
 }
 
@@ -398,7 +790,7 @@ T AdvectionDiffusionBGKdynamics<T,Descriptor>::computeEquilibrium (
 
 template<typename T, template<typename U> class Descriptor>
 int CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,CompleteAdvectionDiffusionBGKdynamics<T,Descriptor> >("CompleteAdvectionDiffusion_BGK");
+    meta::registerGeneralDynamics<T,Descriptor,CompleteAdvectionDiffusionBGKdynamics<T,Descriptor> >("CompleteAdvectionDiffusion_BGK");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -407,6 +799,14 @@ CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::CompleteAdvectionDiffusionB
         T omega_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::CompleteAdvectionDiffusionBGKdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
 
 template<typename T, template<typename U> class Descriptor>
 CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>* CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::clone() const {
@@ -434,16 +834,16 @@ void CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::collide (
     
     Array<T,Descriptor<T>::d> j;
     j.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+    j *= Descriptor<T>::fullRho(rhoBar);
 //     Array<T,SymmetricTensor<T,Descriptor>::n> piNeq;
 //     piNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::piNeqBeginsAt));
     
     T rhoPhi = Descriptor<T>::fullRho(rhoPhiBar);
     T invRho = Descriptor<T>::invRho(rhoBar);
     T phi    = rhoPhi * invRho;
-    T invRhoPhiBar = Descriptor<T>::invRho(rhoPhiBar);
     
     T uSqr = dynamicsTemplates<T,Descriptor>::
-            complete_bgk_ma2_collision(cell, rhoPhiBar, invRhoPhiBar, phi*j, this->getOmega());
+            bgk_ma2_collision(cell, rhoPhiBar, phi*j, this->getOmega());
     
     if (cell.takesStatistics()) {
         gatherStatistics(statistics, Descriptor<T>::rhoBar(rhoPhi), uSqr);
@@ -455,7 +855,7 @@ void CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::collideExternal (
             Cell<T,Descriptor>& cell, T rhoBar,
             Array<T,Descriptor<T>::d> const& j, T thetaBar, BlockStatistics& statistics )
 {
-//     TODO IMPEMENT
+    // TODO: IMPLEMENT
     PLB_ASSERT(false);
 }
 
@@ -466,7 +866,7 @@ T CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::computeEquilibrium (
         plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
 {
     T invRho = Descriptor<T>::invRho(rhoBar);
-    return dynamicsTemplates<T,Descriptor>::complete_bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
+    return dynamicsTemplates<T,Descriptor>::bgk_ma2_equilibrium(iPop, rhoBar, invRho, j, jSqr);
 }
 
 // j = sum_i c_i*f_i, piNeq is nothing, jSqr also
@@ -482,7 +882,7 @@ void CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::regularize(Cell<T,Desc
     Array<T,Descriptor<T>::d> jEq; 
     jEq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
     
-    jEq *= phi;
+    jEq *= phi*Descriptor<T>::fullRho(rhoBar);
     
     Array<T,Descriptor<T>::d> jNeq = j - jEq;
     
@@ -496,11 +896,175 @@ void CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>::regularize(Cell<T,Desc
 
 
 // TODO implement decompose and recompose.
+/* *************** Class CompleteRegularizedAdvectionDiffusionBGKdynamics *************** */
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor> >("CompleteRegularizedAdvectionDiffusion_BGK");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::CompleteRegularizedAdvectionDiffusionBGKdynamics (
+        T omega_ )
+    : CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::CompleteRegularizedAdvectionDiffusionBGKdynamics(HierarchicUnserializer& unserializer)
+    : CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>* CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::clone() const {
+    return new CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::computeDensity(Cell<T,Descriptor> const& cell) const
+{
+    T rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    return momentTemplates<T,Descriptor>::compute_rho(cell)*Descriptor<T>::invRho(rhoBar);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedAdvectionDiffusionBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics ) 
+{
+    T rhoPhiBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell,rhoPhiBar,j);
+    T rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    
+//     Array<T,SymmetricTensor<T,Descriptor>::n> piNeq;
+//     piNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::piNeqBeginsAt));
+    
+    T rhoPhi = Descriptor<T>::fullRho(rhoPhiBar);
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    T phi    = rhoPhi * invRho;
+
+    rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    
+    Array<T,Descriptor<T>::d> jEq; 
+    jEq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+    
+    jEq *= phi*Descriptor<T>::fullRho(rhoBar);
+    
+    Array<T,Descriptor<T>::d> jNeq = j - jEq;
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> pi;
+    pi.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::piNeqBeginsAt)); 
+    
+    T omegaFluid = *cell.getExternal(Descriptor<T>::ExternalField::omegaBeginsAt);
+    
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+        complete_bgk_ma2_regularized_collision(cell, rhoPhiBar, rhoBar, jEq, jNeq, pi, this->getOmega(), this->getOmega(), omegaFluid, omegaFluid );
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, Descriptor<T>::rhoBar(rhoPhi), uSqr);
+    }
+}
+
+
+// TODO implement decompose and recompose.
+/* *************** Class CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics *************** */
+
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::id =
+    meta::registerGeneralDynamics<T,Descriptor,CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor> >("CompleteRegularizedAdvectionDiffusion_BGK");
+
+/** \param omega_ relaxation parameter, related to the dynamic viscosity
+ */
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics (
+        T omega_ )
+    : CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>(omega_)
+{ }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics(HierarchicUnserializer& unserializer)
+    : CompleteAdvectionDiffusionBGKdynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
+
+
+template<typename T, template<typename U> class Descriptor>
+CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>* CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::clone() const {
+    return new CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>(*this);
+}
+ 
+template<typename T, template<typename U> class Descriptor>
+int CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::getId() const {
+    return id;
+}
+
+template<typename T, template<typename U> class Descriptor>
+T CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::computeDensity(Cell<T,Descriptor> const& cell) const
+{
+    T rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    return momentTemplates<T,Descriptor>::compute_rho(cell)*Descriptor<T>::invRho(rhoBar);
+}
+
+template<typename T, template<typename U> class Descriptor>
+void CompleteRegularizedAdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::collide (
+        Cell<T,Descriptor>& cell, BlockStatistics& statistics ) 
+{
+    T rhoPhiBar;
+    Array<T,Descriptor<T>::d> j;
+    momentTemplates<T,Descriptor>::get_rhoBar_j(cell,rhoPhiBar,j);
+    T rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    
+//     Array<T,SymmetricTensor<T,Descriptor>::n> piNeq;
+//     piNeq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::piNeqBeginsAt));
+    
+    T rhoPhi = Descriptor<T>::fullRho(rhoPhiBar);
+    T invRho = Descriptor<T>::invRho(rhoBar);
+    T phi    = rhoPhi * invRho;
+
+    rhoBar = *cell.getExternal(Descriptor<T>::ExternalField::rhoBarBeginsAt);
+    
+    Array<T,Descriptor<T>::d> jEq; 
+    jEq.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::velocityBeginsAt));
+    
+    jEq *= phi*Descriptor<T>::fullRho(rhoBar);
+    
+    Array<T,Descriptor<T>::d> jNeq = j - jEq;
+    
+    Array<T,SymmetricTensor<T,Descriptor>::n> pi;
+    pi.from_cArray(cell.getExternal(Descriptor<T>::ExternalField::piNeqBeginsAt)); 
+    
+    T omegaFluid = *cell.getExternal(Descriptor<T>::ExternalField::omegaBeginsAt);
+    
+    T uSqr = advectionDiffusionDynamicsTemplates<T,Descriptor>::
+        complete_bgk_ma2_regularized_collision(cell, rhoPhiBar, rhoBar, jEq, jNeq, pi, this->getOmega(), this->getOmega(), omegaFluid, omegaFluid );
+
+    T sourceTerm = *cell.getExternal(Descriptor<T>::ExternalField::scalarBeginsAt);
+    for (plint iPop = 0; iPop < Descriptor<T>::q; ++iPop) {
+        cell[iPop] += Descriptor<T>::t[iPop]*sourceTerm;
+    }
+
+    
+    if (cell.takesStatistics()) {
+        gatherStatistics(statistics, Descriptor<T>::rhoBar(rhoPhi), uSqr);
+    }
+}
+
+
+// TODO implement decompose and recompose.
 /* *************** Class CompleteAdvectionDiffusionTRTdynamics *************** */
 
 template<typename T, template<typename U> class Descriptor>
 int CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::id =
-    meta::registerTwoParamDynamics<T,Descriptor,CompleteAdvectionDiffusionTRTdynamics<T,Descriptor> >("CompleteAdvectionDiffusion_TRT");
+    meta::registerGeneralDynamics<T,Descriptor,CompleteAdvectionDiffusionTRTdynamics<T,Descriptor> >("CompleteAdvectionDiffusion_TRT");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -509,6 +1073,14 @@ CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::CompleteAdvectionDiffusionT
         T omega_, T psi_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_), psi(psi_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::CompleteAdvectionDiffusionTRTdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T()),
+      psi(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::CompleteAdvectionDiffusionTRTdynamics (
@@ -533,8 +1105,6 @@ int CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::getId() const {
 template<typename T, template<typename U> class Descriptor>
 void CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::serialize(HierarchicSerializer& serializer) const
 {
-    // The order is important: it must be the same as the parameters of the
-    // constructor, because otherwise the TwoParamGenerator fails.
     AdvectionDiffusionDynamics<T,Descriptor>::serialize(serializer);
     serializer.addValue(psi);
 }
@@ -654,7 +1224,7 @@ void CompleteAdvectionDiffusionTRTdynamics<T,Descriptor>::setPsi(T psi_) {
 
 template<typename T, template<typename U> class Descriptor>
 int AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::id =
-    meta::registerOneParamDynamics<T,Descriptor,AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor> >("AdvectionDiffusionWithSource_BGK");
+    meta::registerGeneralDynamics<T,Descriptor,AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor> >("AdvectionDiffusionWithSource_BGK");
 
 /** \param omega_ relaxation parameter, related to the dynamic viscosity
  */
@@ -663,6 +1233,13 @@ AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::AdvectionDiffusionWithSou
         T omega_ )
     : AdvectionDiffusionDynamics<T,Descriptor>(omega_)
 { }
+
+template<typename T, template<typename U> class Descriptor>
+AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::AdvectionDiffusionWithSourceBGKdynamics(HierarchicUnserializer& unserializer)
+    : AdvectionDiffusionDynamics<T,Descriptor>(T())
+{
+    this->unserialize(unserializer);
+}
 
 template<typename T, template<typename U> class Descriptor>
 AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>* AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::clone() const {
@@ -692,14 +1269,14 @@ void AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::collide (
     }
 }
 
-/** \param j The parameter j is defined as j = j_advDiff = rho_advDiff*u_fluid
+/** \param jEq The parameter jEq is defined as jEq = j_advDiff = rho_advDiff*u_fluid
  */
 template<typename T, template<typename U> class Descriptor>
 T AdvectionDiffusionWithSourceBGKdynamics<T,Descriptor>::computeEquilibrium (
-        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& j, T jSqr, T thetaBar ) const
+        plint iPop, T rhoBar, Array<T,Descriptor<T>::d> const& jEq, T jSqr, T thetaBar ) const
 { 
     return advectionDiffusionDynamicsTemplates<T,Descriptor>::
-            bgk_ma1_equilibrium(iPop, rhoBar, j);
+            bgk_ma1_equilibrium(iPop, rhoBar, jEq);
 
 }
 

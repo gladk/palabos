@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,6 +32,7 @@
 #include "multiBlock/multiContainerBlock3D.h"
 #include "multiBlock/multiDataField3D.h"
 #include "particles/particleField3D.h"
+#include "offLattice/triangularSurfaceMesh.h"
 
 namespace plb {
 

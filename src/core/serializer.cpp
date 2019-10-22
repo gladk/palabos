@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -32,7 +32,9 @@ namespace plb {
 
 ////////// Free functions ////////////////////////////
 
-void serializerToUnSerializer(DataSerializer const* serializer, DataUnSerializer* unSerializer) {
+void serializerToUnSerializer (
+        DataSerializer const* serializer, DataUnSerializer* unSerializer, bool mainProcOnly )
+{
     PLB_PRECONDITION( serializer->getSize() == unSerializer->getSize() );
     pluint writePos = 0, readPos = 0;
     pluint serializerBufferSize =0, unSerializerBufferSize =0;
@@ -52,7 +54,7 @@ void serializerToUnSerializer(DataSerializer const* serializer, DataUnSerializer
         pluint remainToWrite = (plint)unSerializerBufferSize - (plint)writePos;
         pluint nextChunk = std::min(remainToRead, remainToWrite);
         for (pluint iChunk=0; iChunk<nextChunk; ++iChunk, ++readPos, ++writePos) {
-            if (global::mpi().isMainProcessor()) {
+            if (!mainProcOnly || global::mpi().isMainProcessor()) {
                 unSerializerBuffer[writePos] = serializerBuffer[readPos];
             }
         }
@@ -64,15 +66,15 @@ void serializerToUnSerializer(DataSerializer const* serializer, DataUnSerializer
     delete unSerializer;
 }
 
-void serializerToSink(DataSerializer const* serializer, SerializedWriter* sink) {
-    if (global::mpi().isMainProcessor()) {
+void serializerToSink(DataSerializer const* serializer, SerializedWriter* sink, bool mainProcOnly) {
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
         pluint dataSize = serializer->getSize();
         sink->writeHeader(dataSize);
     }
     while (!serializer->isEmpty()) {
         pluint bufferSize;
         const char* dataBuffer = serializer->getNextDataBuffer(bufferSize);
-        if (global::mpi().isMainProcessor()) {
+        if (!mainProcOnly || global::mpi().isMainProcessor()) {
             sink->writeData(dataBuffer, bufferSize);
         }
     }
@@ -80,15 +82,16 @@ void serializerToSink(DataSerializer const* serializer, SerializedWriter* sink) 
     delete serializer;
 }
 
-void sourceToUnSerializer(SerializedReader const* source, DataUnSerializer* unSerializer) {
-    if (global::mpi().isMainProcessor()) {
+void sourceToUnSerializer(SerializedReader const* source, DataUnSerializer* unSerializer, bool mainProcOnly)
+{
+    if (!mainProcOnly || global::mpi().isMainProcessor()) {
         pluint dataSize = unSerializer->getSize();
         source->readHeader(dataSize);
     }
     while (!unSerializer->isFull()) {
         pluint bufferSize = 0;
         char* dataBuffer = unSerializer->getNextDataBuffer(bufferSize);
-        if (global::mpi().isMainProcessor()) {
+        if (!mainProcOnly || global::mpi().isMainProcessor()) {
             source->readData(dataBuffer, bufferSize);
         }
         unSerializer->commitData();

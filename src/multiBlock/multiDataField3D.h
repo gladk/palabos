@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -41,6 +41,8 @@
 namespace plb {
 
 template<typename T> class MultiScalarField3D;
+template<typename T> class MultiNTensorField3D;
+template<typename T, int nDim> class MultiTensorField3D;
 
 template<typename T>
 struct MultiScalarAccess3D {
@@ -69,14 +71,15 @@ public:
     MultiScalarField3D(plint nx, plint ny, plint nz, T iniVal=T());
     ~MultiScalarField3D();
     MultiScalarField3D(MultiScalarField3D<T> const& rhs);
+    MultiScalarField3D(MultiNTensorField3D<T>& rhs, bool shareMemory);
     MultiScalarField3D(MultiBlock3D const& rhs);
     /// Extract sub-domain from rhs and construct a multi-scalar-field with the same
     ///  data distribution and policy-classes; but the data itself and the data-processors
     ///  are not copied. MultiScalarAccess takes default value.
     MultiScalarField3D(MultiBlock3D const& rhs, Box3D subDomain, bool crop=true);
     MultiScalarField3D<T>& operator=(MultiScalarField3D<T> const& rhs);
-    MultiScalarField3D<T>* clone() const;
-    MultiScalarField3D<T>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
+    virtual MultiScalarField3D<T>* clone() const;
+    virtual MultiScalarField3D<T>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
     void swap(MultiScalarField3D<T>& rhs);
 public: 
     virtual void reset();
@@ -95,21 +98,23 @@ public:
     virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
+public:
+    MultiNTensorField3D<T>& nTensorView();
 private:
     void allocateFields(T iniVal=T());
     void deAllocateFields();
 private:
     BlockMap fields;
     MultiScalarAccess3D<T>* multiScalarAccess;
+    MultiNTensorField3D<T>* nTensorViewBlock;
 public:
     static const int staticId;
+    template<typename U> friend class MultiNTensorField3D;
 };
 
 template<typename T>
 MultiScalarField3D<T>& findMultiScalarField3D(id_t id);
 
-
-template<typename T, int nDim> class MultiTensorField3D;
 
 template<typename T, int nDim>
 struct MultiTensorAccess3D {
@@ -145,14 +150,15 @@ public:
     MultiTensorField3D(plint nx, plint ny, plint nz, Array<T,nDim> const& iniVal);
     ~MultiTensorField3D();
     MultiTensorField3D(MultiTensorField3D<T,nDim> const& rhs);
+    MultiTensorField3D(MultiNTensorField3D<T>& rhs, bool shareMemory);
     MultiTensorField3D(MultiBlock3D const& rhs);
     /// Extract sub-domain from rhs and construct a multi-tensor-field with the same
     ///  data distribution and policy-classes; but the data itself and the data-processors
     ///  are not copied. MultiTensorAccess takes default value.
     MultiTensorField3D(MultiBlock3D const& rhs, Box3D subDomain, bool crop=true);
     MultiTensorField3D<T,nDim>& operator=(MultiTensorField3D<T,nDim> const& rhs);
-    MultiTensorField3D<T,nDim>* clone() const;
-    MultiTensorField3D<T,nDim>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
+    virtual MultiTensorField3D<T,nDim>* clone() const;
+    virtual MultiTensorField3D<T,nDim>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
     void swap(MultiTensorField3D<T,nDim>& rhs);
 public:
     virtual void reset();
@@ -171,6 +177,8 @@ public:
     virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
+public:
+    MultiNTensorField3D<T>& nTensorView();
 private:
     void allocateFields();
     void allocateFields(Array<T,nDim> const& iniVal);
@@ -178,15 +186,15 @@ private:
 private:
     BlockMap fields;
     MultiTensorAccess3D<T,nDim>* multiTensorAccess;
+    MultiNTensorField3D<T>* nTensorViewBlock;
 public:
     static const int staticId;
+    template<typename U> friend class MultiNTensorField3D;
 };
 
 template<typename T, int nDim>
 MultiTensorField3D<T,nDim>& findMultiTensorField3D(id_t id);
 
-
-template<typename T> class MultiNTensorField3D;
 
 template<typename T>
 struct MultiNTensorAccess3D {
@@ -223,14 +231,16 @@ public:
     MultiNTensorField3D(plint nx, plint ny, plint nz, plint ndim, T const* iniVal);
     ~MultiNTensorField3D();
     MultiNTensorField3D(MultiNTensorField3D<T> const& rhs);
+    MultiNTensorField3D(MultiScalarField3D<T>& rhs, bool shareMemory);
+    template <int nDim> MultiNTensorField3D(MultiTensorField3D<T,nDim>& rhs, bool shareMemory);
     MultiNTensorField3D(plint ndim, MultiBlock3D const& rhs);
     /// Extract sub-domain from rhs and construct a multi-tensor-field with the same
     ///  data distribution and policy-classes; but the data itself and the data-processors
     ///  are not copied. MultiNTensorAccess takes default value.
     MultiNTensorField3D(plint ndim, MultiBlock3D const& rhs, Box3D subDomain, bool crop=true);
     MultiNTensorField3D<T>& operator=(MultiNTensorField3D<T> const& rhs);
-    MultiNTensorField3D<T>* clone() const;
-    MultiNTensorField3D<T>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
+    virtual MultiNTensorField3D<T>* clone() const;
+    virtual MultiNTensorField3D<T>* clone(MultiBlockManagement3D const& newMultiBlockManagement) const;
     void swap(MultiNTensorField3D<T>& rhs);
 public:
     virtual void reset();
@@ -249,6 +259,10 @@ public:
     virtual std::vector<std::string> getTypeInfo() const;
     static std::string blockName();
     static std::string basicType();
+public:
+    MultiScalarField3D<T>& scalarView();
+    template<int nDim>
+    MultiTensorField3D<T,nDim>& tensorView();
 private:
     void allocateFields();
     void allocateFields(T const* iniVal);
@@ -256,7 +270,10 @@ private:
 private:
     BlockMap fields;
     MultiNTensorAccess3D<T>* multiNTensorAccess;
+    MultiBlock3D* scalarOrTensorView;
 public:
+    template<typename U> friend class MultiScalarField3D;
+    template<typename U, int nDim> friend class MultiTensorField3D;
     static const int staticId;
 };
 

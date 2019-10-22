@@ -1,6 +1,6 @@
 /* This file is part of the Palabos library.
  *
- * Copyright (C) 2011-2015 FlowKit Sarl
+ * Copyright (C) 2011-2017 FlowKit Sarl
  * Route d'Oron 2
  * 1010 Lausanne, Switzerland
  * E-mail contact: contact@flowkit.com
@@ -58,9 +58,6 @@ public:
     virtual int getId() const;
 
     virtual bool isBoundary() const;
-
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
 /* *************** Computation of macroscopic variables ************** */
 
@@ -325,8 +322,32 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
+
+    /// Compute density from incoming particle populations
+    virtual T computeDensity(Cell<T,Descriptor> const& cell) const;
+    /// Compute order-0 moment rho-bar
+    virtual T computeRhoBar(Cell<T,Descriptor> const& cell) const;
+    /// Compute order-0 moment rho-bar and order-1 moment j
+    virtual void computeRhoBarJ(Cell<T,Descriptor> const& cell,
+                                T& rhoBar_, Array<T,Descriptor<T>::d>& j) const;
+private:
+    static int id;
+};
+
+/// Velocity Dirichlet boundary dynamics for a straight wall
+template<typename T, template<typename U> class Descriptor,
+         int direction, int orientation>
+class VelocityDirichletConstRhoBoundaryDynamics : public StoreVelocityDynamics<T,Descriptor> {
+public:
+    VelocityDirichletConstRhoBoundaryDynamics(Dynamics<T,Descriptor>* baseDynamics_,
+                                      bool automaticPrepareCollision_=true);
+    VelocityDirichletConstRhoBoundaryDynamics(HierarchicUnserializer& unserializer);
+
+    /// Clone the object, based on its dynamic type
+    virtual VelocityDirichletConstRhoBoundaryDynamics<T,Descriptor,direction,orientation>* clone() const;
+
+    /// Return a unique ID for this class.
+    virtual int getId() const;
 
     /// Compute density from incoming particle populations
     virtual T computeDensity(Cell<T,Descriptor> const& cell) const;
@@ -354,8 +375,6 @@ public:
 
     /// Return a unique ID for this class.
     virtual int getId() const;
-    virtual void serialize(HierarchicSerializer& serializer) const;
-    virtual void unserialize(HierarchicUnserializer& unserializer);
 
     /// Compute the local fluid velocity in lattice units
     virtual void computeVelocity( Cell<T,Descriptor> const& cell,
